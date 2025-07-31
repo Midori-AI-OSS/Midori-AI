@@ -9,7 +9,7 @@ Midori AI is a cutting-edge initiative dedicated to advancing the field of artif
 # About our repo!
 This is our mono repo! 
 
-Check out each of our other Git Module Repos!
+Check out each of our other Git Module Repos! (This sub modules are moving into this mono repo!)
 
 Main SubModules:
 
