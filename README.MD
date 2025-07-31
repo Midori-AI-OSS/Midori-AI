@@ -11,7 +11,7 @@ This is our mono repo!
 
 Check out each of our other Git Module Repos! (This sub modules are moving into this mono repo!)
 
-Main SubModules:
+Our Projects:
 
 - Website - [Link to Module](https://github.com/lunamidori5/Midori-AI-Website)
 - Pixelarch - [Link to Module](https://github.com/lunamidori5/Midori-AI-Cluster-OS)
@@ -39,11 +39,11 @@ For more info stop by our site! - [https://io.midori-ai.xyz/](https://io.midori-
 
 ## Star History
 
-<a href="https://star-history.com/#lunamidori5/Midori-AI&Timeline">
+<a href="https://star-history.com/#Midori-AI-OSS/Midori-AI&Timeline">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=lunamidori5/Midori-AI&type=Timeline&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=lunamidori5/Midori-AI&type=Timeline" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=lunamidori5/Midori-AI&type=Timeline" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Midori-AI-OSS/Midori-AI&type=Timeline&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Midori-AI-OSS/Midori-AI&type=Timeline" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Midori-AI-OSS/Midori-AI&type=Timeline" />
  </picture>
 </a>
 
