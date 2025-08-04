@@ -42,13 +42,13 @@ Follow these actionable instructions to maximize effectiveness and avoid common 
 
 ## Must-Dos
 - For all coding agents, they should use tools like `Sequential Thinking` to think over each request from the review / user.
-- For most coding, review, or analysis requests, please use the Sequential Thinking process to break down, analyze, and solve the problem step by step. This means you should always:
+- For most coding, review, or analysis requests, please use the Sequential Thinking process to break down, analyze, and solve the problem step by step. This means you must always:
   - Start with an initial thought or hypothesis.
   - Before each step, deliberately reflect, revise, or branch as needed—never rush ahead without careful consideration.
   - After each step, deliberately reflect, revise, or branch as needed—never rush ahead without careful consideration.
   - Clearly document your reasoning and decisions at every stage, showing your thought process between steps.
   - Only conclude when you are fully confident the problem is completely resolved, with no skipped reasoning.
-  - Sequential Thinking (4 to 10 steps, with at least 2 branches) must be the default approach for all requests.
+  - Sequential Thinking (4 to 10 times, with at least 2 branches) must be the default approach for all requests.
 
 ---
 
