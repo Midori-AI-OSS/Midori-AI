@@ -6,21 +6,36 @@ Midori AI is a cutting-edge initiative dedicated to advancing the field of artif
 
 ---
 
-# About our repo!
-This is our mono repo! 
+## Mono Repo Structure Overview
 
-Check out each of our other Git Module Repos! (This sub modules are moving into this mono repo!)
+This repository contains the following major projects and modules:
 
-Our Projects:
+- **AGI / Lyra Project**  
+  Experimental AGI agent framework for research in emergent intelligence, language processing, and agent-based systems. Modular, uses FAISS, LangChain, HuggingFace, and rich console output.
 
-- Website - [Link to Module](https://github.com/lunamidori5/Midori-AI-Website)
-- Pixelarch - [Link to Module](https://github.com/lunamidori5/Midori-AI-Cluster-OS)
-- Obsidian Notes - [Link to Module](https://github.com/lunamidori5/Midori-AI-Obsidian-Notes)
-- Subsystem Manager - [Link to Module](https://github.com/lunamidori5/Midori-AI-Subsystem-Manager)
+- **Cluster-OS / PixelArch OS**  
+  Arch-based OS for managing Docker images and scalable AI clusters. Includes PixelArch OS (Docker-optimized Arch Linux) and tools for distributed AI training and infrastructure.
 
-Program Based SubModules:
-- Discord GPT Bot (with Rag) - [Link to Module](https://github.com/lunamidori5/Midori-AI-GPT-DiscordBot)
-- Endless AutoFigher - [Link to Module](https://github.com/lunamidori5/python_rpg_game)
+- **DiscordLLMBot**  
+  A Discord bot leveraging LLMs, RAG, and integrations with ChromaDB, LangChain, and OpenAI. Designed for interactive AI experiences on Discord.
+
+- **Endless-Autofighter**  
+  Panda3D-based rewrite of the AutoFighter RPG. Includes legacy Pygame code, plugins, mods, and assets for extensible AI-driven gameplay.
+
+- **Subsystem-Manager**  
+  Manages AI workloads using containerization (Docker, Podman, LXC) and PixelArch OS. Simplifies deployment, experimentation, and scaling of AI systems.
+
+- **Website**  
+  Source for the Midori AI website ([https://io.midori-ai.xyz/](https://io.midori-ai.xyz/)), built with Hugo.
+
+- **Obsidian-Notes**  
+  Shared knowledge base and idea repository using Obsidian, for team and partner collaboration.
+
+- **Experimentation**  
+  Contains subprojects like `lrm-testing` (tools for Large Reasoning Model chat and Q&A data pipeline) and `rpg-note-taker`.
+
+- **Programs**  
+  Utility scripts and helper programs for cluster management, downloading, file management, login, updating, and web server operations.
 
 ---
 
