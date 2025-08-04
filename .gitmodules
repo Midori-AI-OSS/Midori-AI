@@ -30,3 +30,6 @@
 	path = Endless-Autofighter
 	url = https://github.com/Midori-AI-OSS/Midori-AI-AutoFighter.git
 	branch = master
+[submodule "AGI/Lyra-Project"]
+	path = AGI/Lyra-Project
+	url = https://github.com/Midori-AI-OSS/Lyra-Emergence.git
