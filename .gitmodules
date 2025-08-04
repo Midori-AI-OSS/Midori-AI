@@ -33,3 +33,4 @@
 [submodule "AGI/Lyra-Project"]
 	path = AGI/Lyra-Project
 	url = https://github.com/Midori-AI-OSS/Lyra-Emergence.git
+	branch = main
