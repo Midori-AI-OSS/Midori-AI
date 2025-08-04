@@ -41,7 +41,7 @@ Follow these actionable instructions to maximize effectiveness and avoid common 
 - To add a new player/enemy plugin: update both `README.md` and `.codex/implementation/player-foe-reference.md`.
 
 ## Must-Dos
-- For all coding agents, they should use tools like `Sequential Thinking` to think over each request from the review / user.
+- For all coding agents, they must always use tools like `Sequential Thinking` to think over each request from the review / user.
 - For most coding, review, or analysis requests, please use the Sequential Thinking process to break down, analyze, and solve the problem step by step. This means you must always:
   - Start with an initial thought or hypothesis.
   - Before each step, deliberately reflect, revise, or branch as needed—never rush ahead without careful consideration.
