@@ -10,7 +10,7 @@ Midori AI is a cutting-edge initiative dedicated to advancing the field of artif
 
 This repository contains the following major projects and modules:
 
-- **AGI / Lyra Project**  
+- **Lyra Project**  
   Experimental AGI agent framework for research in emergent intelligence, language processing, and agent-based systems. Modular, uses FAISS, LangChain, HuggingFace, and rich console output.
 
 - **Cluster-OS / PixelArch OS**  
