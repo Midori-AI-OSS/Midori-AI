@@ -15,6 +15,8 @@ The Swarm Manager is responsible for orchestrating and automating task creation,
 ## Swarm Manager Workflow
 Follow these steps for any new task or automation cycle:
 
+**Important:** When submitting a task to the Task Master (or for any code-related or actionable development task), always click the `Code` button in the Codex UI, **not** the `Ask` button. The `Ask` button is for general questions or non-code tasks. Using the `Code` button ensures the task is properly routed and processed by the Task Master and Codex system.
+
 ### 1. Launch Playwright
 Ensure Playwright is installed and the browser is ready in headed mode.
 
@@ -29,8 +31,8 @@ Use the environment selector to choose the correct repository (e.g., Midori-AI-O
 Use the branch selector to choose the correct branch (e.g., ver2).
 
 ### 5. Compose and Submit Task
-Enter a clear, actionable task description in the composer. Use role-specific templates (see below). 
-Submit the task using the 'Ask' or 'Code' button.
+Enter a clear, actionable task description in the composer. Use role-specific templates (see below).
+**Submit the task using the `Code` button (not `Ask`).**
 
 ### 6. Verify Task Creation
 Check for confirmation messages or ensure the new task appears in the task list with the correct status .
@@ -88,6 +90,7 @@ When you are inside a specific task's UI (not the main task list), follow these 
       - Use the composer form to type an instruction
         - (This opens a new chat with a new person, so be verbose and clear what you need them to do. Even if they have already been told)
       - Then click the **`Code`** button to submit it.
+        > You will see a stop button where the code button was, that means it worked
 - **Interact with UI Elements:**
     - All interactive elements are clearly labeled and clickable—use them as needed to manage or update the task.
 
