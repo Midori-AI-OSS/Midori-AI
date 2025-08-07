@@ -14,5 +14,3 @@ if [ ! -f "$POSTFILE" ]; then
 fi
 
 echo "[BLOGGER] Posted blog: $POSTFILE"
-rm "$POSTFILE"
-echo "[BLOGGER] Removed post file: $POSTFILE"
