@@ -6,7 +6,8 @@
 	],
 	"settings": {
 		"workbench.startupEditor": "none",
-		"workbench.editor.restoreViewState": true
+		"workbench.editor.restoreViewState": true,
+		"chatgpt.openOnStartup": false
 	},
 	"extensions": {
 		"recommendations": []
