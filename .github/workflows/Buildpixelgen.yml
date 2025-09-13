@@ -8,7 +8,7 @@ on:
 jobs:
   push_gentoo_to_hub:
     name: Push Midori AI's PixelGen (Gentoo Linux) to Docker Hub
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
