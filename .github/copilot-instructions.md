@@ -21,7 +21,7 @@ Follow these actionable instructions to maximize effectiveness and avoid common 
 - **Imports:** Each import on its own line, sorted shortest to longest within groups (stdlib, third-party, project). Blank lines between groups. No inline imports.
 - **Documentation:** Update `.codex/implementation/` and `README.md` when changing core logic or adding plugins/players/foes.
 - **Plugins:** Place custom modules in `plugins/` or `mods/`. See `.codex/instructions/plugin-system.md` for plugin rules.
-- **Contributor Modes:** Reference `.codex/modes/` for Task Master, Coder, Reviewer, Auditor roles. Keep your cheat sheet in `.codex/notes/` up to date.
+  - **Contributor Modes:** Reference `.codex/modes/` for Task Master, Coder, Reviewer, Auditor, Brainstormer, and Prompter roles. Keep your cheat sheet in `.codex/notes/` up to date.
 - **Legacy code:** Do not modify code in `legacy/` folders.
 
 ## Integration Points & External Dependencies
