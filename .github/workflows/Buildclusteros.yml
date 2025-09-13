@@ -1,0 +1,39 @@
+name: Build and Upload Cluster OS
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 8 * * 3'
+
+jobs:
+  push_cluster_os_arch_to_hub:
+    name: Push Midori AI's PixelArch (Cluster OS) to Docker Hub
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@master
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          logout: false
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@master
+        with:
+          images: lunamidori5/midori_ai_cluster
+          tags: |
+            type=raw,value=latest
+
+      - name: Build and push Cluster OS (Arch Linux) Docker Image
+        uses: docker/build-push-action@master
+        with:
+          context: ./Cluster-OS/aiclusteros/
+          file: ./Cluster-OS/aiclusteros/dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

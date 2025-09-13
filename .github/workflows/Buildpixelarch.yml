@@ -1,0 +1,79 @@
+name: Build and Upload PixelArch
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 10 * * 3'
+
+jobs:
+
+  push_arch_to_hub:
+    name: Push Midori AI's PixelArch (Arch Linux) to Docker Hub
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@master
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          logout: false
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@master
+        with:
+          images: lunamidori5/pixelarch
+          tags: |
+            type=raw,value=latest
+            type=raw,value=quartz
+
+      - name: Build and push PixelArch Docker Image
+        uses: docker/build-push-action@master
+        with:
+          context: ./Cluster-OS/pixelarch_os/
+          file: ./Cluster-OS/pixelarch_os/arch_dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  push_pixelarch_ver_to_hub:
+    name: Push Midori AI's PixelArch to Docker Hub
+    strategy:
+      max-parallel: 1
+      matrix:
+        ver: [amethyst, topaz, emerald]
+        gpu: ["", "_cuda"]
+    runs-on: self-hosted
+    needs: push_arch_to_hub
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@master
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          logout: false
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@master
+        with:
+          images: lunamidori5/pixelarch
+          tags: |
+            type=raw,value=${{ matrix.ver }}${{ matrix.gpu }}
+
+      - name: Build and push PixelArch ${{ matrix.ver }} OS Docker Image
+        uses: docker/build-push-action@master
+        with:
+          context: ./Cluster-OS/pixelarch_os/
+          file: ./Cluster-OS/pixelarch_os/arch_dockerfile_${{ matrix.ver }}${{ matrix.gpu }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
