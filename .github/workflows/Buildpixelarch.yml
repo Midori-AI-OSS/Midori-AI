@@ -46,7 +46,8 @@ jobs:
       max-parallel: 4
       matrix:
         ver: [amethyst, topaz, emerald]
-        gpu: ["", "_cuda"]
+        gpus: ["", "_cuda"]
+        gpu: [""]
     runs-on: ubuntu-latest
     needs: push_arch_to_hub
     steps:
