@@ -41,14 +41,22 @@ Follow these actionable instructions to maximize effectiveness and avoid common 
 - To add a new player/enemy plugin: update both `README.md` and `.codex/implementation/player-foe-reference.md`.
 
 ## Must-Dos
-- For all coding agents, they must always use tools like `Sequential Thinking` to think over each request from the review / user.
-- For most coding, review, or analysis requests, please use the Sequential Thinking process to break down, analyze, and solve the problem step by step. This means you must always:
-  - Start with an initial thought or hypothesis.
-  - Before each step, deliberately reflect, revise, or branch as needed—never rush ahead without careful consideration.
-  - After each step, deliberately reflect, revise, or branch as needed—never rush ahead without careful consideration.
-  - Clearly document your reasoning and decisions at every stage, showing your thought process between steps.
-  - Only conclude when you are fully confident the problem is completely resolved, with no skipped reasoning.
-  - Sequential Thinking (4 to 10 times, with at least 2 branches) must be the default approach for all requests.
+- **Always use thinking tools**: For all coding agents, use tools like `Sequential Thinking` to thoroughly analyze each request from the user.
+- **Apply Sequential Thinking process**: For most coding, review, or analysis requests, use the Sequential Thinking process to break down, analyze, and solve problems step by step:
+  - Start with an initial thought or hypothesis
+  - Before and after each step, deliberately reflect, revise, or branch as needed—never rush ahead without careful consideration
+  - Clearly document your reasoning and decisions at every stage, showing your thought process between steps
+  - Only conclude when fully confident the problem is completely resolved, with no skipped reasoning
+  - Use Sequential Thinking (4 to 10 times, with at least 2 branches) as the default approach for all requests
+- **Gather context before acting**: Always collect necessary context using file reading, search, and exploration tools before making changes or assumptions
+- **Use appropriate tools for tasks**: Choose the right tool for each situation:
+  - Semantic search for understanding codebase concepts and finding relevant code
+  - File reading for detailed examination of specific files
+  - Grep search for finding specific patterns or getting file overviews
+  - Terminal commands for execution, testing, and system operations
+- **Read files efficiently**: Prefer reading large meaningful chunks rather than many small sections to minimize tool calls and gain better context
+- **Explore workspace systematically**: Use file search and directory listing to understand project structure, then dive deeper into relevant areas
+- **Leverage advanced tools for complex tasks**: Use tools like Codex MCP server for challenging tasks that require deep analysis, complex problem-solving, or when you need additional expertise beyond your individual capabilities. Collaborate with these systems to achieve better results on difficult or multi-faceted problems
 
 ---
 
