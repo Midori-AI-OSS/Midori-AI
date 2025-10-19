@@ -25,7 +25,7 @@ logger.setLevel(10)
 local: bool = True
 
 #### This only works with LRMs not LLMs
-local_model_str: str = "gpt-oss:120b"
+local_model_str: str = "gpt-oss:20b"
 cloud_model_str: str = "gpt-5"
 
 #### Update this to change the ip, do not use localhost
@@ -40,7 +40,7 @@ if local:
     model = OpenAIChatCompletionsModel(model=local_model_str, openai_client=AsyncOpenAI(base_url=f"http://{local_ip_address}/v1", api_key="helloworld"))
     mcp_params = local_params
 else:
-    model = OpenAIChatCompletionsModel(model=cloud_model_str, openai_client=AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY")))
+    model = OpenAIChatCompletionsModel(model=cloud_model_str, openai_client=AsyncOpenAI(api_key=(os.getenv("OPENAI_API_KEY") | "no api key")))
     mcp_params = cloud_params
 
 model_settings = ModelSettings(reasoning=Reasoning(effort="high"))
