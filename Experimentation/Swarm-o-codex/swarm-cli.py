@@ -61,16 +61,18 @@ handoffs.append(auditor_agent)
 handoffs.append(manager_agent)
 handoffs.append(task_master_agent)
 
-async def main() -> None:
+async def main(request) -> None:
     async with MCPServerStdio(name="MCP-Servers", params=mcp_params, client_session_timeout_seconds=360000) as mcp_server:
-        
+
         for agent in handoffs:
             agent.handoffs = [a for a in handoffs if a.name != agent.name]
             agent.mcp_servers = [mcp_server]
 
-        result = await Runner.run(task_master_agent, "Implement a fun new game!", max_turns=5)
+        result = await Runner.run(task_master_agent, request, max_turns=15)
+        
         print(result.final_output)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    request: str = input("Enter Request for the Task Master: ")
+    asyncio.run(main(request))
