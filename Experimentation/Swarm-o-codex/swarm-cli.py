@@ -45,17 +45,19 @@ else:
 
 model_settings = ModelSettings(reasoning=Reasoning(effort="high"))
 
-gamedev_prompt = "You are an expert in building simple games using basic html + css + javascript with no dependencies. Save your work in a file called index.html in the current directory. Keep requests to codex short and easy. Always call codex with \"approval-policy\": \"never\" and \"sandbox\": \"workspace-write\"."
-gamemanager_prompt = "You are an indie game connoisseur. Come up with an idea for a single page html + css + javascript game that a developer could build in about 50 lines of code. Format your request as a 3 sentence design brief for a game developer and call the Game Developer coder with your idea."
+gamedev_prompt = open('personas/CODER.md').read()
+gamemanager_prompt = open('personas/TASKMASTER.md').read()
 
-developer_agent = Agent(name="Game Developer", instructions=gamedev_prompt, model=model, model_settings=model_settings)
-designer_agent = Agent(name="Game Designer", instructions=gamemanager_prompt, model=model, model_settings=model_settings, handoffs=[developer_agent],)
+coder_agent = Agent(name="Coder", instructions=gamedev_prompt, model=model, model_settings=model_settings)
+task_master_agent = Agent(name="Task Master", instructions=gamemanager_prompt, model=model, model_settings=model_settings)
+
+handoffs=[task_master_agent, coder_agent]
 
 async def main() -> None:
     async with MCPServerStdio(name="Codex CLI", params=mcp_params, client_session_timeout_seconds=360000) as codex_mcp_server:
-        developer_agent.mcp_servers = [codex_mcp_server]
+        coder_agent.mcp_servers = [codex_mcp_server]
 
-        result = await Runner.run(designer_agent, "Implement a fun new game!", max_turns=5)
+        result = await Runner.run(task_master_agent, "Implement a fun new game!", max_turns=5)
         print(result.final_output)
 
 
