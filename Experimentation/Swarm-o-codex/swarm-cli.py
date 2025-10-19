@@ -21,7 +21,19 @@ load_dotenv(override=True)
 
 logger.setLevel(10)
 
-model = OpenAIChatCompletionsModel(model="gpt-oss:120b", openai_client=AsyncOpenAI(base_url="http://192.168.10.27:11434/v1", api_key="helloworld"))
+#### Change this for cloud support
+local: bool = True
+
+local_model_str: str = "gpt-oss:120b"
+cloud_model_str: str = "gpt-5"
+
+#### Update this to change the ip, do not use localhost
+local_ip_address: str = "192.168.10.27:11434"
+
+if local:
+    model = OpenAIChatCompletionsModel(model=local_model_str, openai_client=AsyncOpenAI(base_url=f"http://{local_ip_address}/v1", api_key="helloworld"))
+else:
+    model = OpenAIChatCompletionsModel(model=cloud_model_str, openai_client=AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY")))
 
 local_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "codex", "-p", "ollama", "mcp-server"]})
 cloud_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "codex", "mcp-server"]})
