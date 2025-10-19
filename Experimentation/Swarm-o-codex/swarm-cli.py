@@ -45,17 +45,25 @@ else:
 
 model_settings = ModelSettings(reasoning=Reasoning(effort="high"))
 
-gamedev_prompt = open('personas/CODER.md').read()
-gamemanager_prompt = open('personas/TASKMASTER.md').read()
+coder_prompt = open('personas/CODER.md').read()
+auditor_prompt = open('personas/AUDITOR.md').read()
+manager_prompt = open('personas/MANAGER.md').read()
+task_master_prompt = open('personas/TASKMASTER.md').read()
 
-coder_agent = Agent(name="Coder", instructions=gamedev_prompt, model=model, model_settings=model_settings)
-task_master_agent = Agent(name="Task Master", instructions=gamemanager_prompt, model=model, model_settings=model_settings)
+coder_agent = Agent(name="Coder", instructions=coder_prompt, model=model, model_settings=model_settings)
+auditor_agent = Agent(name="Auditor", instructions=auditor_prompt, model=model, model_settings=model_settings)
+manager_agent = Agent(name="Manager", instructions=manager_prompt, model=model, model_settings=model_settings)
+task_master_agent = Agent(name="Task Master", instructions=task_master_prompt, model=model, model_settings=model_settings)
 
-handoffs=[task_master_agent, coder_agent]
+handoffs: list[Agent] = []
+handoffs.append(coder_agent)
+handoffs.append(auditor_agent)
+handoffs.append(manager_agent)
+handoffs.append(task_master_agent)
 
 async def main() -> None:
-    async with MCPServerStdio(name="Codex CLI", params=mcp_params, client_session_timeout_seconds=360000) as codex_mcp_server:
-        coder_agent.mcp_servers = [codex_mcp_server]
+    async with MCPServerStdio(name="MCP-Servers", params=mcp_params, client_session_timeout_seconds=360000) as mcp_server:
+        coder_agent.mcp_servers = [mcp_server]
 
         result = await Runner.run(task_master_agent, "Implement a fun new game!", max_turns=5)
         print(result.final_output)
