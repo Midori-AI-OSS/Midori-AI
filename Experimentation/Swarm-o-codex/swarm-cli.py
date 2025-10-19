@@ -27,7 +27,7 @@ logger.setLevel(10)
 local: bool = True
 
 #### This only works with LRMs not LLMs
-local_model_str: str = "gpt-oss:120b"
+local_model_str: str = "gpt-oss:20b"
 cloud_model_str: str = "gpt-5"
 
 #### Update this to change the ip, do not use localhost
@@ -56,7 +56,7 @@ additional_mcp_servers: list[tuple[str, MCPServerStdioParams]] = [
     ("SequentialThinking", sequential_thinking_params),
 ]
 
-model_settings = ModelSettings(reasoning=Reasoning(effort="high"))
+model_settings = ModelSettings(reasoning=Reasoning(effort="high"), verbosity="high")
 
 #### These are the models persona files, They are read on load, feel free to edit them
 start_prompt = RECOMMENDED_PROMPT_PREFIX + " Use the MCP servers to help with the task."
