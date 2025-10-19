@@ -1,6 +1,6 @@
 
-import asyncio
 import os
+import asyncio
 
 from dotenv import load_dotenv
 
@@ -8,6 +8,7 @@ from agents import Agent
 from agents import Runner
 from openai import AsyncOpenAI
 from agents import ModelSettings
+from contextlib import AsyncExitStack
 
 from agents.logger import logger
 from agents.mcp import MCPServerStdio
@@ -15,8 +16,8 @@ from agents.mcp import MCPServerStdioParams
 from openai.types.shared import Reasoning
 from agents import OpenAIChatCompletionsModel
 
-from agents.extensions.handoff_prompt import RECOMMENDED_PROMPT_PREFIX
 from shared.streaming import describe_event
+from agents.extensions.handoff_prompt import RECOMMENDED_PROMPT_PREFIX
 
 load_dotenv(override=True)
 
@@ -26,7 +27,7 @@ logger.setLevel(10)
 local: bool = True
 
 #### This only works with LRMs not LLMs
-local_model_str: str = "gpt-oss:20b"
+local_model_str: str = "gpt-oss:120b"
 cloud_model_str: str = "gpt-5"
 
 #### Update this to change the ip, do not use localhost
@@ -37,6 +38,10 @@ local_ip_address: str = "192.168.10.27:11434"
 local_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "codex", "-p", "ollama", "mcp-server"]})
 cloud_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "codex", "mcp-server"]})
 
+playwright_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "@playwright/mcp@latest"]})
+context_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "@upstash/context7-mcp@latest"]})
+sequential_thinking_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "@modelcontextprotocol/server-sequential-thinking@latest"]})
+
 if local:
     model = OpenAIChatCompletionsModel(model=local_model_str, openai_client=AsyncOpenAI(base_url=f"http://{local_ip_address}/v1", api_key="helloworld"))
     mcp_params = local_params
@@ -44,13 +49,21 @@ else:
     model = OpenAIChatCompletionsModel(model=cloud_model_str, openai_client=AsyncOpenAI(api_key=(os.getenv("OPENAI_API_KEY") | "no api key")))
     mcp_params = cloud_params
 
+# Add additional MCP servers by appending (name, params) tuples to this list.
+additional_mcp_servers: list[tuple[str, MCPServerStdioParams]] = [
+    ("Playwright", playwright_params),
+    ("Context7", context_params),
+    ("SequentialThinking", sequential_thinking_params),
+]
+
 model_settings = ModelSettings(reasoning=Reasoning(effort="high"))
 
 #### These are the models persona files, They are read on load, feel free to edit them
-coder_prompt = open('personas/CODER.md').read()
-auditor_prompt = open('personas/AUDITOR.md').read()
-manager_prompt = open('personas/MANAGER.md').read()
-task_master_prompt = open('personas/TASKMASTER.md').read()
+start_prompt = RECOMMENDED_PROMPT_PREFIX + " Use the MCP servers to help with the task."
+coder_prompt = start_prompt + open('personas/CODER.md').read()
+auditor_prompt = start_prompt + open('personas/AUDITOR.md').read()
+manager_prompt = start_prompt + open('personas/MANAGER.md').read()
+task_master_prompt = start_prompt + open('personas/TASKMASTER.md').read()
 
 #### These are the agent objs, they tell the system what agents are in the swarm
 coder_agent = Agent(name="Coder", instructions=coder_prompt, model=model, model_settings=model_settings)
@@ -68,13 +81,21 @@ handoffs.append(task_master_agent)
 
 #### This is the main def, this runs the logic for the swarm.
 async def main(request) -> None:
-    async with MCPServerStdio(name="MCPServers", params=mcp_params, client_session_timeout_seconds=360000) as mcp_server:
+    async with AsyncExitStack() as stack:
+        mcp_server_configs = [("PrimaryMCP", mcp_params), *additional_mcp_servers]
+        mcp_servers: list[MCPServerStdio] = []
+        for name, params in mcp_server_configs:
+            server = await stack.enter_async_context(MCPServerStdio(name=name, params=params, client_session_timeout_seconds=360000))
+            if not server.session:
+                logger.warning(f"Skipping MCP server '{name}' because it failed to start.")
+                continue
+            mcp_servers.append(server)
 
         for agent in handoffs:
             agent.handoffs = [a for a in handoffs if a.name != agent.name]
-            agent.mcp_servers = [mcp_server]
+            agent.mcp_servers = mcp_servers # type: ignore
 
-        result = Runner.run_streamed(task_master_agent, request, max_turns=15)
+        result = Runner.run_streamed(task_master_agent, f"{request}, pass on to the next agent", max_turns=15)
 
         async for event in result.stream_events():
             description = describe_event(event)
