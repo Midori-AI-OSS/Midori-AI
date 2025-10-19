@@ -1,6 +1,6 @@
 
-import os
 import asyncio
+import os
 
 from dotenv import load_dotenv
 
@@ -16,6 +16,7 @@ from openai.types.shared import Reasoning
 from agents import OpenAIChatCompletionsModel
 
 from agents.extensions.handoff_prompt import RECOMMENDED_PROMPT_PREFIX
+from shared.streaming import describe_event
 
 load_dotenv(override=True)
 
@@ -73,9 +74,16 @@ async def main(request) -> None:
             agent.handoffs = [a for a in handoffs if a.name != agent.name]
             agent.mcp_servers = [mcp_server]
 
-        result = await Runner.run(task_master_agent, request, max_turns=15)
+        result = Runner.run_streamed(task_master_agent, request, max_turns=15)
 
-        print(result.final_output)
+        async for event in result.stream_events():
+            description = describe_event(event)
+            if description:
+                print(description, flush=True)
+
+        if result.final_output is not None:
+            print("\n=== Final Output ===")
+            print(result.final_output)
 
 
 if __name__ == "__main__":
