@@ -67,7 +67,7 @@ handoffs.append(task_master_agent)
 
 #### This is the main def, this runs the logic for the swarm.
 async def main(request) -> None:
-    async with MCPServerStdio(name="MCP-Servers", params=mcp_params, client_session_timeout_seconds=360000) as mcp_server:
+    async with MCPServerStdio(name="MCPServers", params=mcp_params, client_session_timeout_seconds=360000) as mcp_server:
 
         for agent in handoffs:
             agent.handoffs = [a for a in handoffs if a.name != agent.name]
