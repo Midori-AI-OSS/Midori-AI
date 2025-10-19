@@ -45,22 +45,27 @@ else:
 
 model_settings = ModelSettings(reasoning=Reasoning(effort="high"))
 
+#### These are the models persona files, They are read on load, feel free to edit them
 coder_prompt = open('personas/CODER.md').read()
 auditor_prompt = open('personas/AUDITOR.md').read()
 manager_prompt = open('personas/MANAGER.md').read()
 task_master_prompt = open('personas/TASKMASTER.md').read()
 
+#### These are the agent objs, they tell the system what agents are in the swarm
 coder_agent = Agent(name="Coder", instructions=coder_prompt, model=model, model_settings=model_settings)
 auditor_agent = Agent(name="Auditor", instructions=auditor_prompt, model=model, model_settings=model_settings)
 manager_agent = Agent(name="Manager", instructions=manager_prompt, model=model, model_settings=model_settings)
 task_master_agent = Agent(name="Task Master", instructions=task_master_prompt, model=model, model_settings=model_settings)
 
+#### if you add a agent to the swarm it needs to be added here so that the other agents can "pass the mic" to it
 handoffs: list[Agent] = []
 handoffs.append(coder_agent)
 handoffs.append(auditor_agent)
 handoffs.append(manager_agent)
 handoffs.append(task_master_agent)
 
+
+#### This is the main def, this runs the logic for the swarm.
 async def main(request) -> None:
     async with MCPServerStdio(name="MCP-Servers", params=mcp_params, client_session_timeout_seconds=360000) as mcp_server:
 
@@ -69,7 +74,7 @@ async def main(request) -> None:
             agent.mcp_servers = [mcp_server]
 
         result = await Runner.run(task_master_agent, request, max_turns=15)
-        
+
         print(result.final_output)
 
 
