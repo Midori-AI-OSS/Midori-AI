@@ -34,7 +34,8 @@ logger.setLevel(10)
 #### Change this for cloud support
 local: bool = True
 
-#### This only works with LRMs not LLMs
+#### This only works with LRMs not LLMs 
+#### (If your using ollama make sure you have context set to >= 32000)
 local_model_str: str = "gpt-oss:120b"
 cloud_model_str: str = "gpt-5"
 
