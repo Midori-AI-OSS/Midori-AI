@@ -55,7 +55,7 @@ sequential_thinking_params = MCPServerStdioParams({"command": "npx", "args": ["-
 
 if local:
     model = OpenAIChatCompletionsModel(model=local_model_str, openai_client=local_openai)
-    mcp_params = cloud_params
+    mcp_params = local_params
 else:
     model = OpenAIResponsesModel(model=cloud_model_str, openai_client=AsyncOpenAI(api_key=api_key))
     mcp_params = cloud_params

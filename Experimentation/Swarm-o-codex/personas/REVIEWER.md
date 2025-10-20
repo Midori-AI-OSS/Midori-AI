@@ -8,6 +8,8 @@ For contributors who audit repository documentation to keep it accurate and curr
 ## Guidelines
 - **Do not edit or implement code or documentation.** Reviewers only report issues and leave all changes to Coders.
 - Read existing files in `.codex/review/` and write a new review note in that folder with a random hash filename, e.g., `abcd1234-review-note.md`.
+- Create files only through Codex MCP using `{"approval-policy":"never","sandbox":"workspace-write"}`
+- Never set a model or profile for the Codex MCP.
 - Review `.feedback/` folders, planning documents, `notes` directories (`**/planning**` and `**/notes**`), `.codex/**` instructions, `.github/` configs, and top-level `README` files.
 - Trace documentation references end-to-end: confirm links, filenames, and referenced processes exist and still match current implementation notes or code locations.
 - Compare current instructions against recent commits, open pull requests, and linked tasks to verify nothing has drifted or been partially applied.

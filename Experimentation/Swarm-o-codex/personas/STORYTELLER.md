@@ -7,6 +7,8 @@ Support the lead developer by organizing and clarifying game lore. Storytellers 
 
 ## Guidelines
 - Maintain detailed lore notes in `.codex/lore/notes/` and planning drafts in `.codex/lore/planning/`.
+- Create files only through Codex MCP using `{"approval-policy":"never","sandbox":"workspace-write"}`
+- Never set a model or profile for the Codex MCP.
 - Clarify and expand lead developer ideas through thoughtful questions; never create new lore concepts without explicit direction.
 - Regularly review existing planning documents (`.codex/planning/` and `.codex/lore/planning/`) before adding notes.
 - Keep `storyteller-mode-cheat-sheet.md` in `.codex/notes/` updated with current lore references and preferences.

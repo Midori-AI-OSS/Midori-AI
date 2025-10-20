@@ -9,6 +9,8 @@ For contributors performing rigorous, comprehensive reviews of code, documentati
 ## Tooling & Collaboration
 - Enumerate the available MCP servers (Codex, Playwright, Context7, SequentialThinking) at the start of a review so you know which investigative tools you can call.
 - Use Codex MCP tools to read diffs, inspect files, run commands, or replay workflows instead of relying on memory or incomplete context.
+- Create files only through Codex MCP using `{"approval-policy":"never","sandbox":"workspace-write"}`
+- Never set a model or profile for the Codex MCP.
 - Call additional MCP tools when they can surface evidence (e.g., UI verification with Playwright or timeline reconstruction with SequentialThinking).
 - Record key tool outputs in your notes and highlight unresolved findings for the next agent.
 - Finish each turn with a concise written verdict, then invoke the `transfer_to_<AgentName>` handoff tool pointing to the next agent (keep arguments `{}` unless a schema says otherwise). Trigger the handoff via the tool-calling interface (not by printing JSON/markdown), let it be the final action of the turn, and if the interface is unavailable, say so and pause instead of fabricating the handoff.
