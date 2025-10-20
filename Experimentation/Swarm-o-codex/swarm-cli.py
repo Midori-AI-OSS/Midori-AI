@@ -1,11 +1,13 @@
 
-import os
 import asyncio
+import os
+from copy import deepcopy
 
 from dotenv import load_dotenv
 
 from agents import Agent
 from agents import Runner
+from agents import Handoff
 from openai import AsyncOpenAI
 from agents import ModelSettings
 from contextlib import AsyncExitStack
@@ -15,11 +17,17 @@ from agents.mcp import MCPServerStdio
 from agents.mcp import MCPServerStdioParams
 from openai.types.shared import Reasoning
 from agents import OpenAIChatCompletionsModel
+from agents import OpenAIResponsesModel
 
 from shared.streaming import describe_event
 from agents.extensions.handoff_prompt import RECOMMENDED_PROMPT_PREFIX
 
 load_dotenv(override=True)
+
+api_key: str | None = os.getenv("OPENAI_API_KEY")
+
+if api_key: pass
+else: api_key = "hello wolrd"
 
 logger.setLevel(10)
 
@@ -31,8 +39,11 @@ local_model_str: str = "gpt-oss:20b"
 cloud_model_str: str = "gpt-5"
 
 #### Update this to change the ip, do not use localhost
-local_ip_address: str = "192.168.10.27:11434"
+local_ip_address: str = "http://" + "192.168.10.27:11434"
+groq_ip_address: str = "https://" + "api.groq.com/openai"
 
+local_openai = AsyncOpenAI(base_url=f"{local_ip_address}/v1", api_key=api_key)
+    
 #### Edit the local params as you see fit, 
 #### you will need to setup a ollama profile or make your codex local friendly...
 local_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "codex", "-p", "ollama", "mcp-server"]})
@@ -43,10 +54,10 @@ context_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "@upstas
 sequential_thinking_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "@modelcontextprotocol/server-sequential-thinking@latest"]})
 
 if local:
-    model = OpenAIChatCompletionsModel(model=local_model_str, openai_client=AsyncOpenAI(base_url=f"http://{local_ip_address}/v1", api_key="helloworld"))
+    model = OpenAIChatCompletionsModel(model=local_model_str, openai_client=local_openai)
     mcp_params = local_params
 else:
-    model = OpenAIChatCompletionsModel(model=cloud_model_str, openai_client=AsyncOpenAI(api_key=(os.getenv("OPENAI_API_KEY") | "no api key")))
+    model = OpenAIResponsesModel(model=cloud_model_str, openai_client=AsyncOpenAI(api_key=api_key))
     mcp_params = cloud_params
 
 # Add additional MCP servers by appending (name, params) tuples to this list.
@@ -56,20 +67,22 @@ additional_mcp_servers: list[tuple[str, MCPServerStdioParams]] = [
     ("SequentialThinking", sequential_thinking_params),
 ]
 
-model_settings = ModelSettings(reasoning=Reasoning(effort="high"), verbosity="high")
+base_model_settings = ModelSettings(reasoning=Reasoning(effort="high"), parallel_tool_calls=True)
+handoff_required_settings = deepcopy(base_model_settings)
+handoff_required_settings.tool_choice = "required"
 
 #### These are the models persona files, They are read on load, feel free to edit them
-start_prompt = RECOMMENDED_PROMPT_PREFIX + " Use the MCP servers to help with the task."
+start_prompt = RECOMMENDED_PROMPT_PREFIX + " Use the MCP servers to help with the task. "
 coder_prompt = start_prompt + open('personas/CODER.md').read()
 auditor_prompt = start_prompt + open('personas/AUDITOR.md').read()
 manager_prompt = start_prompt + open('personas/MANAGER.md').read()
 task_master_prompt = start_prompt + open('personas/TASKMASTER.md').read()
 
 #### These are the agent objs, they tell the system what agents are in the swarm
-coder_agent = Agent(name="Coder", instructions=coder_prompt, model=model, model_settings=model_settings)
-auditor_agent = Agent(name="Auditor", instructions=auditor_prompt, model=model, model_settings=model_settings)
-manager_agent = Agent(name="Manager", instructions=manager_prompt, model=model, model_settings=model_settings)
-task_master_agent = Agent(name="Task Master", instructions=task_master_prompt, model=model, model_settings=model_settings)
+coder_agent = Agent(name="Coder", instructions=coder_prompt, model=model, model_settings=base_model_settings)
+auditor_agent = Agent(name="Auditor", instructions=auditor_prompt, model=model, model_settings=handoff_required_settings)
+manager_agent = Agent(name="Manager", instructions=manager_prompt, model=model, model_settings=handoff_required_settings)
+task_master_agent = Agent(name="Task Master", instructions=task_master_prompt, model=model, model_settings=handoff_required_settings)
 
 #### if you add a agent to the swarm it needs to be added here so that the other agents can "pass the mic" to it
 handoffs: list[Agent] = []
