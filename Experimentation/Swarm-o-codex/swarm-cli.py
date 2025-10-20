@@ -1,8 +1,8 @@
 
-import asyncio
 import os
-from copy import deepcopy
+import asyncio
 
+from copy import deepcopy
 from dotenv import load_dotenv
 
 from agents import Agent
@@ -35,7 +35,7 @@ logger.setLevel(10)
 local: bool = True
 
 #### This only works with LRMs not LLMs
-local_model_str: str = "gpt-oss:20b"
+local_model_str: str = "gpt-oss:120b"
 cloud_model_str: str = "gpt-5"
 
 #### Update this to change the ip, do not use localhost
@@ -55,7 +55,7 @@ sequential_thinking_params = MCPServerStdioParams({"command": "npx", "args": ["-
 
 if local:
     model = OpenAIChatCompletionsModel(model=local_model_str, openai_client=local_openai)
-    mcp_params = local_params
+    mcp_params = cloud_params
 else:
     model = OpenAIResponsesModel(model=cloud_model_str, openai_client=AsyncOpenAI(api_key=api_key))
     mcp_params = cloud_params
@@ -67,9 +67,7 @@ additional_mcp_servers: list[tuple[str, MCPServerStdioParams]] = [
     ("SequentialThinking", sequential_thinking_params),
 ]
 
-base_model_settings = ModelSettings(reasoning=Reasoning(effort="high"), parallel_tool_calls=True)
-handoff_required_settings = deepcopy(base_model_settings)
-handoff_required_settings.tool_choice = "required"
+base_model_settings = ModelSettings(reasoning=Reasoning(effort="high"), parallel_tool_calls=False, tool_choice="required")
 
 #### These are the models persona files, They are read on load, feel free to edit them
 start_prompt = RECOMMENDED_PROMPT_PREFIX + " Use the MCP servers to help with the task. "
@@ -80,9 +78,9 @@ task_master_prompt = start_prompt + open('personas/TASKMASTER.md').read()
 
 #### These are the agent objs, they tell the system what agents are in the swarm
 coder_agent = Agent(name="Coder", instructions=coder_prompt, model=model, model_settings=base_model_settings)
-auditor_agent = Agent(name="Auditor", instructions=auditor_prompt, model=model, model_settings=handoff_required_settings)
-manager_agent = Agent(name="Manager", instructions=manager_prompt, model=model, model_settings=handoff_required_settings)
-task_master_agent = Agent(name="Task Master", instructions=task_master_prompt, model=model, model_settings=handoff_required_settings)
+auditor_agent = Agent(name="Auditor", instructions=auditor_prompt, model=model, model_settings=base_model_settings)
+manager_agent = Agent(name="Manager", instructions=manager_prompt, model=model, model_settings=base_model_settings)
+task_master_agent = Agent(name="Task Master", instructions=task_master_prompt, model=model, model_settings=base_model_settings)
 
 #### if you add a agent to the swarm it needs to be added here so that the other agents can "pass the mic" to it
 handoffs: list[Agent] = []
@@ -112,12 +110,12 @@ async def main(request) -> None:
 
         async for event in result.stream_events():
             description = describe_event(event)
-            if description:
-                print(description, flush=True)
+            if description: print(description, flush=True)
 
         if result.final_output is not None:
             print("\n=== Final Output ===")
             print(result.final_output)
+            print(f"For: `{request}`")
 
 
 if __name__ == "__main__":
