@@ -36,7 +36,7 @@ local: bool = True
 
 #### This only works with LRMs not LLMs 
 #### (If your using ollama make sure you have context set to >= 32000)
-local_model_str: str = "gpt-oss:120b"
+local_model_str: str = "gpt-oss:20b"
 cloud_model_str: str = "gpt-5"
 
 #### Update this to change the ip, do not use localhost
