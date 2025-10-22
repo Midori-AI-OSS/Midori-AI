@@ -82,7 +82,7 @@ jobs:
     strategy:
       max-parallel: 1
       matrix:
-        ver: [carly_codex/carly_codex_topaz]
+        ver: [carly_codex/carly_codex_topaz, blackpixelarch/strikearch_emerald]
     runs-on: ubuntu-latest
     timeout-minutes: 360
     needs: push_arch_to_hub
@@ -108,6 +108,7 @@ jobs:
 
       - name: Build and push PixelArch ${{ matrix.ver }} OS Docker Image
         uses: docker/build-push-action@master
+        continue-on-error: true
         with:
           context: ./Cluster-OS/pixelarch_os/subvers/
           file: ./Cluster-OS/pixelarch_os/subvers/${{ matrix.ver }}
