@@ -46,8 +46,6 @@ jobs:
       max-parallel: 4
       matrix:
         ver: [amethyst, topaz, emerald]
-        gpus: ["", "_cuda"]
-        gpu: [""]
     runs-on: ubuntu-latest
     needs: push_arch_to_hub
     steps:
@@ -68,13 +66,13 @@ jobs:
         with:
           images: lunamidori5/pixelarch
           tags: |
-            type=raw,value=${{ matrix.ver }}${{ matrix.gpu }}
+            type=raw,value=${{ matrix.ver }}
 
       - name: Build and push PixelArch ${{ matrix.ver }} OS Docker Image
         uses: docker/build-push-action@master
         with:
           context: ./Cluster-OS/pixelarch_os/
-          file: ./Cluster-OS/pixelarch_os/arch_dockerfile_${{ matrix.ver }}${{ matrix.gpu }}
+          file: ./Cluster-OS/pixelarch_os/arch_dockerfile_${{ matrix.ver }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -86,6 +84,7 @@ jobs:
       matrix:
         ver: [carly_codex/carly_codex_topaz]
     runs-on: ubuntu-latest
+    timeout-minutes: 360
     needs: push_arch_to_hub
     steps:
       - uses: actions/checkout@v4
