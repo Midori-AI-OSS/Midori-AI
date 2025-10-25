@@ -21,6 +21,7 @@ from agents import OpenAIResponsesModel
 
 from shared.streaming import describe_event
 from agents.extensions.handoff_prompt import RECOMMENDED_PROMPT_PREFIX
+from getnetwork import get_local_ip
 
 load_dotenv(override=True)
 
@@ -31,8 +32,9 @@ else: api_key = "hello wolrd"
 
 logger.setLevel(10)
 
-#### Change this for cloud support
-local: bool = True
+#### Change / set this for cloud support
+local_env = os.getenv("SWARM_RUN_LOCAL", "true").strip().lower()
+local: bool = local_env not in ("0", "false", "no", "off")
 
 #### This only works with LRMs not LLMs 
 #### (If your using ollama make sure you have context set to >= 32000)
@@ -40,7 +42,9 @@ local_model_str: str = "gpt-oss:20b"
 cloud_model_str: str = "gpt-5"
 
 #### Update this to change the ip, do not use localhost
-local_ip_address: str = "http://" + "192.168.10.27:11434"
+local_ip_address: str = f"http://{get_local_ip(fallback='192.168.10.27')}:11434"
+
+# TODO: Rename this and make it nongroq hard coded, maybe we could make it a env?
 groq_ip_address: str = "https://" + "api.groq.com/openai"
 
 local_openai = AsyncOpenAI(base_url=f"{local_ip_address}/v1", api_key=api_key)
