@@ -3,7 +3,7 @@ model = "gpt-5-codex"
 model_reasoning_effort = "low"
 
 [profiles.ollama]
-model = "llama4:17b-scout-16e-instruct-q4_K_M"
+model = "gpt-oss:20b"
 model_provider = "ollama_mp"
 model_reasoning_effort = "high"
 
