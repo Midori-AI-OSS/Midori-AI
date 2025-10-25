@@ -19,9 +19,9 @@ from openai.types.shared import Reasoning
 from agents import OpenAIChatCompletionsModel
 from agents import OpenAIResponsesModel
 
+from getnetwork import get_local_ip
 from shared.streaming import describe_event
 from agents.extensions.handoff_prompt import RECOMMENDED_PROMPT_PREFIX
-from getnetwork import get_local_ip
 
 load_dotenv(override=True)
 
@@ -31,6 +31,8 @@ if api_key: pass
 else: api_key = "hello wolrd"
 
 logger.setLevel(10)
+
+known_unused_endpoints: list[str] = ["https://api.groq.com/openai"]
 
 #### Change / set this for cloud support
 local_env = os.getenv("SWARM_RUN_LOCAL", "true").strip().lower()
@@ -45,8 +47,8 @@ cloud_model_str: str = "gpt-5"
 local_ip_address: str = f"http://{get_local_ip(fallback='192.168.10.27')}:11434"
 
 remote_openai_base_url: str = os.getenv("SWARM_REMOTE_OPENAI_BASE_URL", "https://api.openai.com").rstrip("/")
-known_unused_endpoints: list[str] = ["https://api.groq.com/openai"]
 
+#### Local only Async friendly OpenAI obj, changes not needed most of the time...
 local_openai = AsyncOpenAI(base_url=f"{local_ip_address}/v1", api_key=api_key)
     
 #### Edit the local params as you see fit, 
