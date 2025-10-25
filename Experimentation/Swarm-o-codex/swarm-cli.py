@@ -44,8 +44,8 @@ cloud_model_str: str = "gpt-5"
 #### Update this to change the ip, do not use localhost
 local_ip_address: str = f"http://{get_local_ip(fallback='192.168.10.27')}:11434"
 
-# TODO: Rename this and make it nongroq hard coded, maybe we could make it a env?
-groq_ip_address: str = "https://" + "api.groq.com/openai"
+remote_openai_base_url: str = os.getenv("SWARM_REMOTE_OPENAI_BASE_URL", "https://api.openai.com").rstrip("/")
+known_unused_endpoints: list[str] = ["https://api.groq.com/openai"]
 
 local_openai = AsyncOpenAI(base_url=f"{local_ip_address}/v1", api_key=api_key)
     
