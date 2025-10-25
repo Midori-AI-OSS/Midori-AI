@@ -1,0 +1,27 @@
+
+model = "gpt-5-codex"
+model_reasoning_effort = "low"
+
+[profiles.ollama]
+model = "llama4:17b-scout-16e-instruct-q4_K_M"
+model_provider = "ollama_mp"
+model_reasoning_effort = "high"
+
+[model_providers.ollama_mp]
+name = "Ollama"
+base_url = "http://localhost:11434/v1"
+
+[mcp_servers.sequentialthinking]
+command = "npx"
+type = "stdio"
+args = ["-y", "@modelcontextprotocol/server-sequential-thinking@latest"]
+
+[mcp_servers.context7]
+command = "npx"
+type = "stdio"
+args = ["-y", "@upstash/context7-mcp@latest"]
+
+[mcp_servers.playwright]
+command = "npx"
+type = "stdio"
+args = ["@playwright/mcp@latest"]

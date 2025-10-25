@@ -53,6 +53,9 @@ local_openai = AsyncOpenAI(base_url=f"{local_ip_address}/v1", api_key=api_key)
     
 #### Edit the local params as you see fit, 
 #### you will need to setup a ollama profile or make your codex local friendly...
+# TODO: Major fix needed, we will need to switch from using a profile for the local system, to useing their `-c` config setting... somehow...
+# or we can build the profile in code and set the work dir to the profile point like we do for Carly.
+# my goal is for a "just works" setup, so added a config that users can look at `profile/config.toml`
 local_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "codex", "-p", "ollama", "mcp-server"]})
 cloud_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "codex", "mcp-server"]})
 
