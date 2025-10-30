@@ -19,6 +19,8 @@ from openai.types.shared import Reasoning
 from agents.mcp import MCPServerStdioParams
 from agents import OpenAIChatCompletionsModel
 
+from shared.streaming import console
+from shared.streaming import stop_spinner
 from cli.env_cli import run_env_selector
 from shared.getnetwork import get_local_ip
 from shared.streaming import describe_event
@@ -31,7 +33,7 @@ api_key: str | None = os.getenv("OPENAI_API_KEY")
 if api_key: pass
 else: api_key = "hello wolrd"
 
-logger.setLevel(10)
+logger.setLevel(0)
 
 known_endpoints: list[str] = ["https://api.groq.com/openai"]
 
@@ -53,7 +55,7 @@ remote_openai_base_url: str = os.getenv("SWARM_REMOTE_OPENAI_BASE_URL", "https:/
 local_openai = AsyncOpenAI(base_url=f"{local_ip_address}/v1", api_key=api_key)
 
 #### Edit the local params as you see fit
-local_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "codex", "-c", f"base_url=\"{local_ip_address}/v1\"", "-c", f"model=\"{local_model_str}\"", "mcp-server"]})
+local_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "codex", "mcp-server", "-c", f"base_url=\"{local_ip_address}/v1\"", "-c", f"model=\"{local_model_str}\""]})
 cloud_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "codex", "mcp-server"]})
 
 if local:
@@ -74,10 +76,11 @@ additional_mcp_servers: list[tuple[str, MCPServerStdioParams]] = [
     ("SequentialThinking", sequential_thinking_params),
 ]
 
-base_model_settings = ModelSettings(reasoning=Reasoning(effort="high"), parallel_tool_calls=False, tool_choice="required")
+reasoning = Reasoning(effort="high", generate_summary="detailed", summary="detailed")
+base_model_settings = ModelSettings(reasoning=reasoning, parallel_tool_calls=False, tool_choice="required")
 
 #### These are the models persona files, They are read on load, feel free to edit them
-start_prompt = RECOMMENDED_PROMPT_PREFIX + " Use the MCP servers to help with the task. "
+start_prompt = RECOMMENDED_PROMPT_PREFIX + " Use the MCP tool servers to help with the task. "
 coder_prompt = start_prompt + open('personas/CODER.md').read()
 auditor_prompt = start_prompt + open('personas/AUDITOR.md').read()
 manager_prompt = start_prompt + open('personas/MANAGER.md').read()
@@ -117,14 +120,14 @@ async def main(request: str, workdir: str) -> None:
         result = Runner.run_streamed(task_master_agent, full_request, max_turns=15)
 
         async for event in result.stream_events():
-            description = describe_event(event)
-            if description: print(description, flush=True)
+            describe_event(event)
+        
+        stop_spinner()
 
         if result.final_output is not None:
-            print("\n=== Final Output ===")
-            print(result.final_output)
-            print(f"For: `{request}`")
-
+            console.print("\n[bold green]=== Final Output ===[/bold green]")
+            console.print(result.final_output)
+            console.print(f"[dim]For: `{request}`[/dim]")
 
 if __name__ == "__main__":
     workdir = run_env_selector()
