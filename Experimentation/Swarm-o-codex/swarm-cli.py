@@ -14,12 +14,13 @@ from contextlib import AsyncExitStack
 
 from agents.logger import logger
 from agents.mcp import MCPServerStdio
-from agents.mcp import MCPServerStdioParams
-from openai.types.shared import Reasoning
-from agents import OpenAIChatCompletionsModel
 from agents import OpenAIResponsesModel
+from openai.types.shared import Reasoning
+from agents.mcp import MCPServerStdioParams
+from agents import OpenAIChatCompletionsModel
 
-from getnetwork import get_local_ip
+from cli.env_cli import run_env_selector
+from shared.getnetwork import get_local_ip
 from shared.streaming import describe_event
 from agents.extensions.handoff_prompt import RECOMMENDED_PROMPT_PREFIX
 
@@ -32,7 +33,7 @@ else: api_key = "hello wolrd"
 
 logger.setLevel(10)
 
-known_unused_endpoints: list[str] = ["https://api.groq.com/openai"]
+known_endpoints: list[str] = ["https://api.groq.com/openai"]
 
 #### Change / set this for cloud support
 local_env = os.getenv("SWARM_RUN_LOCAL", "true").strip().lower()
@@ -50,14 +51,10 @@ remote_openai_base_url: str = os.getenv("SWARM_REMOTE_OPENAI_BASE_URL", "https:/
 
 #### Local only Async friendly OpenAI obj, changes not needed most of the time...
 local_openai = AsyncOpenAI(base_url=f"{local_ip_address}/v1", api_key=api_key)
-    
+
 #### Edit the local params as you see fit
 local_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "codex", "-c", f"base_url=\"{local_ip_address}/v1\"", "-c", f"model=\"{local_model_str}\"", "mcp-server"]})
 cloud_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "codex", "mcp-server"]})
-
-playwright_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "@playwright/mcp@latest"]})
-context_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "@upstash/context7-mcp@latest"]})
-sequential_thinking_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "@modelcontextprotocol/server-sequential-thinking@latest"]})
 
 if local:
     model = OpenAIChatCompletionsModel(model=local_model_str, openai_client=local_openai)
@@ -65,6 +62,10 @@ if local:
 else:
     model = OpenAIResponsesModel(model=cloud_model_str, openai_client=AsyncOpenAI(api_key=api_key))
     mcp_params = cloud_params
+
+playwright_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "@playwright/mcp@latest"]})
+context_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "@upstash/context7-mcp@latest"]})
+sequential_thinking_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "@modelcontextprotocol/server-sequential-thinking@latest"]})
 
 # Add additional MCP servers by appending (name, params) tuples to this list.
 additional_mcp_servers: list[tuple[str, MCPServerStdioParams]] = [
@@ -95,9 +96,10 @@ handoffs.append(auditor_agent)
 handoffs.append(manager_agent)
 handoffs.append(task_master_agent)
 
-
 #### This is the main def, this runs the logic for the swarm.
-async def main(request) -> None:
+async def main(request: str, workdir: str) -> None:
+    build_request: str = f"Working in the `{workdir}`, the user asked the task master \"{request}\""
+    full_request: str = f"{build_request}, when you are done with your roles dutys, handoff to the next agent"
     async with AsyncExitStack() as stack:
         mcp_server_configs = [("PrimaryMCP", mcp_params), *additional_mcp_servers]
         mcp_servers: list[MCPServerStdio] = []
@@ -112,7 +114,7 @@ async def main(request) -> None:
             agent.handoffs = [a for a in handoffs if a.name != agent.name]
             agent.mcp_servers = mcp_servers # type: ignore
 
-        result = Runner.run_streamed(task_master_agent, f"{request}, pass on to the next agent", max_turns=15)
+        result = Runner.run_streamed(task_master_agent, full_request, max_turns=15)
 
         async for event in result.stream_events():
             description = describe_event(event)
@@ -125,5 +127,6 @@ async def main(request) -> None:
 
 
 if __name__ == "__main__":
+    workdir = run_env_selector()
     request: str = input("Enter Request for the Task Master: ")
-    asyncio.run(main(request))
+    asyncio.run(main(request, workdir))

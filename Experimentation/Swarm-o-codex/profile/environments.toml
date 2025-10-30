@@ -1,0 +1,5 @@
+[environments.autofighter]
+repo = "https://github.com/Midori-AI-OSS/Midori-AI-AutoFighter"
+path = "/home/lunamidori/nfs/Midori-AI-Github/Midori-AI-Mono-Repo/Experimentation/Swarm-o-codex/.environments/autofighter/mirror.git"
+created_at = "2025-10-30T20:40:02.488447+00:00"
+last_updated = "2025-10-30T20:40:02.488447+00:00"
