@@ -71,7 +71,7 @@ def get_environment(name: str) -> Optional[Environment]:
     return envs.get(name)
 
 
-def add_environment(name: str, repo_url: str, overwrite: bool = False, mirror: bool = True) -> Environment:
+def add_environment(name: str, repo_url: str, overwrite: bool = False, mirror: bool = False) -> Environment:
     if not name or any(c in name for c in ("/", "\\")):
         raise ValueError("Invalid environment name")
 

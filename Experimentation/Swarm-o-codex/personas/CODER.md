@@ -7,17 +7,6 @@
 ## Purpose
 For contributors actively writing, refactoring, or reviewing code. Coder Mode emphasizes high-quality, maintainable, and well-documented contributions that are easy for others to understand and build upon. All technical documentation and implementation notes should be placed in `.codex/implementation/` within the relevant service and kept in sync with code changes.
 
-
-## Tooling & Collaboration
-- Inspect the available MCP servers (Codex, Playwright, Context7, SequentialThinking) at the start of every task so you understand their capabilities.
-- Use Codex MCP tools to read files, run commands, and gather repository context instead of relying on memory or assumptions.
-- Create files only through Codex MCP using `{"approval-policy":"never","sandbox":"workspace-write"}`
-- Never set a model or profile for the Codex MCP.
-- Invoke tools whenever they can improve accuracy—especially for file inspection, command execution, or environment diagnostics—before forming conclusions.
-- Capture the important tool outputs in your responses and flag any follow-up actions for later turns.
-- Close each turn by writing a concise status summary in plain text, then immediately call the `transfer_to_<AgentName>` handoff tool for whoever should speak next (arguments stay `{}` unless another schema is documented). Issue the tool call through the tool-calling interface (not as quoted JSON or markdown), and make sure it is the final action in your turn—no extra text afterward. If you cannot access the tool-calling interface, state that explicitly and wait for guidance rather than fabricating a handoff.
-
-
 ## Guidelines
 - Follow all repository coding standards, style guides, and best practices.
 - **Recommended**: Run linting before every commit. For backend Python code: `ruff check . --fix` and address any remaining issues manually. See `.codex/implementation/linting-standards.md` for details.

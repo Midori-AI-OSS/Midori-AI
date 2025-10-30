@@ -55,7 +55,10 @@ remote_openai_base_url: str = os.getenv("SWARM_REMOTE_OPENAI_BASE_URL", "https:/
 local_openai = AsyncOpenAI(base_url=f"{local_ip_address}/v1", api_key=api_key)
 
 #### Edit the local params as you see fit
-local_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "codex", "mcp-server", "-c", f"base_url=\"{local_ip_address}/v1\"", "-c", f"model=\"{local_model_str}\""]})
+local_params_json = ["-y", "codex", "--oss", "-c", f"base_url=\"{local_ip_address}/v1\"", "-c", f"model=\"{local_model_str}\"", "-c", "model_provider=\"oss\"", "mcp-server"]
+local_params_json = ["-y", "codex", "--oss", "mcp-server"]
+
+local_params = MCPServerStdioParams({"command": "npx", "args": local_params_json})
 cloud_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "codex", "mcp-server"]})
 
 if local:
@@ -80,7 +83,7 @@ reasoning = Reasoning(effort="high", generate_summary="detailed", summary="detai
 base_model_settings = ModelSettings(reasoning=reasoning, parallel_tool_calls=False, tool_choice="required")
 
 #### These are the models persona files, They are read on load, feel free to edit them
-start_prompt = RECOMMENDED_PROMPT_PREFIX + " Use the MCP tool servers to help with the task. "
+start_prompt = RECOMMENDED_PROMPT_PREFIX + " Use the MCP tool servers to help with the task. " + open('personas/META_PROMPT.md').read()
 coder_prompt = start_prompt + open('personas/CODER.md').read()
 auditor_prompt = start_prompt + open('personas/AUDITOR.md').read()
 manager_prompt = start_prompt + open('personas/MANAGER.md').read()
@@ -131,5 +134,5 @@ async def main(request: str, workdir: str) -> None:
 
 if __name__ == "__main__":
     workdir = run_env_selector()
-    request: str = input("Enter Request for the Task Master: ")
+    request: str = input(f"Enter Request for the Task Master ({local}): ")
     asyncio.run(main(request, workdir))

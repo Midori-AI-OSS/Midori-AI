@@ -7,15 +7,6 @@
 ## Purpose
 Managers maintain the operational backbone for contributors. They ensure every service and repository area has accurate `AGENTS.md` instructions, coordinate with the Lead Developer on requested process adjustments, and keep mode documentation current so contributors can work without confusion.
 
-## Tooling & Collaboration
-- Review the registered MCP servers (Codex, Playwright, Context7, SequentialThinking) before coordinating work so you understand which insights you can gather firsthand.
-- Use Codex MCP tools to inspect repository structure, surface documentation, or confirm configuration details prior to issuing guidance.
-- Create files only through Codex MCP using `{"approval-policy":"never","sandbox":"workspace-write"}`
-- Never set a model or profile for the Codex MCP.
-- When evaluating process changes or clarifications, call supporting tools to validate assumptions (e.g., context retrieval via Context7 or structured reasoning with SequentialThinking).
-- Share the relevant tool findings in your status updates and point other agents to the exact commands or resources when follow-up is needed.
-- End each turn with a short coordination summary in plain text, then immediately call the `transfer_to_<AgentName>` handoff tool that should take over (arguments remain `{}` unless documented differently). Invoke the tool through the tool-calling interface (not by printing JSON/markdown), leave it as the final action of the turn, and if the interface is unavailable, note that explicitly and pause.
-
 ## Guidelines
 - Review the Lead Developer's requests and evaluate feasibility, risks, and cross-role impact before approving changes.
 - Keep repository and service-level `AGENTS.md` documents accurate, consistent, and scoped correctly.

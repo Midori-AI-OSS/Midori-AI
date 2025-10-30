@@ -34,6 +34,11 @@ def format_message_content(content: list[Any]) -> str:
             refusal = maybe_get_attr(block, "refusal", "")
             if refusal:
                 parts.append(f"[refusal] {refusal}")
+        else:
+            # Handle Content objects with .text attribute (e.g., reasoning_item content)
+            text = maybe_get_attr(block, "text", "")
+            if text:
+                parts.append(str(text))
     return "\n".join(part.strip() for part in parts if part.strip())
 
 
@@ -180,16 +185,32 @@ def describe_event(event: StreamEvent) -> str | None:
 
     if event.name == "reasoning_item_created":
         raw_item = getattr(item, "raw_item", None)
-        summary = maybe_get_attr(raw_item, "summary")
+        
+        # Extract reasoning text from content list
+        reasoning_text = ""
+        if raw_item:
+            content = maybe_get_attr(raw_item, "content", [])
+            if isinstance(content, list):
+                reasoning_text = format_message_content(content)
+        
         # Pause spinner to render reasoning block cleanly
         try:
             stop_spinner()
         except Exception:
             pass
-        if summary:
-            console.print(f"[magenta]{escape(agent_name)} reasoning: {escape(summary)}[/magenta]")
+        
+        if reasoning_text and reasoning_text.strip():
+            # Display the reasoning in a panel for better visibility
+            console.print(Panel(
+                escape(reasoning_text),
+                title=f"[magenta]{escape(agent_name)} Reasoning[/magenta]",
+                border_style="magenta",
+                expand=False
+            ))
         else:
-            console.print(f"[magenta]{escape(agent_name)} produced a reasoning item.[/magenta]")
+            # Debug info if no content extracted
+            console.print(f"[magenta]{escape(agent_name)} produced a reasoning item (no content extracted)[/magenta]")
+        
         # Resume spinner after reasoning
         try:
             start_spinner_for_agent(agent_name)

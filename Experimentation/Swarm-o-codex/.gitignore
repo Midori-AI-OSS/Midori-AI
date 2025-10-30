@@ -11,4 +11,5 @@ wheels/
 .env
 
 # Program stuffs
+environments.toml
 .environments
