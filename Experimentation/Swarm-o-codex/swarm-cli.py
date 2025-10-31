@@ -14,6 +14,7 @@ from agents import Agent
 from agents import Runner
 from agents import Handoff
 from agents import handoff
+from agents import RunConfig
 from openai import AsyncOpenAI
 from agents import ModelSettings
 from contextlib import AsyncExitStack
@@ -31,7 +32,11 @@ from shared.streaming import stop_spinner
 from cli.env_cli import run_env_selector
 from shared.getnetwork import get_local_ip
 from shared.streaming import describe_event
-from agents.extensions.handoff_prompt import RECOMMENDED_PROMPT_PREFIX
+from shared.handoff_utils import create_agent_summary_filter
+
+from setup.mcp import setup_mcp
+from setup.prompts import setup_agents
+from setup.prompts import setup_summary_agent
 
 load_dotenv(override=True)
 
@@ -70,16 +75,8 @@ remote_openai_base_url: str = os.getenv("SWARM_REMOTE_OPENAI_BASE_URL", "https:/
 #### Local only Async friendly OpenAI obj, changes not needed most of the time...
 local_openai = AsyncOpenAI(base_url=f"{local_ip_address}/v1", api_key=api_key)
 
-#### Edit the local params as you see fit
-codex_home = Path(tempfile.mkdtemp(prefix="codex_midori_ai_"))
-config_lines = [f'model = "{local_model_str}"', 'model_provider = "midoriai"', '', '[model_providers.midoriai]', 'name = "Midori AI (local)"', f'base_url = "{local_ip_address}/v1"', 'wire_api = "chat"']
-config_path = codex_home / "config.toml"
-config_path.write_text("\n".join(config_lines) + "\n")
-
-atexit.register(lambda: shutil.rmtree(codex_home, ignore_errors=True))
-
-cloud_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "codex", "mcp-server"]})
-local_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "codex", "mcp-server"], "env": {"CODEX_HOME": str(codex_home)}})
+#### This sets up the params for MCP servers, go check the setup mcp.py folder!
+cloud_params, local_params, additional_mcp_servers = setup_mcp(local_model_str, local_ip_address)
 
 if local:
     model = OpenAIChatCompletionsModel(model=local_model_str, openai_client=local_openai)
@@ -88,44 +85,17 @@ else:
     model = OpenAIResponsesModel(model=cloud_model_str, openai_client=AsyncOpenAI(api_key=api_key))
     mcp_params = cloud_params
 
-playwright_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "@playwright/mcp@latest"]})
-context_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "@upstash/context7-mcp@latest"]})
-sequential_thinking_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "@modelcontextprotocol/server-sequential-thinking@latest"]})
-
-# Add additional MCP servers by appending (name, params) tuples to this list.
-additional_mcp_servers: list[tuple[str, MCPServerStdioParams]] = [
-    ("Playwright", playwright_params),
-    ("Context7", context_params),
-    ("SequentialThinking", sequential_thinking_params),
-]
-
 reasoning = Reasoning(effort="low", generate_summary="detailed", summary="detailed")
 base_model_settings = ModelSettings(reasoning=reasoning, parallel_tool_calls=False, tool_choice="required")
 
-#### These are the models persona files, They are read on load, feel free to edit them
-start_prompt = RECOMMENDED_PROMPT_PREFIX + open('personas/META_PROMPT.md').read()
-coder_prompt = start_prompt + open('personas/CODER.md').read()
-auditor_prompt = start_prompt + open('personas/AUDITOR.md').read()
-manager_prompt = start_prompt + open('personas/MANAGER.md').read()
-task_master_prompt = start_prompt + open('personas/TASKMASTER.md').read()
-
-#### These are the agent objs, they tell the system what agents are in the swarm
-coder_agent = Agent(name="Coder", instructions=coder_prompt, model=model, model_settings=base_model_settings)
-auditor_agent = Agent(name="Auditor", instructions=auditor_prompt, model=model, model_settings=base_model_settings)
-manager_agent = Agent(name="Manager", instructions=manager_prompt, model=model, model_settings=base_model_settings)
-task_master_agent = Agent(name="Task Master", instructions=task_master_prompt, model=model, model_settings=base_model_settings)
-
-#### if you add a agent to the swarm it needs to be added here so that the other agents can "pass the mic" to it
-handoffs: list[Agent] = []
-handoffs.append(coder_agent)
-handoffs.append(auditor_agent)
-handoffs.append(manager_agent)
-handoffs.append(task_master_agent)
+handoffs = setup_agents(model, base_model_settings)
+summarizer = setup_summary_agent(model, base_model_settings)
+run_config = RunConfig(handoff_input_filter=create_agent_summary_filter(summarizer))
 
 #### This is the main def, this runs the logic for the swarm.
 async def main(request: str, workdir: str) -> None:
     build_request: str = f"Working in the `{workdir}`, the user asked the manager \"{request}\""
-    handoff_instructions: str = "When you finish your work and are ready to hand off, call the appropriate transfer_to_<AgentName> handoff tool using the tool-calling interface. Do not print code or markdown, do not include backticks, and do not add any text after the tool call. "
+    handoff_instructions: str = "When you finish your work and are ready to hand off, call the appropriate transfer_to_<AgentName> handoff tool (in lowercase) using the tool-calling interface. Do not print code or markdown, do not use code, do not include backticks, and do not add any text after the tool call. "
     full_request: str = f"{build_request}. {handoff_instructions}"
     async with AsyncExitStack() as stack:
         mcp_server_configs = [("PrimaryMCP", mcp_params), *additional_mcp_servers]
@@ -141,7 +111,7 @@ async def main(request: str, workdir: str) -> None:
             agent.handoffs = [a for a in handoffs if a.name != agent.name]
             agent.mcp_servers = mcp_servers # type: ignore
 
-        result = Runner.run_streamed(manager_agent, full_request)
+        result = Runner.run_streamed(handoffs[4], full_request, run_config=run_config)
 
         async for event in result.stream_events():
             describe_event(event)
