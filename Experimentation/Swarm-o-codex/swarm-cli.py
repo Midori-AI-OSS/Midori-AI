@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from agents import Agent
 from agents import Runner
 from agents import Handoff
+from agents import handoff
 from openai import AsyncOpenAI
 from agents import ModelSettings
 from contextlib import AsyncExitStack
@@ -23,6 +24,7 @@ from agents import OpenAIResponsesModel
 from openai.types.shared import Reasoning
 from agents.mcp import MCPServerStdioParams
 from agents import OpenAIChatCompletionsModel
+from agents.extensions import handoff_filters
 
 from shared.streaming import console
 from shared.streaming import stop_spinner
@@ -69,8 +71,8 @@ remote_openai_base_url: str = os.getenv("SWARM_REMOTE_OPENAI_BASE_URL", "https:/
 local_openai = AsyncOpenAI(base_url=f"{local_ip_address}/v1", api_key=api_key)
 
 #### Edit the local params as you see fit
-codex_home = Path(tempfile.mkdtemp(prefix="codex_ollama_"))
-config_lines = [f'model = "{local_model_str}"', 'model_provider = "ollama"', '', '[model_providers.ollama]', 'name = "Ollama (local)"', f'base_url = "{local_ip_address}/v1"', 'wire_api = "chat"']
+codex_home = Path(tempfile.mkdtemp(prefix="codex_midori_ai_"))
+config_lines = [f'model = "{local_model_str}"', 'model_provider = "midoriai"', '', '[model_providers.midoriai]', 'name = "Midori AI (local)"', f'base_url = "{local_ip_address}/v1"', 'wire_api = "chat"']
 config_path = codex_home / "config.toml"
 config_path.write_text("\n".join(config_lines) + "\n")
 
@@ -101,7 +103,7 @@ reasoning = Reasoning(effort="low", generate_summary="detailed", summary="detail
 base_model_settings = ModelSettings(reasoning=reasoning, parallel_tool_calls=False, tool_choice="required")
 
 #### These are the models persona files, They are read on load, feel free to edit them
-start_prompt = RECOMMENDED_PROMPT_PREFIX + " Use the MCP tool servers to help with the task. " + open('personas/META_PROMPT.md').read()
+start_prompt = RECOMMENDED_PROMPT_PREFIX + open('personas/META_PROMPT.md').read()
 coder_prompt = start_prompt + open('personas/CODER.md').read()
 auditor_prompt = start_prompt + open('personas/AUDITOR.md').read()
 manager_prompt = start_prompt + open('personas/MANAGER.md').read()
@@ -122,8 +124,8 @@ handoffs.append(task_master_agent)
 
 #### This is the main def, this runs the logic for the swarm.
 async def main(request: str, workdir: str) -> None:
-    build_request: str = f"Working in the `{workdir}`, the user asked the task master \"{request}\""
-    handoff_instructions: str = "When you finish your turn, immediately call the appropriate transfer_to_<AgentName> handoff tool using the tool-calling interface. Do not print code or markdown, do not include backticks, and do not add any text after the tool call. "
+    build_request: str = f"Working in the `{workdir}`, the user asked the manager \"{request}\""
+    handoff_instructions: str = "When you finish your work and are ready to hand off, call the appropriate transfer_to_<AgentName> handoff tool using the tool-calling interface. Do not print code or markdown, do not include backticks, and do not add any text after the tool call. "
     full_request: str = f"{build_request}. {handoff_instructions}"
     async with AsyncExitStack() as stack:
         mcp_server_configs = [("PrimaryMCP", mcp_params), *additional_mcp_servers]
@@ -139,12 +141,18 @@ async def main(request: str, workdir: str) -> None:
             agent.handoffs = [a for a in handoffs if a.name != agent.name]
             agent.mcp_servers = mcp_servers # type: ignore
 
-        result = Runner.run_streamed(task_master_agent, full_request, max_turns=15)
+        result = Runner.run_streamed(manager_agent, full_request)
 
         async for event in result.stream_events():
             describe_event(event)
         
         stop_spinner()
+        
+        if hasattr(result, 'stop_reason'):
+            console.print(f"[dim]Run stopped: {getattr(result, 'stop_reason', 'unknown')}[/dim]")
+        
+        console.print(f"[dim]Result type: {type(result).__name__}[/dim]")
+        console.print(f"[dim]Has final_output: {result.final_output is not None}[/dim]")
 
         if result.final_output is not None:
             console.print("\n[bold green]=== Final Output ===[/bold green]")
@@ -158,5 +166,9 @@ if __name__ == "__main__":
 
     try:
         asyncio.run(main(request, workdir))
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Interrupted by user[/yellow]")
     except Exception as error:
-        pass
+        console.print(f"\n[bold red]Error: {error}[/bold red]")
+        import traceback
+        console.print(f"[dim]{traceback.format_exc()}[/dim]")

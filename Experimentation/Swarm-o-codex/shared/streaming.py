@@ -73,6 +73,12 @@ def summarize_tool_arguments(arguments: str | None) -> str:
 
 
 def describe_event(event: StreamEvent) -> str | None:
+    # Debug: always log event type and name
+    if DEBUG_EVENTS:
+        event_type = getattr(event, 'type', 'unknown')
+        event_name = getattr(event, 'name', 'unknown')
+        console.print(f"[dim]Event: type={event_type}, name={event_name}[/dim]")
+    
     if event.type == "agent_updated_stream_event":
         agent_name = event.new_agent.name
         # Switch spinner to the new acting agent
@@ -96,6 +102,42 @@ def describe_event(event: StreamEvent) -> str | None:
     item = event.item
     agent_name = getattr(item.agent, "name", "Unknown")
 
+    # Process reasoning FIRST before any other events
+    if event.name == "reasoning_item_created":
+        raw_item = getattr(item, "raw_item", None)
+        
+        # Extract reasoning text from content list
+        reasoning_text = ""
+        if raw_item:
+            content = maybe_get_attr(raw_item, "content", [])
+            if isinstance(content, list):
+                reasoning_text = format_message_content(content)
+        
+        # Pause spinner to render reasoning block cleanly
+        try:
+            stop_spinner()
+        except Exception:
+            pass
+        
+        if reasoning_text and reasoning_text.strip():
+            # Display the reasoning in a panel for better visibility
+            console.print(Panel(
+                escape(reasoning_text),
+                title=f"[magenta]{escape(agent_name)} Reasoning[/magenta]",
+                border_style="magenta",
+                expand=False
+            ))
+        else:
+            # Debug info if no content extracted
+            console.print(f"[magenta]{escape(agent_name)} produced a reasoning item (no content extracted)[/magenta]")
+        
+        # Resume spinner after reasoning
+        try:
+            start_spinner_for_agent(agent_name)
+        except Exception:
+            pass
+        return None
+
     if event.name == "message_output_created":
         message = getattr(item, "raw_item", None)
         if message is None:
@@ -103,7 +145,7 @@ def describe_event(event: StreamEvent) -> str | None:
         content = maybe_get_attr(message, "content", []) or []
         text = format_message_content(content)
         if not text:
-            text = "(no text content)"
+            return None
         # Ensure clean printing while spinner is paused
         try:
             stop_spinner()
@@ -131,9 +173,10 @@ def describe_event(event: StreamEvent) -> str | None:
             pass
         if arguments:
             console.print(f"[yellow]{escape(summary)}[/yellow]")
-            console.print(Panel(escape(arguments), title="Arguments", border_style="yellow"))
+            console.print(Panel(escape(arguments), title="Handoff Arguments", border_style="yellow"))
         else:
             console.print(f"[yellow]{escape(summary)}[/yellow]")
+        console.print(f"[dim]Waiting for handoff to complete...[/dim]")
         # Resume spinner since the same agent is still acting until handoff occurs
         try:
             start_spinner_for_agent(agent_name)
@@ -141,7 +184,7 @@ def describe_event(event: StreamEvent) -> str | None:
             pass
         return None
 
-    if event.name == "handoff_occured":
+    if event.name == "handoff_occurred" or event.name == "handoff_occured":
         source = getattr(item, "source_agent", None)
         target = getattr(item, "target_agent", None)
         source_name = getattr(source, "name", "Unknown")
@@ -201,41 +244,6 @@ def describe_event(event: StreamEvent) -> str | None:
             pass
         return None
 
-    if event.name == "reasoning_item_created":
-        raw_item = getattr(item, "raw_item", None)
-        
-        # Extract reasoning text from content list
-        reasoning_text = ""
-        if raw_item:
-            content = maybe_get_attr(raw_item, "content", [])
-            if isinstance(content, list):
-                reasoning_text = format_message_content(content)
-        
-        # Pause spinner to render reasoning block cleanly
-        try:
-            stop_spinner()
-        except Exception:
-            pass
-        
-        if reasoning_text and reasoning_text.strip():
-            # Display the reasoning in a panel for better visibility
-            console.print(Panel(
-                escape(reasoning_text),
-                title=f"[magenta]{escape(agent_name)} Reasoning[/magenta]",
-                border_style="magenta",
-                expand=False
-            ))
-        else:
-            # Debug info if no content extracted
-            console.print(f"[magenta]{escape(agent_name)} produced a reasoning item (no content extracted)[/magenta]")
-        
-        # Resume spinner after reasoning
-        try:
-            start_spinner_for_agent(agent_name)
-        except Exception:
-            pass
-        return None
-
     if event.name == "mcp_list_tools":
         raw_item = getattr(item, "raw_item", None)
         server_name = maybe_get_attr(raw_item, "server_name", "unknown server")
@@ -266,6 +274,15 @@ def describe_event(event: StreamEvent) -> str | None:
 
     if DEBUG_EVENTS:
         console.print(f"[dim]{escape(agent_name)} emitted event `{escape(event.name)}`.[/dim]")
+    
+    # Catch any unhandled events for debugging
+    if event.name not in [
+        "reasoning_item_created", "message_output_created", "handoff_requested", 
+        "handoff_occurred", "handoff_occured", "tool_called", "tool_output", 
+        "mcp_list_tools", "mcp_approval_requested"
+    ]:
+        console.print(f"[dim yellow]Unhandled event: {escape(event.name)}[/dim yellow]")
+    
     return None
 
 
