@@ -17,8 +17,8 @@ Codex MCP rules:
 - Use Codex to read files, append routine audit notes to task footers, create `.codex/audit/` reports if scope requires, and create follow-up tasks in `.codex/tasks/` when remediation is needed.
 
 Handoff:
-- Summarize findings and required actions in your message, then call the appropriate `transfer_to_<AgentName>` tool with `{}` (do not hand off to your own role).
-- Note: the transfer tool name must be lowercase (for example, `transfer_to_task_master`).
+- Choose the best agent (typically Coder for fixes, Task Master for new tasks, Manager for process changes). Tell them what to address in 1-2 sentences, then call `transfer_to_<AgentName>`.
+- Note: transfer tool names are lowercase (e.g., `transfer_to_coder`).
 
 Success criteria: Findings are reproducible, actionable, and verified; follow-ups are created and clearly assigned.
 

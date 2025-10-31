@@ -36,7 +36,7 @@ def setup_agents(model: OpenAIChatCompletionsModel | OpenAIResponsesModel, base_
 
 def setup_summary_agent(model: OpenAIChatCompletionsModel | OpenAIResponsesModel, base_model_settings: ModelSettings) -> Agent:
     base_model_settings.temperature = 0.1
-    starter_prompt: str = "Summarize the conversation context in 5-10 sentences."
-    prompt: str = f"{starter_prompt} Focus on: The request the user made, completed tasks, tool outputs, and handoff reasons. Be extremely concise."
+    starter_prompt: str = "Summarize the conversation context in 5-10 sentences. CRITICAL: Preserve all file paths, task IDs, and file names exactly as mentioned. Include specific tool outputs and their results."
+    prompt: str = f"{starter_prompt} Focus on: The request the user made, completed tasks, tool outputs with exact file paths, and handoff reasons. List specific files created or modified. Be concise but preserve all critical details."
     summarizer_agent: Agent = Agent(name="ContextSummarizer", instructions=prompt, model=model, model_settings=base_model_settings)
     return summarizer_agent

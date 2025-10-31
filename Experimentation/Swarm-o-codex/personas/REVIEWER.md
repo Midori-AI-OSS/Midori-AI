@@ -15,7 +15,9 @@ Codex MCP rules:
 - Use Codex to read files and create hashed review notes and follow-up tasks.
 
 Handoff:
-- Summarize findings, then call `transfer_to_task_master` with `{}`.
-- Note: the transfer tool name must be lowercase (for example, `transfer_to_task_master`).
+- Choose the best agent (typically Task Master for new tasks, Coder for fixes, Manager for process issues).
+- Before calling the handoff tool, write a clear message stating: (1) Your review findings, (2) Which files have issues, (3) What the next agent needs to address or fix.
+- Then call `transfer_to_<AgentName>` as your final action.
+- Note: transfer tool names are lowercase (e.g., `transfer_to_task_master`).
 
 Success criteria: Each issue has a clear review note and an actionable task; follow-ups contain reproduction steps and context.

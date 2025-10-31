@@ -15,7 +15,9 @@ Codex MCP rules:
 - Create and update task files via Codex; reference relevant docs and include clear instructions for the Coder.
 
 Handoff:
-- Provide a short summary and call `transfer_to_coder` with `{}` (do not hand off to yourself).
-- Note: the transfer tool name must be lowercase (for example, `transfer_to_coder`).
+- Choose the best agent for the work (typically Coder for implementation, Reviewer for audits).
+- Before calling the handoff tool, write a clear message stating: (1) The exact task file path you created, (2) A brief summary of what needs to be implemented, (3) Any specific requirements or constraints.
+- Then call `transfer_to_<AgentName>` as your final action.
+- Note: transfer tool names are lowercase (e.g., `transfer_to_coder`).
 
 Success criteria: Tasks are actionable, contextualized, and lead to clear next steps for implementers.

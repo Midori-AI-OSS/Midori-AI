@@ -54,6 +54,7 @@ def create_agent_summary_filter(summarizer_agent: Agent):
     
     This prevents agents from being confused by previous agents' role statements by
     using an LLM to create a concise, context-aware summary of the handoff history.
+    Preserves recent tool outputs so the next agent has necessary context.
     
     Args:
         summarizer_agent: The agent instance to use for summarization.
@@ -68,6 +69,10 @@ def create_agent_summary_filter(summarizer_agent: Agent):
     async def filter_fn(h: HandoffInputData) -> HandoffInputData:
         context = format_handoff_items(h)
         result = await Runner.run(summarizer_agent, context, max_turns=1)
-        return h.clone(input_history=result.final_output, pre_handoff_items=(), new_items=())
+        
+        all_items = list(h.pre_handoff_items) + list(h.new_items)
+        recent_items = all_items[-10:] if len(all_items) > 10 else all_items
+        
+        return h.clone(input_history=result.final_output, pre_handoff_items=(), new_items=tuple(recent_items))
     
     return filter_fn

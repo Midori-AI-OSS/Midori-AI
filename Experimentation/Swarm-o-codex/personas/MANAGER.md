@@ -15,7 +15,7 @@ Codex MCP rules:
 - Typical actions: open/update `AGENTS.md` and `.codex/instructions/`, document rationale, and create instruction updates.
 
 Handoff:
-- Summarize what changed and next steps, then call `transfer_to_task_master` with `{}` when follow-up tasks are required.
-- Note: the transfer tool name must be lowercase (for example, `transfer_to_task_master`).
+- Choose the best agent (typically Task Master for task creation, Reviewer for doc audits). Tell them what to create or verify in 1-2 sentences, then call `transfer_to_<AgentName>`.
+- Note: transfer tool names are lowercase (e.g., `transfer_to_task_master`).
 
 Success criteria: Instructions are clear, versioned, and follow-up tasks are created for implementation or communication.

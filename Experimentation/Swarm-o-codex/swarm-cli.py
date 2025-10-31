@@ -64,7 +64,7 @@ local: bool = local_env not in ("0", "false", "no", "off")
 
 #### This only works with LRMs not LLMs 
 #### (If your using ollama make sure you have context set to >= 32000)
-local_model_str: str = "gpt-oss:20b"
+local_model_str: str = "gpt-oss:120b"
 cloud_model_str: str = "gpt-5"
 
 #### Update this to change the ip, do not use localhost
@@ -86,7 +86,7 @@ else:
     mcp_params = cloud_params
 
 reasoning = Reasoning(effort="low", generate_summary="detailed", summary="detailed")
-base_model_settings = ModelSettings(reasoning=reasoning, parallel_tool_calls=False, tool_choice="required")
+base_model_settings = ModelSettings(reasoning=reasoning, parallel_tool_calls=False, tool_choice="required", temperature=0.1, truncation="auto")
 
 handoffs = setup_agents(model, base_model_settings)
 summarizer = setup_summary_agent(model, base_model_settings)
@@ -95,7 +95,7 @@ run_config = RunConfig(handoff_input_filter=create_agent_summary_filter(summariz
 #### This is the main def, this runs the logic for the swarm.
 async def main(request: str, workdir: str) -> None:
     build_request: str = f"Working in the `{workdir}`, the user asked the manager \"{request}\""
-    handoff_instructions: str = "When you finish your work and are ready to hand off, call the appropriate transfer_to_<AgentName> handoff tool (in lowercase) using the tool-calling interface. Do not print code or markdown, do not use code, do not include backticks, and do not add any text after the tool call. "
+    handoff_instructions: str = "When you finish your work and are ready to hand off: First, in your message, clearly state what you accomplished and what the next agent needs to do (include specific file paths and requirements). Then call the appropriate transfer_to_<AgentName> handoff tool (in lowercase) as your final action. Do not add any text after calling the handoff tool."
     full_request: str = f"{build_request}. {handoff_instructions}"
     async with AsyncExitStack() as stack:
         mcp_server_configs = [("PrimaryMCP", mcp_params), *additional_mcp_servers]
