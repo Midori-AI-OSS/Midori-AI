@@ -5,6 +5,7 @@ import asyncio
 import tempfile
 import atexit
 import shutil
+import argparse
 
 from pathlib import Path
 from copy import deepcopy
@@ -64,7 +65,7 @@ local: bool = local_env not in ("0", "false", "no", "off")
 
 #### This only works with LRMs not LLMs 
 #### (If your using ollama make sure you have context set to >= 32000)
-local_model_str: str = "gpt-oss:120b"
+local_model_str: str = "gpt-oss:20b"
 cloud_model_str: str = "gpt-5"
 
 #### Update this to change the ip, do not use localhost
@@ -80,13 +81,13 @@ cloud_params, local_params, additional_mcp_servers = setup_mcp(local_model_str, 
 
 if local:
     model = OpenAIChatCompletionsModel(model=local_model_str, openai_client=local_openai)
-    mcp_params = local_params
+    status_text = "Offline"; mcp_params = local_params
 else:
     model = OpenAIResponsesModel(model=cloud_model_str, openai_client=AsyncOpenAI(api_key=api_key))
-    mcp_params = cloud_params
+    status_text = "Cloud"; mcp_params = cloud_params
 
 reasoning = Reasoning(effort="low", generate_summary="detailed", summary="detailed")
-base_model_settings = ModelSettings(reasoning=reasoning, parallel_tool_calls=False, tool_choice="required", temperature=0.1, truncation="auto")
+base_model_settings = ModelSettings(reasoning=reasoning, parallel_tool_calls=True, tool_choice="auto", temperature=0.1, truncation="auto")
 
 handoffs = setup_agents(model, base_model_settings)
 summarizer = setup_summary_agent(model, base_model_settings)
@@ -130,8 +131,13 @@ async def main(request: str, workdir: str) -> None:
             console.print(f"[dim]For: `{request}`[/dim]")
 
 if __name__ == "__main__":
-    workdir = run_env_selector()
-    request: str = input(f"Enter Request for the Task Master ({local}): ")
+    parser = argparse.ArgumentParser(description="Swarm CLI")
+    parser.add_argument("--env", dest="env", nargs="?", const="local", default=None, help="Environment name to open.")
+    parser.add_argument("--task", dest="task", default=None, help="Task/request to run non-interactively")
+    args, _ = parser.parse_known_args()
+
+    workdir = run_env_selector(env_name=args.env)
+    request: str = args.task if args.task else input(f"Enter Request ({status_text}): ")
     console.print()
 
     try:

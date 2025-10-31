@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import os
-from typing import List
+import argparse
+from typing import List, Optional, Tuple
 from shared import environments
 
 
@@ -24,8 +25,56 @@ def _prompt(text: str) -> str:
     except EOFError:
         return "q"
 
+def parse_env_task_args(argv: Optional[List[str]] = None) -> Tuple[Optional[str], Optional[str]]:
+    """Lightweight parser for --env and --task flags.
 
-def run_env_selector(page_size: int = 5) -> str:
+    This is intentionally minimal to allow embedding in other CLIs.
+    Returns a tuple (env_name, task_text). Unrecognized args are ignored.
+    """
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--env", dest="env", nargs="?", const="local", default=None)
+    parser.add_argument("--task", dest="task", default=None)
+    try:
+        ns, _ = parser.parse_known_args(argv)
+        return ns.env, ns.task
+    except Exception:
+        # On any parsing issue, gracefully fall back to interactive mode
+        return None, None
+
+
+def run_env_selector(page_size: int = 5, env_name: Optional[str] = None) -> str:
+    """Select a working environment.
+
+    - If env_name is provided, attempt a non-interactive resolution and return the path.
+    - Otherwise, fall back to the interactive selector.
+    """
+    # Non-interactive fast path
+    if env_name:
+        # Special-case keywords for local work folder
+        if env_name.lower() in ("local", "work", "local-work", "local_work"):
+            try:
+                path = environments.get_or_create_local_work()
+                print(f"Using local work folder: {path}")
+                try:
+                    os.chdir(path)
+                except Exception as e:
+                    print(f"Failed to chdir to '{path}': {e}")
+                return path
+            except Exception as e:
+                print(f"Failed to initialize local work folder: {e}")
+                # If local fails, fall through to interactive selection
+
+        env = environments.get_environment(env_name)
+        if env:
+            print(f"Using '{env_name}': {env.repo} -> {env.path}")
+            try:
+                os.chdir(env.path)
+            except Exception as e:
+                print(f"Failed to chdir to '{env.path}': {e}")
+            return env.path
+        else:
+            print(f"Environment '{env_name}' not found. Entering interactive selector...")
+
     names = sorted(environments.list_environments().keys())
     if not names:
         # don't return early — allow the user to run 'add' interactively
