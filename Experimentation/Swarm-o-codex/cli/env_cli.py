@@ -14,8 +14,8 @@ def _render_page(names: List[str], page: int, page_size: int) -> None:
         env = environments.get_environment(n)
         short = env.repo if env else ""
         print(f"{i}) {n} -> {short}")
-    print("\nCommands: up, down, add, remove, update, q(quit)")
-    print("Or press 1-5 to select the listed environment")
+    print("\nCommands: up, down, add, remove, update.")
+    print("Press Enter to open your local work folder, or 1-5 to select a listed environment")
 
 
 def _prompt(text: str) -> str:
@@ -29,7 +29,7 @@ def run_env_selector(page_size: int = 5) -> str:
     names = sorted(environments.list_environments().keys())
     if not names:
         # don't return early — allow the user to run 'add' interactively
-        print("No environments found. Type 'add' to create one or 'q' to quit.")
+        print("No environments found. Press Enter to open your local work folder, type 'add' to create one.")
     page = 0
     while True:
         names = sorted(environments.list_environments().keys())
@@ -40,9 +40,18 @@ def run_env_selector(page_size: int = 5) -> str:
         _render_page(names, page, page_size)
         cmd = _prompt("> ").strip()
         if not cmd:
-            continue
-        if cmd in ("q", "quit", "exit"):
-            break
+            # Use or create the persistent local work folder
+            try:
+                path = environments.get_or_create_local_work()
+                print(f"Using local work folder: {path}")
+                try:
+                    os.chdir(path)
+                except Exception as e:
+                    print(f"Failed to chdir to '{path}': {e}")
+                return path
+            except Exception as e:
+                print(f"Failed to initialize local work folder: {e}")
+                continue
         if cmd in ("up", "u"):
             if page > 0:
                 page -= 1
@@ -116,7 +125,7 @@ def run_env_selector(page_size: int = 5) -> str:
                 print(f"Failed to chdir to '{env.path}': {e}")
             return env.path
 
-        print("Unknown command. Type 'add', 'remove', 'update', 'up', 'down', or 'q' to quit.")
+        print("Unknown command. Type 'add', 'remove', 'update', 'up', 'down'.")
 
     # if the loop exits without an explicit selection, return a sentinel
     return "no repo"

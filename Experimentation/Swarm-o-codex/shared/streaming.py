@@ -1,4 +1,6 @@
 import json
+import os
+import random
 from typing import Any
 
 from agents import StreamEvent
@@ -10,6 +12,22 @@ from rich.text import Text
 from rich.markup import escape
 
 console = Console()
+
+# Env-tunable settings
+SPINNER_FPS = float(os.getenv("SPINNER_FPS", "10"))  # lower FPS = slower animation
+SPINNER_STYLE = os.getenv("SPINNER_STYLE", "aesthetic")
+DEBUG_EVENTS = os.getenv("SWARM_DEBUG_EVENTS", "0").strip().lower() in {"1", "true", "yes", "on"}
+
+# Available color styles for the spinner
+SPINNER_COLORS = [
+    "bold cyan",
+    "bold magenta",
+    "bold green",
+    "bold blue",
+    "cyan",
+    "magenta",
+    "green",
+]
 
 
 def maybe_get_attr(obj: Any, name: str, default: Any = None) -> Any:
@@ -246,8 +264,8 @@ def describe_event(event: StreamEvent) -> str | None:
             pass
         return None
 
-    # Default event logging; keep spinner as-is
-    console.print(f"[dim]{escape(agent_name)} emitted event `{escape(event.name)}`.[/dim]")
+    if DEBUG_EVENTS:
+        console.print(f"[dim]{escape(agent_name)} emitted event `{escape(event.name)}`.[/dim]")
     return None
 
 
@@ -259,8 +277,9 @@ class ThinkingSpinner:
         self.live = None
     
     def __enter__(self):
-        spinner = Spinner("dots", text=f"[bold yellow]{escape(self.agent_name)}[/bold yellow] {self.message}")
-        self.live = Live(spinner, console=console, refresh_per_second=10)
+        color = random.choice(SPINNER_COLORS)
+        spinner = Spinner(SPINNER_STYLE, text=f"[bold yellow]{escape(self.agent_name)}[/bold yellow] {self.message}", style=color)
+        self.live = Live(spinner, console=console, refresh_per_second=SPINNER_FPS)
         self.live.__enter__()
         return self
     

@@ -17,6 +17,7 @@ PROFILE_DIR.mkdir(exist_ok=True)
 META_PATH = PROFILE_DIR / "environments.toml"
 STORE_ROOT = ProjectRoot / ".environments"
 STORE_ROOT.mkdir(exist_ok=True)
+LOCAL_WORK_KEY = "local_work"
 
 
 def _now_iso() -> str:
@@ -157,3 +158,40 @@ def update_environment(name: str) -> bool:
         return True
     except Exception:
         return False
+
+
+def get_or_create_local_work() -> str:
+    """
+    Ensure a persistent local work folder exists under .environments and return its path.
+
+    Behavior:
+    - On first call, creates STORE_ROOT / "local-work" and records it in environments.toml
+      under the top-level key 'local_work'.
+    - On subsequent calls, reuses the recorded path if it still exists; otherwise, recreates it.
+
+    Returns:
+        Absolute path to the local work folder as a string.
+    """
+    data = _load_meta()
+    lw = data.get(LOCAL_WORK_KEY, {})
+
+    # If we have a recorded path and it exists, update timestamp and return it
+    recorded_path = lw.get("path") if isinstance(lw, dict) else None
+    if recorded_path:
+        p = Path(recorded_path)
+        if p.exists():
+            data[LOCAL_WORK_KEY]["last_updated"] = _now_iso()
+            _write_meta(data)
+            return str(p.resolve())
+
+    # Create (or re-create) the default local work directory
+    work_dir = STORE_ROOT / "local-work"
+    work_dir.mkdir(parents=True, exist_ok=True)
+    now = _now_iso()
+    data[LOCAL_WORK_KEY] = {
+        "path": str(work_dir.resolve()),
+        "created_at": lw.get("created_at", now) if isinstance(lw, dict) else now,
+        "last_updated": now,
+    }
+    _write_meta(data)
+    return str(work_dir.resolve())

@@ -1,7 +1,12 @@
 
 import os
+import logging
 import asyncio
+import tempfile
+import atexit
+import shutil
 
+from pathlib import Path
 from copy import deepcopy
 from dotenv import load_dotenv
 
@@ -33,7 +38,16 @@ api_key: str | None = os.getenv("OPENAI_API_KEY")
 if api_key: pass
 else: api_key = "hello wolrd"
 
-logger.setLevel(0)
+# Configure logging level (default to ERROR to reduce noise). Override with SWARM_LOG_LEVEL.
+_log_level = os.getenv("SWARM_LOG_LEVEL", "ERROR").upper()
+try:
+    log_level_value = getattr(logging, _log_level, logging.ERROR)
+    logger.setLevel(log_level_value)
+    # Also configure root logger to suppress MCP validation warnings
+    logging.getLogger().setLevel(log_level_value)
+except Exception:
+    logger.setLevel(logging.ERROR)
+    logging.getLogger().setLevel(logging.ERROR)
 
 known_endpoints: list[str] = ["https://api.groq.com/openai"]
 
@@ -55,11 +69,15 @@ remote_openai_base_url: str = os.getenv("SWARM_REMOTE_OPENAI_BASE_URL", "https:/
 local_openai = AsyncOpenAI(base_url=f"{local_ip_address}/v1", api_key=api_key)
 
 #### Edit the local params as you see fit
-local_params_json = ["-y", "codex", "--oss", "-c", f"base_url=\"{local_ip_address}/v1\"", "-c", f"model=\"{local_model_str}\"", "-c", "model_provider=\"oss\"", "mcp-server"]
-local_params_json = ["-y", "codex", "--oss", "mcp-server"]
+codex_home = Path(tempfile.mkdtemp(prefix="codex_ollama_"))
+config_lines = [f'model = "{local_model_str}"', 'model_provider = "ollama"', '', '[model_providers.ollama]', 'name = "Ollama (local)"', f'base_url = "{local_ip_address}/v1"', 'wire_api = "chat"']
+config_path = codex_home / "config.toml"
+config_path.write_text("\n".join(config_lines) + "\n")
 
-local_params = MCPServerStdioParams({"command": "npx", "args": local_params_json})
+atexit.register(lambda: shutil.rmtree(codex_home, ignore_errors=True))
+
 cloud_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "codex", "mcp-server"]})
+local_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "codex", "mcp-server"], "env": {"CODEX_HOME": str(codex_home)}})
 
 if local:
     model = OpenAIChatCompletionsModel(model=local_model_str, openai_client=local_openai)
@@ -79,7 +97,7 @@ additional_mcp_servers: list[tuple[str, MCPServerStdioParams]] = [
     ("SequentialThinking", sequential_thinking_params),
 ]
 
-reasoning = Reasoning(effort="high", generate_summary="detailed", summary="detailed")
+reasoning = Reasoning(effort="low", generate_summary="detailed", summary="detailed")
 base_model_settings = ModelSettings(reasoning=reasoning, parallel_tool_calls=False, tool_choice="required")
 
 #### These are the models persona files, They are read on load, feel free to edit them
@@ -105,7 +123,8 @@ handoffs.append(task_master_agent)
 #### This is the main def, this runs the logic for the swarm.
 async def main(request: str, workdir: str) -> None:
     build_request: str = f"Working in the `{workdir}`, the user asked the task master \"{request}\""
-    full_request: str = f"{build_request}, when you are done with your roles dutys, handoff to the next agent"
+    handoff_instructions: str = "When you finish your turn, immediately call the appropriate transfer_to_<AgentName> handoff tool using the tool-calling interface. Do not print code or markdown, do not include backticks, and do not add any text after the tool call. "
+    full_request: str = f"{build_request}. {handoff_instructions}"
     async with AsyncExitStack() as stack:
         mcp_server_configs = [("PrimaryMCP", mcp_params), *additional_mcp_servers]
         mcp_servers: list[MCPServerStdio] = []
@@ -135,4 +154,9 @@ async def main(request: str, workdir: str) -> None:
 if __name__ == "__main__":
     workdir = run_env_selector()
     request: str = input(f"Enter Request for the Task Master ({local}): ")
-    asyncio.run(main(request, workdir))
+    console.print()
+
+    try:
+        asyncio.run(main(request, workdir))
+    except Exception as error:
+        pass
