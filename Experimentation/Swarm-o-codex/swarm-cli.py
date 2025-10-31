@@ -112,7 +112,7 @@ async def main(request: str, workdir: str) -> None:
             agent.handoffs = [a for a in handoffs if a.name != agent.name]
             agent.mcp_servers = mcp_servers # type: ignore
 
-        result = Runner.run_streamed(handoffs[4], full_request, run_config=run_config)
+        result = Runner.run_streamed(handoffs[4], full_request, run_config=run_config, max_turns=55)
 
         async for event in result.stream_events():
             describe_event(event)

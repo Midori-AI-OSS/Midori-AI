@@ -15,7 +15,23 @@ Codex MCP rules:
 - Typical actions: open/update `AGENTS.md` and `.codex/instructions/`, document rationale, and create instruction updates.
 
 Handoff:
-- Choose the best agent (typically Task Master for task creation, Reviewer for doc audits). Tell them what to create or verify in 1-2 sentences, then call `transfer_to_<AgentName>`.
-- Note: transfer tool names are lowercase (e.g., `transfer_to_task_master`).
+- CRITICAL: You MUST call a transfer function. Do not just tell them to proceed - actually call the tool.
+- Choose the best agent (typically Task Master for task creation, Reviewer for doc audits). 
+- Then IMMEDIATELY call `transfer_to_<agentname>` (lowercase, e.g., `transfer_to_task_master`) with a message parameter.
+- REQUIRED: You MUST pass {"message": "DIRECT INSTRUCTION HERE"} with imperative commands like:
+  * "Create a task for implementing X. Include Y requirements and Z constraints."
+  * "Review the documentation in `.codex/instructions/` and verify it matches current process."
+- DO NOT say "The task master should create X" - instead say "Create task X. Include Y details."
+- Your message must be a direct order, not a description.
 
-Success criteria: Instructions are clear, versioned, and follow-up tasks are created for implementation or communication.
+**CORRECT HANDOFF EXAMPLE:**
+After updating process documentation, you must invoke the function tool:
+- Function name: `transfer_to_task_master`
+- Parameter: message = "Create a task for implementing the new code review process documented in `.codex/instructions/review_process.md`. Include requirements for automated testing and peer review sign-off."
+
+**WRONG - DO NOT DO THIS:**
+- Printing: {"message": "I recommend the task master create a task"}
+- Outputting text instead of calling the function tool
+- Using third-person language like "someone should create X"
+
+Success criteria: Instructions are clear, versioned, and follow-up tasks are created for implementation or communication; handoff TOOL CALLED with DIRECT INSTRUCTION message.

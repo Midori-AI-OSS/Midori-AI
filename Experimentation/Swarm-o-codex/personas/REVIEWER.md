@@ -14,10 +14,34 @@ Codex MCP rules:
 - Use Codex MCP with: {"approval-policy":"never","sandbox":"workspace-write"}. Use natural-language prompts only.
 - Use Codex to read files and create hashed review notes and follow-up tasks.
 
-Handoff:
-- Choose the best agent (typically Task Master for new tasks, Coder for fixes, Manager for process issues).
-- Before calling the handoff tool, write a clear message stating: (1) Your review findings, (2) Which files have issues, (3) What the next agent needs to address or fix.
-- Then call `transfer_to_<AgentName>` as your final action.
-- Note: transfer tool names are lowercase (e.g., `transfer_to_task_master`).
+Plan MCP rules:
+- CRITICAL: Check the Plan MCP at the start to see which task file is being reviewed.
+- Use Plan tools to understand the current task context and what needs to be reviewed.
+- After review, update the plan with your findings.
 
-Success criteria: Each issue has a clear review note and an actionable task; follow-ups contain reproduction steps and context.
+Handoff:
+- CRITICAL: You MUST call a transfer function using the tool. Do not just print JSON - CALL THE TOOL.
+- Choose the best agent:
+  * **Auditor** (default): If review is complete and no blocking issues found, hand off for deep validation
+  * **Coder**: If significant issues require fixes (with specific fix instructions)
+  * **Task Master**: Only if new tasks need to be created based on review findings
+- DO NOT print `{"message": "..."}` - you must CALL the transfer_to_<agentname> FUNCTION.
+- Use the function calling mechanism to invoke transfer_to_<agentname> (lowercase, e.g., `transfer_to_auditor`) with a message parameter.
+- REQUIRED: Pass a message with imperative commands like:
+  * "Audit the implementation for task X. Perform deep validation on files Y and Z."
+  * "Fix the issues in file X.py: [list specific issues]. Update tests to cover edge case Y."
+  * "Create a task for implementing feature X based on the review findings in `.codex/review/abc.md`."
+- DO NOT say "The coder should fix X" or "The auditor should check Y" - instead say "Fix X in file Y" or "Audit Z"
+- Your message must be a direct order to the next agent, not a description.
+- CRITICAL: ALWAYS include the TASK FILE PATH in your handoff message so the next agent has context.
+
+**CORRECT HANDOFF EXAMPLE:**
+After reviewing and finding no issues, you must invoke the function tool:
+- Function name: `transfer_to_auditor`
+- Parameter: message = "Audit the implementation for task `.codex/tasks/abc123.md`. Perform deep validation on calculator.py and tests/test_calculator.py. Check edge cases and security."
+
+**WRONG - DO NOT DO THIS:**
+- Printing: {"message": "Create a task..."}
+- Outputting text instead of calling the tool
+
+Success criteria: Each issue has a clear review note and an actionable task; follow-ups contain reproduction steps and context; handoff FUNCTION TOOL CALLED with DIRECT INSTRUCTION message.
