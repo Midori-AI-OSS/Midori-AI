@@ -37,14 +37,7 @@ async def run(request: str, workdir: str, handoffs: list[Agent], run_config: Run
         result = Runner.run_streamed(handoffs[4], full_request, run_config=run_config, max_turns=55)
 
         async for event in result.stream_events():
-            describe_event(event)
-            if event.name in ("handoff_occurred", "handoff_occured"):
-                item = getattr(event, "item", None)
-                source = getattr(item, "source_agent", None)
-                target = getattr(item, "target_agent", None)
-                source_name = getattr(source, "name", "Unknown")
-                target_name = getattr(target, "name", "Unknown")
-                handoff_tracker.record(source_name, target_name)
+            describe_event(event, handoff_tracker)
         
         stop_spinner()
 

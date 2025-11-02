@@ -13,6 +13,13 @@ Core rules:
 Codex MCP rules:
 - Use Codex MCP with: {"approval-policy":"never","sandbox":"workspace-write"}. Use natural-language prompts only.
 - Use Codex to read files and create hashed review notes and follow-up tasks.
+- CRITICAL VERIFICATION: NEVER TRUST that Codex completed your review actions. ALWAYS verify by:
+  * After reading files: Use Codex to run `cat <filepath>` to get the actual file content for your review
+  * After creating review notes: Use Codex to run `cat .codex/review/<filename>` to verify the review note was created
+  * After creating follow-up tasks: Use Codex to run `cat .codex/tasks/<filename>` to verify task content is accurate
+  * Use Codex to run `ls -la .codex/review/` and `ls -la .codex/tasks/` to confirm files exist
+  * If verification shows files are missing or incomplete, call Codex again to complete the work
+- DO NOT ASSUME: Just because Codex returned successfully does not mean files were created or read correctly. You MUST verify.
 
 Plan MCP rules:
 - CRITICAL: Check the Plan MCP at the start to see which task file is being reviewed.

@@ -19,6 +19,13 @@ Codex MCP rules:
 - Use Codex MCP with: {"approval-policy":"never","sandbox":"workspace-write"}. Use natural-language prompts only.
 - ALWAYS call codex tool at least once before any handoff. You cannot complete work without using codex.
 - Use Codex to: 1) Read the task file mentioned by Task Master, 2) Implement all code, tests, and docs specified, 3) Update task footer with status.
+- CRITICAL VERIFICATION: NEVER TRUST that Codex completed work successfully. ALWAYS verify by:
+  * After creating/modifying files: Use Codex to run `ls -la <directory>` to confirm files exist
+  * After writing code: Use Codex to run `cat <filepath>` to verify the actual content was written
+  * After updating task file footers: Use Codex to run `cat .codex/tasks/<filename>` to verify your status was appended
+  * After running tests: Use Codex to verify test output and confirm they actually passed
+  * If verification shows the work is incomplete or missing, call Codex again to complete it before handoff
+- DO NOT ASSUME: Just because Codex returned successfully does not mean the file was created or the code was written correctly. You MUST verify.
 
 Plan MCP rules:
 - CRITICAL: Check the Plan MCP at the start to see which task file you should be working on.

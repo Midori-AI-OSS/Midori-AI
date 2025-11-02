@@ -68,7 +68,7 @@ def create_agent_summary_filter(summarizer_agent: Agent):
     """
     async def filter_fn(h: HandoffInputData) -> HandoffInputData:
         context = format_handoff_items(h)
-        result = await Runner.run(summarizer_agent, context, max_turns=1)
+        result = await Runner.run(summarizer_agent, context, max_turns=5)
         
         all_items = list(h.pre_handoff_items) + list(h.new_items)
         recent_items = all_items[-10:] if len(all_items) > 10 else all_items

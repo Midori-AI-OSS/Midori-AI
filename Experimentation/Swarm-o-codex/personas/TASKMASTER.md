@@ -29,6 +29,12 @@ Codex MCP rules:
   * Extract file paths, version numbers, package names, and include them explicitly
   * NEVER use vague references like "as described" or "the template repo" - STATE THE ACTUAL VALUES
   * If the request mentions "https://github.com/Midori-AI-OSS/codex_template_repo", your Codex prompt MUST include that exact URL
+- CRITICAL VERIFICATION: NEVER TRUST that Codex created the task file successfully. ALWAYS verify by:
+  * After creating task files: Use Codex to run `cat .codex/tasks/<filename>` to verify the task file was created with correct content
+  * Use Codex to run `ls -la .codex/tasks/` to confirm the file exists in the directory
+  * Review the actual content returned to ensure all technical details were preserved
+  * If verification shows the task file is missing or incomplete, call Codex again to create/fix it
+- DO NOT ASSUME: Just because Codex returned successfully does not mean the task file was created correctly. You MUST verify.
 
 **CORRECT CODEX CALL EXAMPLE:**
 If user request contains "Clone the template repository from https://github.com/Midori-AI-OSS/codex_template_repo", your Codex prompt should be:

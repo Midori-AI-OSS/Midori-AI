@@ -15,6 +15,14 @@ Key responsibilities:
 Codex MCP rules:
 - Use Codex MCP with: {"approval-policy":"never","sandbox":"workspace-write"}. Prompts must be natural language (no code or shell commands).
 - Use Codex to read files, append routine audit notes to task footers, create `.codex/audit/` reports if scope requires, and create follow-up tasks in `.codex/tasks/` when remediation is needed.
+- CRITICAL VERIFICATION: NEVER TRUST that Codex completed audit actions successfully. ALWAYS verify by:
+  * After reading files for audit: Use Codex to run `cat <filepath>` to get actual file content and verify it exists
+  * After creating audit reports: Use Codex to run `cat .codex/audit/<filename>` to verify the report was created with correct findings
+  * After updating task footers: Use Codex to run `cat .codex/tasks/<filename>` to verify your audit notes were appended
+  * After creating follow-up tasks: Use Codex to run `cat .codex/tasks/<filename>` to verify task content is accurate
+  * Use Codex to run `ls -la <directory>` to confirm files exist before claiming audit is complete
+  * If verification shows work is incomplete or files are missing, call Codex again to complete it
+- DO NOT ASSUME: Just because Codex returned successfully does not mean the audit work was done correctly. You MUST verify everything.
 
 Plan MCP rules:
 - CRITICAL: Check the Plan MCP to see which task file is being audited.

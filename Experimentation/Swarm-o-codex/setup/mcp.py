@@ -13,24 +13,17 @@ def setup_mcp(local_model_str: str, local_ip_address: str):
     config_path = codex_home / "config.toml"
     config_path.write_text("\n".join(config_lines) + "\n")
 
-    task_file_home = Path(tempfile.mkdtemp(prefix="task_files_midori_ai_"))
-    task_file_path = task_file_home / "task_manager.json"
-    task_file_path.write_text("{}\n")
-
     atexit.register(lambda: shutil.rmtree(codex_home, ignore_errors=True))
-    atexit.register(lambda: shutil.rmtree(task_file_home, ignore_errors=True))
 
     cloud_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "codex", "mcp-server"]})
     local_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "codex", "mcp-server"], "env": {"CODEX_HOME": str(codex_home)}})
 
-    plan_tool_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "taskqueue-mcp"], "env": {"TASK_MANAGER_FILE_PATH": str(task_file_path)}})
     playwright_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "@playwright/mcp@latest"]})
     context_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "@upstash/context7-mcp@latest"]})
     sequential_thinking_params = MCPServerStdioParams({"command": "npx", "args": ["-y", "@modelcontextprotocol/server-sequential-thinking@latest"]})
 
     # Add additional MCP servers by appending (name, params) tuples to this list.
     additional_mcp_servers: list[tuple[str, MCPServerStdioParams]] = [
-        ("Plan", plan_tool_params),
         ("Context7", context_params),
         ("Playwright", playwright_params),
         ("SequentialThinking", sequential_thinking_params),

@@ -1,7 +1,9 @@
-import json
+
 import os
+import json
 import random
-from typing import Any
+from typing import Any 
+from typing import Optional
 
 from agents import StreamEvent
 from rich.console import Console
@@ -72,7 +74,7 @@ def summarize_tool_arguments(arguments: str | None) -> str:
         return arguments or ""
 
 
-def describe_event(event: StreamEvent) -> str | None:
+def describe_event(event: StreamEvent, handoff_tracker: Optional[Any] = None) -> str | None:
     # Debug: always log event type and name
     if DEBUG_EVENTS:
         event_type = getattr(event, 'type', 'unknown')
@@ -189,6 +191,11 @@ def describe_event(event: StreamEvent) -> str | None:
         target = getattr(item, "target_agent", None)
         source_name = getattr(source, "name", "Unknown")
         target_name = getattr(target, "name", "Unknown")
+        
+        # Record handoff if tracker is provided
+        if handoff_tracker is not None:
+            handoff_tracker.record(source_name, target_name)
+        
         # Stop spinner; the next acting agent will start its own spinner on switch
         try:
             stop_spinner()
