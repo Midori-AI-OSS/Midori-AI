@@ -46,6 +46,9 @@ def get_local_work_init_prompt() -> str:
     """Return the initialization prompt for setting up a new local work folder."""
     return """Initialize this local work folder using the Codex template repository as a starting point.
 
+Note: the local work folder is initially blank (empty). 
+Agents and setup steps should treat it as an empty folder to begin with and populate it by applying the template below.
+
 Please complete the following steps:
 1. Clone the template repository from https://github.com/Midori-AI-OSS/codex_template_repo into a temporary location
 2. Copy all files and folders from the cloned repository into this current working directory

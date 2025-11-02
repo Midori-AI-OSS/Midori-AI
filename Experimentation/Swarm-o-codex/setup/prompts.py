@@ -4,6 +4,15 @@ from agents import ModelSettings
 from agents import OpenAIResponsesModel
 from agents import OpenAIChatCompletionsModel
 from agents.extensions.handoff_prompt import RECOMMENDED_PROMPT_PREFIX
+from pydantic import BaseModel
+from pydantic import Field
+
+#### This is the output schema that ONLY the Manager can use to end a run
+class TaskCompletion(BaseModel):
+    """Structured output for completing a workflow run. Only the Manager agent can produce this."""
+    output: str = Field(description="The final deliverable (markdown, summary, or result)")
+    task: str = Field(description="Description of what was accomplished during the run")
+    done: str = Field(description="Confirmation status - use 'yes' or 'complete'")
 
 def setup_agents(model: OpenAIChatCompletionsModel | OpenAIResponsesModel, base_model_settings: ModelSettings) -> list[Agent]:
     #### These are the models persona files, They are read on load, feel free to edit them
@@ -18,7 +27,7 @@ def setup_agents(model: OpenAIChatCompletionsModel | OpenAIResponsesModel, base_
     #### These are the agent objs, they tell the system what agents are in the swarm
     coder_agent = Agent(name="Coder", instructions=coder_prompt, model=model, model_settings=base_model_settings)
     auditor_agent = Agent(name="Auditor", instructions=auditor_prompt, model=model, model_settings=base_model_settings)
-    manager_agent = Agent(name="Manager", instructions=manager_prompt, model=model, model_settings=base_model_settings)
+    manager_agent = Agent(name="Manager", instructions=manager_prompt, model=model, model_settings=base_model_settings, output_type=TaskCompletion)
     reviewer_agent = Agent(name="Reviewer", instructions=reviewer_prompt, model=model, model_settings=base_model_settings)
     task_master_agent = Agent(name="Task Master", instructions=task_master_prompt, model=model, model_settings=base_model_settings)
     storyteller_agent = Agent(name="Storyteller", instructions=storyteller_prompt, model=model, model_settings=base_model_settings)

@@ -68,7 +68,9 @@ local_model_str: str = "gpt-oss:120b"
 cloud_model_str: str = "gpt-5"
 
 #### Update this to change the ip, do not use localhost
-local_ip_address: str = f"http://{get_local_ip(fallback='192.168.10.27')}:11434"
+pre_local_ip: str = get_local_ip(fallback='192.168.10.27')
+pre_local_port: str = "11434"
+local_ip_address: str = f"http://{pre_local_ip}:{pre_local_port}"
 
 remote_openai_base_url: str = os.getenv("SWARM_REMOTE_OPENAI_BASE_URL", "https://api.openai.com").rstrip("/")
 
@@ -85,7 +87,7 @@ else:
     model = OpenAIResponsesModel(model=cloud_model_str, openai_client=AsyncOpenAI(api_key=api_key))
     status_text = "Cloud"; mcp_params = cloud_params
 
-reasoning = Reasoning(effort="low", generate_summary="detailed", summary="detailed")
+reasoning = Reasoning(effort="medium", generate_summary="detailed", summary="detailed")
 base_model_settings = ModelSettings(reasoning=reasoning, parallel_tool_calls=True, tool_choice="auto", temperature=0.1, truncation="auto")
 
 handoffs = setup_agents(model, base_model_settings)
