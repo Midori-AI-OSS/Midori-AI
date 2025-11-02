@@ -42,24 +42,47 @@ def parse_env_task_args(argv: Optional[List[str]] = None) -> Tuple[Optional[str]
         return None, None
 
 
-def run_env_selector(page_size: int = 5, env_name: Optional[str] = None) -> str:
+def get_local_work_init_prompt() -> str:
+    """Return the initialization prompt for setting up a new local work folder."""
+    return """Initialize this local work folder using the Codex template repository as a starting point.
+
+Please complete the following steps:
+1. Clone the template repository from https://github.com/Midori-AI-OSS/codex_template_repo into a temporary location
+2. Copy all files and folders from the cloned repository into this current working directory
+3. Remove the .git folder completely to detach from the template's version control history
+4. Remove any other template-specific metadata files (like .github workflows, template-specific README sections, etc.)
+5. Update and customize the README.md file to reflect that this is now a local work folder, not the template
+6. Verify the file structure is clean and ready for use
+
+The goal is to set up this folder with a clean, working project structure based on the Codex template, but independent from the template repository itself. After initialization, this folder should be ready for custom development work."""
+
+
+def run_env_selector(page_size: int = 5, env_name: Optional[str] = None) -> Tuple[str, Optional[str]]:
     """Select a working environment.
 
     - If env_name is provided, attempt a non-interactive resolution and return the path.
     - Otherwise, fall back to the interactive selector.
+    
+    Returns:
+        Tuple of (path, init_prompt):
+        - path: The selected environment path
+        - init_prompt: Initialization prompt if the folder needs setup, None otherwise
     """
     # Non-interactive fast path
     if env_name:
         # Special-case keywords for local work folder
         if env_name.lower() in ("local", "work", "local-work", "local_work"):
             try:
-                path = environments.get_or_create_local_work()
+                path, needs_init = environments.get_or_create_local_work()
+                init_prompt = get_local_work_init_prompt() if needs_init else None
                 print(f"Using local work folder: {path}")
+                if needs_init:
+                    print("[INFO] Local work folder is empty and will be initialized with template...")
                 try:
                     os.chdir(path)
                 except Exception as e:
                     print(f"Failed to chdir to '{path}': {e}")
-                return path
+                return path, init_prompt
             except Exception as e:
                 print(f"Failed to initialize local work folder: {e}")
                 # If local fails, fall through to interactive selection
@@ -71,7 +94,7 @@ def run_env_selector(page_size: int = 5, env_name: Optional[str] = None) -> str:
                 os.chdir(env.path)
             except Exception as e:
                 print(f"Failed to chdir to '{env.path}': {e}")
-            return env.path
+            return env.path, None
         else:
             print(f"Environment '{env_name}' not found. Entering interactive selector...")
 
@@ -91,13 +114,16 @@ def run_env_selector(page_size: int = 5, env_name: Optional[str] = None) -> str:
         if not cmd:
             # Use or create the persistent local work folder
             try:
-                path = environments.get_or_create_local_work()
+                path, needs_init = environments.get_or_create_local_work()
+                init_prompt = get_local_work_init_prompt() if needs_init else None
                 print(f"Using local work folder: {path}")
+                if needs_init:
+                    print("[INFO] Local work folder is empty and will be initialized with template...")
                 try:
                     os.chdir(path)
                 except Exception as e:
                     print(f"Failed to chdir to '{path}': {e}")
-                return path
+                return path, init_prompt
             except Exception as e:
                 print(f"Failed to initialize local work folder: {e}")
                 continue
@@ -172,9 +198,9 @@ def run_env_selector(page_size: int = 5, env_name: Optional[str] = None) -> str:
                 os.chdir(env.path)
             except Exception as e:
                 print(f"Failed to chdir to '{env.path}': {e}")
-            return env.path
+            return env.path, None
 
         print("Unknown command. Type 'add', 'remove', 'update', 'up', 'down'.")
 
     # if the loop exits without an explicit selection, return a sentinel
-    return "no repo"
+    return "no repo", None

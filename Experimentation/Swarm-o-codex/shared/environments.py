@@ -160,7 +160,7 @@ def update_environment(name: str) -> bool:
         return False
 
 
-def get_or_create_local_work() -> str:
+def get_or_create_local_work() -> tuple[str, bool]:
     """
     Ensure a persistent local work folder exists under .environments and return its path.
 
@@ -170,7 +170,9 @@ def get_or_create_local_work() -> str:
     - On subsequent calls, reuses the recorded path if it still exists; otherwise, recreates it.
 
     Returns:
-        Absolute path to the local work folder as a string.
+        Tuple of (path, needs_initialization):
+        - path: Absolute path to the local work folder as a string
+        - needs_initialization: True if this is a newly created folder that needs template setup
     """
     data = _load_meta()
     lw = data.get(LOCAL_WORK_KEY, {})
@@ -182,7 +184,9 @@ def get_or_create_local_work() -> str:
         if p.exists():
             data[LOCAL_WORK_KEY]["last_updated"] = _now_iso()
             _write_meta(data)
-            return str(p.resolve())
+            # Check if folder is empty (needs initialization)
+            is_empty = not any(p.iterdir())
+            return str(p.resolve()), is_empty
 
     # Create (or re-create) the default local work directory
     work_dir = STORE_ROOT / "local-work"
@@ -194,4 +198,4 @@ def get_or_create_local_work() -> str:
         "last_updated": now,
     }
     _write_meta(data)
-    return str(work_dir.resolve())
+    return str(work_dir.resolve()), True
