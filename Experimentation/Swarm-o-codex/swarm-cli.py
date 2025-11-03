@@ -55,7 +55,12 @@ except Exception:
     logger.setLevel(logging.ERROR)
     logging.getLogger().setLevel(logging.ERROR)
 
-known_endpoints: list[str] = ["https://api.groq.com/openai"]
+known_endpoints: list[str] = [
+    "https://ai-proxy.midori-ai.xyz",
+    "https://api.groq.com/openai",
+    "https://openrouter.ai/api",
+    "https://api.arliai.com",
+    ]
 
 #### Change / set this for cloud support
 local_env = os.getenv("SWARM_RUN_LOCAL", "true").strip().lower()

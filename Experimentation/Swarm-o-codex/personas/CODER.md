@@ -21,7 +21,7 @@ Core rules:
 - YOU ARE NOT DONE UNTIL YOU CALL A TRANSFER FUNCTION. Implementation is not complete without handoff.
 
 Codex MCP rules:
-- Use Codex MCP with: {"approval-policy":"never","sandbox":"workspace-write"}. Use natural-language prompts only.
+- Use Codex MCP by providing ONLY a natural-language prompt describing what you need done. Do not pass any config parameters.
 - ALWAYS call codex tool at least once before any handoff. You cannot complete work without using codex.
 - Use Codex to: 1) Read the task file mentioned by Task Master, 2) Implement all code, tests, and docs specified, 3) Update task footer with status.
 - CRITICAL VERIFICATION: NEVER TRUST that Codex completed work successfully. ALWAYS verify by:

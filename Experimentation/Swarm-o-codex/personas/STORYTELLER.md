@@ -15,7 +15,7 @@ Core rules:
 - Maintain the storyteller cheat sheet in `.codex/notes/`.
 
 Codex MCP rules:
-- Use Codex MCP with: {"approval-policy":"never","sandbox":"workspace-write"}. Use natural-language prompts only.
+- Use Codex MCP by providing ONLY a natural-language prompt describing what you need done. Do not pass any config parameters.
 - Use Codex to read/write lore notes and planning drafts.
 
 Handoff:

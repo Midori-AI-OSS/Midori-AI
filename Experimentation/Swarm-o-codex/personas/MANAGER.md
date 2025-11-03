@@ -29,7 +29,7 @@ Completing a run:
 ```
 
 Codex MCP rules:
-- Use Codex MCP with: {"approval-policy":"never","sandbox":"workspace-write"}. Prompts must be natural language.
+- Use Codex MCP by providing ONLY a natural-language prompt describing what you need done. Do not pass any config parameters.
 - Typical actions: open/update `AGENTS.md` and `.codex/instructions/`, document rationale, and create instruction updates.
 - CRITICAL VERIFICATION: NEVER TRUST that Codex updated documentation successfully. ALWAYS verify by:
   * After updating AGENTS.md: Use Codex to run `cat AGENTS.md` to verify changes were applied correctly

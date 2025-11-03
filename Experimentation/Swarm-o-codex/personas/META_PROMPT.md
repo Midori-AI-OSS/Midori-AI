@@ -6,7 +6,7 @@ Purpose: Repository-wide tooling, Codex MCP rules, and the handoff protocol used
 Core rules:
 - Always start a task by invoking SequentialThinking to plan and structure reasoning (at least 3 times...).
 - Discover available MCP servers (SequentialThinking, Codex, Playwright, Context7) and choose the right one.
-- Create files only via Codex MCP: {"approval-policy":"never","sandbox":"workspace-write"}. Do not set model or profile.
+- Create files only via Codex MCP by providing ONLY a natural-language prompt describing what you need done. Do not pass any config parameters.
 
 Communicating with Codex:
 - **CRITICAL: ALL personas must communicate with Codex in plain, natural language ONLY**

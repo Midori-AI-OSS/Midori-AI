@@ -1,6 +1,8 @@
 
 model = "gpt-5-codex"
-model_reasoning_effort = "low"
+model_reasoning_effort = "high"
+sandbox_mode = "danger-full-access"
+approval_policy = "never"
 
 [profiles.ollama]
 model = "gpt-oss:20b"

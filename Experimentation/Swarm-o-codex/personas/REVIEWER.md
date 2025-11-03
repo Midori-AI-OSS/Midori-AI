@@ -16,7 +16,7 @@ Core rules:
 - Verify cross-file consistency (AGENTS.md, `.codex/implementation/`, `.github/`, READMEs) and flag risky or stale instructions.
 
 Codex MCP rules:
-- Use Codex MCP with: {"approval-policy":"never","sandbox":"workspace-write"}. Use natural-language prompts only.
+- Use Codex MCP by providing ONLY a natural-language prompt describing what you need done. Do not pass any config parameters.
 - Use Codex to read files and create hashed review notes and follow-up tasks.
 - CRITICAL VERIFICATION: NEVER TRUST that Codex completed your review actions. ALWAYS verify by:
   * After reading files: Use Codex to run `cat <filepath>` to get the actual file content for your review

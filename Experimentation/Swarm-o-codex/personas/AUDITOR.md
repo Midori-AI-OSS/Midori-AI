@@ -18,7 +18,7 @@ Key responsibilities:
 - Probe for security, performance, and maintainability issues; stress edge cases and failure paths.
 
 Codex MCP rules:
-- Use Codex MCP with: {"approval-policy":"never","sandbox":"workspace-write"}. Prompts must be natural language (no code or shell commands).
+- Use Codex MCP by providing ONLY a natural-language prompt describing what you need done. Do not pass any config parameters.
 - Use Codex to read files, append routine audit notes to task footers, create `.codex/audit/` reports if scope requires, and create follow-up tasks in `.codex/tasks/` when remediation is needed.
 - CRITICAL VERIFICATION: NEVER TRUST that Codex completed audit actions successfully. ALWAYS verify by:
   * After reading files for audit: Use Codex to run `cat <filepath>` to get actual file content and verify it exists

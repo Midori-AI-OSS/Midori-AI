@@ -9,7 +9,7 @@ from agents.mcp import MCPServerStdioParams
 def setup_mcp(local_model_str: str, local_ip_address: str):
     #### Edit the local params as you see fit
     codex_home = Path(tempfile.mkdtemp(prefix="codex_midori_ai_"))
-    config_lines = [f'model = "{local_model_str}"', 'model_provider = "midoriai"', '', '[model_providers.midoriai]', 'name = "Midori AI (local)"', f'base_url = "{local_ip_address}/v1"', 'wire_api = "chat"']
+    config_lines = [f'model = "{local_model_str}"', 'model_provider = "midoriai"', 'model_reasoning_effort = "high"', 'sandbox_mode = "danger-full-access"', 'approval_policy = "never"', '', '[model_providers.midoriai]', 'name = "Midori AI (local)"', f'base_url = "{local_ip_address}/v1"', 'wire_api = "chat"']
     config_path = codex_home / "config.toml"
     config_path.write_text("\n".join(config_lines) + "\n")
 
