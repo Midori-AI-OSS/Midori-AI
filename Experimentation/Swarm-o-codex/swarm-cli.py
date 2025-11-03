@@ -111,7 +111,7 @@ if __name__ == "__main__":
         console.print("[bold cyan]Initializing local work folder with template...[/bold cyan]")
         try:
             asyncio.run(run(init_prompt, workdir, handoffs, run_config, mcp_params, additional_mcp_servers))
-            console.print("\n[bold green]✓ Local work folder initialized successfully![/bold green]\n")
+            console.print("\n[bold green]Local work folder initialized successfully![/bold green]\n")
         except Exception as error:
             console.print(f"\n[bold red]Failed to initialize local work folder: {error}[/bold red]")
             console.print(f"[dim]{traceback.format_exc()}[/dim]")

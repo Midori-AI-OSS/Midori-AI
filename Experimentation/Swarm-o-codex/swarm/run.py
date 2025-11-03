@@ -11,6 +11,8 @@ from agents.mcp import MCPServerStdioParams
 
 from shared.streaming import console
 from shared.streaming import describe_event
+from shared.streaming import EventBuffer
+from shared.streaming import ENABLE_EVENT_BUFFERING
 from shared.handoff_tracker import HandoffTracker
 
 #### This is the main def, this runs the logic for the swarm.
@@ -38,8 +40,24 @@ async def run(request: str, workdir: str, handoffs: list[Agent], run_config: Run
 
         result = Runner.run_streamed(handoffs[4], full_request, run_config=run_config, max_turns=55)
 
+        # Initialize event buffer if enabled
+        event_buffer = EventBuffer() if ENABLE_EVENT_BUFFERING else None
+
         async for event in result.stream_events():
-            describe_event(event, handoff_tracker)
+            if event_buffer:
+                # Use buffering to reorder events (reasoning before tool calls)
+                events_to_display = event_buffer.add(event, handoff_tracker)
+                for buffered_event, buffered_tracker in events_to_display:
+                    describe_event(buffered_event, buffered_tracker)
+            else:
+                # Direct pass-through without buffering
+                describe_event(event, handoff_tracker)
+        
+        # Flush any remaining buffered events
+        if event_buffer:
+            remaining_events = event_buffer.flush()
+            for buffered_event, buffered_tracker in remaining_events:
+                describe_event(buffered_event, buffered_tracker)
 
         if handoff_tracker.requirements_met():
             console.print("[dim]Handoff tracker: all required role handoffs observed.[/dim]")
@@ -48,19 +66,45 @@ async def run(request: str, workdir: str, handoffs: list[Agent], run_config: Run
             for reminder in handoff_tracker.iter_missing():
                 console.print(f" - {reminder}")
         
-        if hasattr(result, 'stop_reason'):
-            console.print(f"[dim]Run stopped: {getattr(result, 'stop_reason', 'unknown')}[/dim]")
-        
+        # Log stop reason and result details for debugging
+        stop_reason = getattr(result, 'stop_reason', None)
         console.print(f"[dim]Result type: {type(result).__name__}[/dim]")
+        console.print(f"[dim]Stop reason: {stop_reason if stop_reason else 'not available'}[/dim]")
         console.print(f"[dim]Has final_output: {result.final_output is not None}[/dim]")
+        
+        # Check the active agent at the end of the run
+        active_agent_name = getattr(result, 'agent', None)
+        if active_agent_name:
+            active_agent_name = getattr(active_agent_name, 'name', 'Unknown')
+        else:
+            active_agent_name = 'Unknown'
+        console.print(f"[dim]Active agent at completion: {active_agent_name}[/dim]")
 
+        # CRITICAL: Only allow Manager to complete the run with final output
         if result.final_output is not None:
-            console.print("\n[bold green]=== Final Output ===[/bold green]")
-            console.print(result.final_output)
-            console.print(f"[dim]For: `{request}`[/dim]")
+            if active_agent_name != "Manager":
+                console.print(f"\n[bold red]ERROR: Run completed with final_output but active agent is '{active_agent_name}', not 'Manager'![/bold red]")
+                console.print(f"[bold red]Only the Manager agent can complete workflow runs.[/bold red]")
+                console.print(f"[yellow]This indicates the agent failed to properly hand off. Check the agent's last actions.[/yellow]")
+                console.print(f"\n[bold yellow]=== Invalid Final Output (from {active_agent_name}) ===[/bold yellow]")
+                console.print(result.final_output)
+                console.print(f"[dim]For: `{request}`[/dim]")
+                console.print(f"\n[bold red]Run did NOT complete successfully - missing proper Manager handoff[/bold red]")
+            else:
+                console.print("\n[bold green]=== Final Output ===[/bold green]")
+                console.print(result.final_output)
+                console.print(f"[dim]For: `{request}`[/dim]")
+        
+        else:
+            # No final output - run ended without proper completion
+            console.print(f"\n[bold yellow]Run ended without final output[/bold yellow]")
+            if stop_reason:
+                console.print(f"[yellow]Reason: {stop_reason}[/yellow]")
+            if not handoff_tracker.requirements_met():
+                console.print(f"[yellow]Missing required handoffs - workflow incomplete[/yellow]")
         
         # Log execution time
         end_time = time.perf_counter()
         duration = end_time - start_time
-        console.print(f"\n[bold cyan]⏱️  Run completed in {duration:.2f} seconds[/bold cyan]")
+        console.print(f"\n[bold cyan]Run completed in {duration:.2f} seconds[/bold cyan]")
         logger.info(f"Run completed in {duration:.2f} seconds for request: {request}")

@@ -15,12 +15,12 @@ Communicating with Codex:
 - Codex will respond in plain language to confirm understanding and completion
 - Think of Codex as a skilled human assistant who understands context and can figure out implementation details
 - Examples of proper communication:
-  * ✓ GOOD: "Please update the error handling in the API module to catch timeout exceptions"
-  * ✗ BAD: "Run this command: try: api_call() except TimeoutError: handle_timeout()"
-  * ✓ GOOD: "Create a new configuration file for the database settings with localhost and port 5432"
-  * ✗ BAD: "Create config/database.json with {\"host\": \"localhost\", \"port\": 5432}"
-  * ✓ GOOD: "Add logging to the authentication function to track failed login attempts"
-  * ✗ BAD: "Insert logger.error('Failed login') after line 45"
+  * GOOD: "Please update the error handling in the API module to catch timeout exceptions"
+  * BAD: "Run this command: try: api_call() except TimeoutError: handle_timeout()"
+  * GOOD: "Create a new configuration file for the database settings with localhost and port 5432"
+  * BAD: "Create config/database.json with {\"host\": \"localhost\", \"port\": 5432}"
+  * GOOD: "Add logging to the authentication function to track failed login attempts"
+  * BAD: "Insert logger.error('Failed login') after line 45"
 
 Run completion rules:
 - CRITICAL: ONLY the Manager agent can complete a run. All other agents (Task Master, Coder, Auditor, Reviewer, Storyteller) CANNOT complete runs.
