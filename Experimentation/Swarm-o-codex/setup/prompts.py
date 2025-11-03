@@ -12,7 +12,7 @@ class TaskCompletion(BaseModel):
     """Structured output for completing a workflow run. Only the Manager agent can produce this."""
     output: str = Field(description="The final deliverable (markdown, summary, or result)")
     task: str = Field(description="Description of what was accomplished during the run")
-    done: str = Field(description="Confirmation status - use 'yes' or 'complete'")
+    done: bool = Field(description="Confirmation status - must be True to complete the run")
 
 def setup_agents(model: OpenAIChatCompletionsModel | OpenAIResponsesModel, base_model_settings: ModelSettings) -> list[Agent]:
     #### These are the models persona files, They are read on load, feel free to edit them

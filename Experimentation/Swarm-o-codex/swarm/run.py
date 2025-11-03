@@ -9,7 +9,6 @@ from agents.mcp import MCPServerStdio
 from agents.mcp import MCPServerStdioParams
 
 from shared.streaming import console
-from shared.streaming import stop_spinner
 from shared.streaming import describe_event
 from shared.handoff_tracker import HandoffTracker
 
@@ -38,8 +37,6 @@ async def run(request: str, workdir: str, handoffs: list[Agent], run_config: Run
 
         async for event in result.stream_events():
             describe_event(event, handoff_tracker)
-        
-        stop_spinner()
 
         if handoff_tracker.requirements_met():
             console.print("[dim]Handoff tracker: all required role handoffs observed.[/dim]")

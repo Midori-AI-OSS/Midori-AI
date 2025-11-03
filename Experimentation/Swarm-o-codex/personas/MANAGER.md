@@ -17,14 +17,14 @@ Completing a run:
 - To complete, produce a TaskCompletion output with exactly these three fields:
   * output: The final deliverable requested by the user (markdown document, summary, result, etc.)
   * task: Clear description of what was accomplished during this run
-  * done: Confirmation status - always use "yes" or "complete"
+  * done: Boolean confirmation - must be true to complete the run
 
 **EXAMPLE TaskCompletion Output:**
 ```
 {
   "output": "# Onboarding Checklist\n\n1. Clone the repo...\n2. Read AGENTS.md...",
   "task": "Created a 6-step onboarding checklist in markdown format with humorous tone and joke code naming conventions as requested",
-  "done": "yes"
+  "done": true
 }
 ```
 

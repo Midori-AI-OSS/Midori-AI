@@ -27,7 +27,6 @@ from agents import OpenAIChatCompletionsModel
 from agents.extensions import handoff_filters
 
 from shared.streaming import console
-from shared.streaming import stop_spinner
 from cli.env_cli import run_env_selector
 from shared.getnetwork import get_local_ip
 from shared.streaming import describe_event
