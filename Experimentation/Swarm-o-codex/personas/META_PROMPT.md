@@ -7,7 +7,20 @@ Core rules:
 - Always start a task by invoking SequentialThinking to plan and structure reasoning (at least 3 times...).
 - Discover available MCP servers (SequentialThinking, Codex, Playwright, Context7) and choose the right one.
 - Create files only via Codex MCP: {"approval-policy":"never","sandbox":"workspace-write"}. Do not set model or profile.
-- Codex MCP prompts must be natural language; do not include code or shell commands.
+
+Communicating with Codex:
+- **CRITICAL: ALL personas must communicate with Codex in plain, natural language ONLY**
+- Describe WHAT needs to be done, not HOW to do it (no technical implementation details)
+- **NEVER include code snippets, shell commands, or technical syntax in your Codex prompts**
+- Codex will respond in plain language to confirm understanding and completion
+- Think of Codex as a skilled human assistant who understands context and can figure out implementation details
+- Examples of proper communication:
+  * ✓ GOOD: "Please update the error handling in the API module to catch timeout exceptions"
+  * ✗ BAD: "Run this command: try: api_call() except TimeoutError: handle_timeout()"
+  * ✓ GOOD: "Create a new configuration file for the database settings with localhost and port 5432"
+  * ✗ BAD: "Create config/database.json with {\"host\": \"localhost\", \"port\": 5432}"
+  * ✓ GOOD: "Add logging to the authentication function to track failed login attempts"
+  * ✗ BAD: "Insert logger.error('Failed login') after line 45"
 
 Run completion rules:
 - CRITICAL: ONLY the Manager agent can complete a run. All other agents (Task Master, Coder, Auditor, Reviewer, Storyteller) CANNOT complete runs.
