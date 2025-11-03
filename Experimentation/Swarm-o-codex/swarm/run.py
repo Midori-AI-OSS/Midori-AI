@@ -1,3 +1,4 @@
+import time
 
 from agents import Agent
 from agents import Runner
@@ -14,6 +15,8 @@ from shared.handoff_tracker import HandoffTracker
 
 #### This is the main def, this runs the logic for the swarm.
 async def run(request: str, workdir: str, handoffs: list[Agent], run_config: RunConfig, mcp_params: MCPServerStdioParams, additional_mcp_servers: list[tuple[str, MCPServerStdioParams]]) -> None:
+    start_time = time.perf_counter()
+    
     build_request: str = f"Working in the `{workdir}`, the user asked the manager \"{request}\""
     handoff_instructions: str = "When you finish your work and are ready to hand off: First, in your message, clearly state what you accomplished and what the next agent needs to do (include specific file paths and requirements). Then call the appropriate transfer_to_<AgentName> handoff tool (in lowercase) as your final action. Do not add any text after calling the handoff tool."
     full_request: str = f"{build_request}. {handoff_instructions}"
@@ -55,3 +58,9 @@ async def run(request: str, workdir: str, handoffs: list[Agent], run_config: Run
             console.print("\n[bold green]=== Final Output ===[/bold green]")
             console.print(result.final_output)
             console.print(f"[dim]For: `{request}`[/dim]")
+        
+        # Log execution time
+        end_time = time.perf_counter()
+        duration = end_time - start_time
+        console.print(f"\n[bold cyan]⏱️  Run completed in {duration:.2f} seconds[/bold cyan]")
+        logger.info(f"Run completed in {duration:.2f} seconds for request: {request}")
