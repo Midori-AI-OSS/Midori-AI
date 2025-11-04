@@ -39,6 +39,8 @@ from setup.prompts import setup_summary_agent
 
 load_dotenv(override=True)
 
+#### TODO: Make a project README.md for installing git, codex, and uv. Make sure the codeblocks are placeholders for the lead dev to add.
+
 api_key: str | None = os.getenv("OPENAI_API_KEY")
 
 if api_key: pass
@@ -68,7 +70,7 @@ local: bool = local_env not in ("0", "false", "no", "off")
 
 #### This only works with LRMs not LLMs 
 #### (If your using ollama make sure you have context set to >= 32000)
-local_model_str: str = "gpt-oss:120b"
+local_model_str: str = "gpt-oss:20b"
 cloud_model_str: str = "gpt-5"
 
 #### Update this to change the ip, do not use localhost
@@ -78,13 +80,12 @@ local_ip_address: str = f"http://{pre_local_ip}:{pre_local_port}"
 
 remote_openai_base_url: str = os.getenv("SWARM_REMOTE_OPENAI_BASE_URL", "https://api.openai.com").rstrip("/")
 
-#### Local only Async friendly OpenAI obj, changes not needed most of the time...
-local_openai = AsyncOpenAI(base_url=f"{local_ip_address}/v1", api_key=api_key)
-
 #### This sets up the params for MCP servers, go check the setup mcp.py folder!
 cloud_params, local_params, additional_mcp_servers = setup_mcp(local_model_str, local_ip_address)
 
 if local:
+    #### Local only Async friendly OpenAI obj, changes not needed most of the time...
+    local_openai = AsyncOpenAI(base_url=f"{local_ip_address}/v1", api_key=api_key)
     model = OpenAIChatCompletionsModel(model=local_model_str, openai_client=local_openai)
     status_text = "Offline"; mcp_params = local_params
 else:
