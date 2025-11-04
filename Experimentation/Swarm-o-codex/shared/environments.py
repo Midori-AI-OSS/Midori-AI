@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import tempfile
 from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -18,6 +19,9 @@ META_PATH = PROFILE_DIR / "environments.toml"
 STORE_ROOT = ProjectRoot / ".environments"
 STORE_ROOT.mkdir(exist_ok=True)
 LOCAL_WORK_KEY = "local_work"
+
+# Hardcoded Codex template repository URL for pre-cloning.
+CODEX_TEMPLATE_REPO_URL = "https://github.com/Midori-AI-OSS/codex_template_repo"
 
 
 def _now_iso() -> str:
@@ -44,6 +48,56 @@ def _write_meta(data: Dict) -> None:
 def _run_git(args, cwd: Optional[Path] = None):
     cmd = ["git", *args]
     subprocess.run(cmd, check=True, cwd=str(cwd) if cwd is not None else None)
+
+
+def _copy_dir_contents(src: Path, dst: Path) -> None:
+    """Copy contents of src directory into dst directory.
+
+    - Creates dst if it doesn't exist.
+    - Overwrites files if they exist.
+    - Skips .git directory.
+    """
+    dst.mkdir(parents=True, exist_ok=True)
+    for root, dirs, files in os.walk(src):
+        rel = Path(root).relative_to(src)
+        # Skip any nested .git
+        if ".git" in rel.parts:
+            continue
+        # Ensure directory exists at destination
+        target_dir = dst / rel
+        target_dir.mkdir(parents=True, exist_ok=True)
+        # Filter out .git from dirs for deeper walk
+        if ".git" in dirs:
+            dirs.remove(".git")
+        for f in files:
+            src_file = Path(root) / f
+            dst_file = target_dir / f
+            # Ensure parent exists and copy with metadata
+            dst_file.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src_file, dst_file)
+
+
+def _prepopulate_local_work_from_codex_template(work_dir: Path) -> bool:
+    """Clone Codex template into a temp dir and copy into work_dir, detaching VCS.
+
+    Returns True if successful, False otherwise.
+    """
+    try:
+        with tempfile.TemporaryDirectory(prefix="codex_template_") as tmp:
+            tmp_path = Path(tmp)
+            clone_dir = tmp_path / "repo"
+            _run_git(["clone", CODEX_TEMPLATE_REPO_URL, str(clone_dir)])
+
+            # Remove .git from the cloned template to detach history
+            git_dir = clone_dir / ".git"
+            if git_dir.exists():
+                shutil.rmtree(git_dir, ignore_errors=True)
+
+            _copy_dir_contents(clone_dir, work_dir)
+        return True
+    except Exception:
+        # Best-effort: if prepopulation fails, caller can still proceed with empty dir
+        return False
 
 
 @dataclass
@@ -186,7 +240,11 @@ def get_or_create_local_work() -> tuple[str, bool]:
             _write_meta(data)
             # Check if folder is empty (needs initialization)
             is_empty = not any(p.iterdir())
-            return str(p.resolve()), is_empty
+            # If empty, try to pre-populate from Codex template and mark as needing post-setup
+            if is_empty:
+                _prepopulate_local_work_from_codex_template(p)
+                return str(p.resolve()), True
+            return str(p.resolve()), False
 
     # Create (or re-create) the default local work directory
     work_dir = STORE_ROOT / "local-work"
@@ -198,4 +256,7 @@ def get_or_create_local_work() -> tuple[str, bool]:
         "last_updated": now,
     }
     _write_meta(data)
+    # Newly created: pre-populate from Codex template (best-effort)
+    _prepopulate_local_work_from_codex_template(work_dir)
+    # Return True to trigger post-setup prompt that finalizes the template
     return str(work_dir.resolve()), True

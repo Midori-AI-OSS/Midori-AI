@@ -39,8 +39,6 @@ from setup.prompts import setup_summary_agent
 
 load_dotenv(override=True)
 
-#### TODO: Make a project README.md for installing git, codex, and uv. Make sure the codeblocks are placeholders for the lead dev to add.
-
 api_key: str | None = os.getenv("OPENAI_API_KEY")
 
 if api_key: pass
@@ -70,7 +68,7 @@ local: bool = local_env not in ("0", "false", "no", "off")
 
 #### This only works with LRMs not LLMs 
 #### (If your using ollama make sure you have context set to >= 32000)
-local_model_str: str = "gpt-oss:20b"
+local_model_str: str = "gpt-oss:120b"
 cloud_model_str: str = "gpt-5"
 
 #### Update this to change the ip, do not use localhost

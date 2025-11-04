@@ -12,6 +12,7 @@ Communicating with Codex:
 - **CRITICAL: ALL personas must communicate with Codex in plain, natural language ONLY**
 - Describe WHAT needs to be done, not HOW to do it (no technical implementation details)
 - **NEVER include code snippets, shell commands, or technical syntax in your Codex prompts**
+- Use Codex MCP by providing ONLY a natural-language prompt describing what you need done. Do not pass any config / model parameters.
 - Codex will respond in plain language to confirm understanding and completion
 - Think of Codex as a skilled human assistant who understands context and can figure out implementation details
 - Examples of proper communication:
@@ -28,7 +29,7 @@ Run completion rules:
 - If you ARE the Manager: To complete a run, you must produce a TaskCompletion output with three fields:
   * output: The final deliverable (markdown, summary, result)
   * task: Description of what was accomplished
-  * done: Confirmation status (use "yes" or "complete")
+  * done: Boolean confirmation (must be true)
 - Before attempting to complete a run, use SequentialThinking to verify ALL requirements are met and all necessary handoffs have occurred.
 
 Handoff protocol:

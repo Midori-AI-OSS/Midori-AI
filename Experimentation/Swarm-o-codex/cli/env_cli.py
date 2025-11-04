@@ -44,20 +44,21 @@ def parse_env_task_args(argv: Optional[List[str]] = None) -> Tuple[Optional[str]
 
 def get_local_work_init_prompt() -> str:
     """Return the initialization prompt for setting up a new local work folder."""
-    return """Initialize this local work folder using the Codex template repository as a starting point.
+    return """Finalize the local work folder setup based on the pre-cloned Codex template.
 
-Note: the local work folder is initially blank (empty). 
-Agents and setup steps should treat it as an empty folder to begin with and populate it by applying the template below.
+Important:
+- In most cases, the Codex template was already pre-cloned into this folder from https://github.com/Midori-AI-OSS/codex_template_repo.
+- If files are already present, skip cloning and proceed with cleanup and customization.
+- If this folder is empty (pre-clone failed), perform the clone steps first as described below.
 
 Please complete the following steps:
-1. Clone the template repository from https://github.com/Midori-AI-OSS/codex_template_repo into a temporary location
-2. Copy all files and folders from the cloned repository into this current working directory
-3. Remove the .git folder completely to detach from the template's version control history
-4. Remove any other template-specific metadata files (like .github workflows, template-specific README sections, etc.)
-5. Update and customize the README.md file to reflect that this is now a local work folder, not the template
-6. Verify the file structure is clean and ready for use
+1. If the folder is empty: clone https://github.com/Midori-AI-OSS/codex_template_repo into a temporary location, then copy contents into the current working directory.
+2. Ensure any .git directory is removed from this folder so it is detached from the template's history.
+3. Remove template-only metadata (e.g., .github workflows or template-specific badges/sections) as appropriate.
+4. Update README.md to state this is your local work folder based on the Codex template, including brief usage notes if helpful.
+5. Verify the structure is clean and ready (build scripts, configs, and starter files are present and runnable).
 
-The goal is to set up this folder with a clean, working project structure based on the Codex template, but independent from the template repository itself. After initialization, this folder should be ready for custom development work."""
+Goal: this folder should be a clean, ready-to-use workspace derived from the Codex template, independent of the template repository itself."""
 
 
 def run_env_selector(page_size: int = 5, env_name: Optional[str] = None) -> Tuple[str, Optional[str]]:

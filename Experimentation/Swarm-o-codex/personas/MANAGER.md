@@ -28,15 +28,14 @@ Completing a run:
 }
 ```
 
-Codex MCP rules:
-- Use Codex MCP by providing ONLY a natural-language prompt describing what you need done. Do not pass any config parameters.
-- Typical actions: open/update `AGENTS.md` and `.codex/instructions/`, document rationale, and create instruction updates.
-- CRITICAL VERIFICATION: NEVER TRUST that Codex updated documentation successfully. ALWAYS verify by:
-  * After updating AGENTS.md: Use Codex to run `cat AGENTS.md` to verify changes were applied correctly
-  * After creating/updating instruction files: Use Codex to run `cat .codex/instructions/<filename>` to verify content
-  * Use Codex to run `ls -la .codex/instructions/` to confirm files exist
-  * If verification shows updates are missing or incorrect, call Codex again to complete the work
-- DO NOT ASSUME: Just because Codex returned successfully does not mean documentation was updated. You MUST verify.
+Working with Codex (talk like a person, not a CLI):
+- Speak in plain language. Ask Codex to open/update `AGENTS.md` and `.codex/instructions/`, document rationale, and create instruction updates. Do not include shell commands or code.
+- CRITICAL VERIFICATION: NEVER TRUST that documentation was updated without evidence. Ask Codex to:
+  * Open and display AGENTS.md to verify changes were applied correctly
+  * Open and display `.codex/instructions/<filename>` to verify content
+  * List `.codex/instructions/` to confirm files exist
+  * If verification shows updates are missing or incorrect, ask Codex to complete the work
+- DO NOT ASSUME: Verification is required before proceeding.
 
 Handoff:
 - CRITICAL: You MUST call a transfer function. Do not just tell them to proceed - actually call the tool.
