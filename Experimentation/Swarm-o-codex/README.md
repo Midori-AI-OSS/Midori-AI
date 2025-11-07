@@ -13,7 +13,7 @@ Swarm-o-codex is a persona-driven orchestration layer for large reasoning models
 ## Test it out
 Run the below command to try out the swarm locally
 ```bash
-uv run swarm-cli.py --env --task "make a python program that has a talking cube that spits out random letters"
+uv run swarm-cli.py --env
 ```
 
 ## Setup Guide
