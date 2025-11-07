@@ -10,30 +10,34 @@ Swarm-o-codex is a persona-driven orchestration layer for large reasoning models
 - **Workspace-aware CLI:** `swarm-cli.py` pairs with `cli/env_cli.py` to initialize local workspaces, select environments, and run scripted or interactive tasks with consistent prompts.
 - **Extensible by design:** Persona prompts live in `personas/`, MCP configuration sits in `setup/mcp.py`, and you can add new agents or tools without rewriting the orchestration layer.
 
+## Test it out
+Run the below command to try out the swarm locally
+```bash
+uv run swarm-cli.py --env --task "make a python program that has a talking cube that spits out random letters"
+```
+
 ## Setup Guide
 
 This project uses Codex CLI as the primary developer interface, and `uv` for Python tooling. Follow the sections below to prepare your environment.
 
-## Install Git
-
-Ensure Git is installed and configured.
-
-```bash
-# Placeholder: lead developer to add Git installation instructions
-```
-
 ## Install Codex CLI
 
-Codex CLI powers the workflows defined in this repository.
+Codex CLI powers the workflows defined in this repository. - https://github.com/openai/codex
 
 ```bash
-# Placeholder: lead developer to add Codex CLI installation instructions
+npm install -g @openai/codex
 ```
 
 ## Install uv
 
-The project manages Python environments and dependencies using `uv`.
+The project manages Python environments and dependencies using `uv`. - https://docs.astral.sh/uv/getting-started/installation/
 
 ```bash
-# Placeholder: lead developer to add uv installation instructions
+wget -qO- https://astral.sh/uv/install.sh | sh
 ```
+
+## Disclaimer
+
+- Midori AI does not support Windows and will not assist with installation on that OS.
+- Where possible, prefer your system package manager (for example: `yay`, `apt`, or `dnf`) or the distro-provided packages over installing tools globally via `npm` or running arbitrary install scripts. Using your package manager generally provides safer, more maintainable installs and integrates better with your system.
+
