@@ -39,11 +39,6 @@ from setup.prompts import setup_summary_agent
 
 load_dotenv(override=True)
 
-api_key: str | None = os.getenv("OPENAI_API_KEY")
-
-if api_key: pass
-else: api_key = "hello wolrd"
-
 # Configure logging level (default to ERROR to reduce noise). Override with SWARM_LOG_LEVEL.
 _log_level = os.getenv("SWARM_LOG_LEVEL", "ERROR").upper()
 try:
@@ -76,19 +71,30 @@ pre_local_ip: str = get_local_ip(fallback='192.168.10.27')
 pre_local_port: str = "11434"
 local_ip_address: str = f"http://{pre_local_ip}:{pre_local_port}"
 
-remote_openai_base_url: str = os.getenv("SWARM_REMOTE_OPENAI_BASE_URL", "https://api.openai.com").rstrip("/")
+#### This is where the api keys get loaded, make sure you update the env based on your useage
+cloud_api_key: str = os.getenv("OPENAI_API_KEY", "hello wolrd")
+local_api_key: str = os.getenv("MIDORI_AI_API_KEY", "hello wolrd")
 
 #### This sets up the params for MCP servers, go check the setup mcp.py folder!
 cloud_params, local_params, additional_mcp_servers = setup_mcp(local_model_str, local_ip_address)
 
 if local:
     #### Local only Async friendly OpenAI obj, changes not needed most of the time...
-    local_openai = AsyncOpenAI(base_url=f"{local_ip_address}/v1", api_key=api_key)
+    local_openai = AsyncOpenAI(base_url=f"{local_ip_address}/v1", api_key=local_api_key)
     model = OpenAIChatCompletionsModel(model=local_model_str, openai_client=local_openai)
     status_text = "Offline"; mcp_params = local_params
 else:
-    model = OpenAIResponsesModel(model=cloud_model_str, openai_client=AsyncOpenAI(api_key=api_key))
+    model = OpenAIResponsesModel(model=cloud_model_str, openai_client=AsyncOpenAI(api_key=cloud_api_key))
     status_text = "Cloud"; mcp_params = cloud_params
+
+#### This is your models settings, feel free to edit this as you see fit 
+#### (Medium or high recommended for all local models)
+
+"""
+effort: Literal[`minimal`, `low`, `medium`, or `high`]
+generate_summary: Literal['auto', 'concise', 'detailed']
+summary: Literal['auto', 'concise', 'detailed']
+"""
 
 reasoning = Reasoning(effort="medium", generate_summary="detailed", summary="detailed")
 base_model_settings = ModelSettings(reasoning=reasoning, parallel_tool_calls=True, tool_choice="auto", temperature=0.1, truncation="auto")
