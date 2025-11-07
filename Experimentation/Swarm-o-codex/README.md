@@ -11,7 +11,9 @@ Swarm-o-codex is a persona-driven orchestration layer for large reasoning models
 - **Extensible by design:** Persona prompts live in `personas/`, MCP configuration sits in `setup/mcp.py`, and you can add new agents or tools without rewriting the orchestration layer.
 
 ## Test it out
-Run the below command to try out the swarm locally
+Run the below command to try out the swarm locally 
+(Have the `gpt-oss:120b` model and ollama ready)
+
 ```bash
 uv run swarm-cli.py --env
 ```
@@ -25,7 +27,7 @@ This project uses Codex CLI as the primary developer interface, and `uv` for Pyt
 Codex CLI powers the workflows defined in this repository. - https://github.com/openai/codex
 
 ```bash
-npm install -g @openai/codex
+npm install -g @openai/codexv
 ```
 
 ## Install uv
