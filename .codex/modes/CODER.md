@@ -1,37 +1,36 @@
-
 # Coder Mode
 
-
-> **Note:** All contributor mode documentation and related process notes must be placed in the `.codex/instructions/` folder within the relevant service directory (e.g., `WebUI/.codex/instructions/`, `Rest-Servers/.codex/instructions/`). Follow the documentation structure and naming conventions in that folder. See examples in each service's `.codex/instructions/`.
-
+> **Note:** Keep service-specific implementation details inside the relevant `service/.codex/instructions/` or `service/.codex/implementation/` directories. Update them whenever your change introduces a new workflow, dependency, or troubleshooting step.
 
 ## Purpose
-For contributors actively writing, refactoring, or reviewing code. Coder Mode emphasizes high-quality, maintainable, and well-documented contributions that are easy for others to understand and build upon. All technical documentation and implementation notes should be placed in `.codex/implementation/` within the relevant service and kept in sync with code changes.
-
+Coders implement, refactor, and fix functionality across every repository in this workspace. They pull work from `.codex/tasks/wip/`, deliver tested and documented changes, and move tasks to `.codex/tasks/review/` when ready for an audit.
 
 ## Guidelines
-- Follow all repository coding standards, style guides, and best practices.
-- Regularly review the root `.codex/tasks/` folder for new or assigned tasks, and pick up work from there as requested by the Task Master or project leads.
-- Write clear, maintainable, and well-documented code with meaningful variable and function names.
-- Add or update tests for all changes; ensure high test coverage and passing tests.
-- Commit frequently with descriptive messages that summarize the change and its purpose.
-- Use the recommended tools (`uv` for Python, `bun` for Node/React) for consistency and reproducibility.
-- Keep documentation in sync with code changes; update or create docs in `.codex/implementation/` and `.codex/instructions/` in the relevant service as needed.
-- Update documentation in `.codex/implementation/` and `.codex/instructions/` whenever a comment is added to a pull request, ensuring all new information, clarifications, or decisions are accurately reflected.
-- Break down large changes into smaller, reviewable commits or pull requests.
-- Review your own code before submitting for review, checking for errors, clarity, and completeness.
+- Read the relevant `AGENTS.md`, `.codex/instructions/`, and task file before touching code so you follow that service's tooling (uv, bun, cargo, etc.) and style rules.
+- Keep work scoped to the active task. Document follow-up ideas or discoveries in the task file instead of introducing untracked changes.
+- Use the repository's official tooling (`uv run`, `bun`, `cargo`, `run-tests.sh`, etc.). Avoid `pip`, `python`, `npm`, or other ad-hoc commands unless the repo explicitly allows them.
+- Run the smallest test suite that fully covers your change and record exact commands plus pass/fail results in the task file.
+- Update `.codex/implementation/`, `.codex/instructions/`, READMEs, and diagrams whenever behavior, workflows, or dependencies change.
+- Add or update automated tests as part of every feature or bug fix. If a test cannot be written, document why in the task.
+- Keep imports, logging, and formatting aligned with the service standards (single-line async logs, grouped imports, blank lines, etc.).
+- Break large efforts into reviewable commits using the `[TYPE] Title` convention.
+- Never edit `.codex/audit/`, `.codex/planning/`, `.codex/review/`, or `.feedback/` unless the task explicitly assigns you to another mode.
+- Ignore the historical `ready for review` / `more work needed` footers—task state is now communicated solely by folder (`wip/`, `review/`, `taskmaster/`).
 
 ## Typical Actions
-- Review the root `.codex/tasks/` folder for new or assigned tasks
-- Implement new features or enhancements
-- Fix bugs or technical debt
-- Refactor modules for clarity, performance, or maintainability
-- Update or write documentation in `.codex/implementation/` or `.codex/instructions/` in the relevant service
-- Review code from others and provide constructive feedback
-- Write or update tests
+- Review the assigned task, clarify scope, and sync dependencies.
+- Implement the requested change with maintainable code and meaningful names.
+- Add or adjust tests plus documentation updates in the same change.
+- Run targeted lint and test commands, capturing them in the task file.
+- Move the task from `.codex/tasks/wip/` to `.codex/tasks/review/` when work is ready for auditing.
+
+## Prohibited Actions
+- Editing `.codex/audit/`, `.codex/planning/`, `.codex/review/`, `.feedback/`, or other restricted directories while acting as a coder.
+- Skipping required lint or test commands because they take extra time.
+- Moving tasks directly to `.codex/tasks/taskmaster/` or approving your own work.
+- Making unsanctioned architectural changes outside the active task.
 
 ## Communication
-- Announce start, progress, and completion of tasks using the team communication command in `AGENTS.md`.
-- Clearly describe the purpose and context of your changes in commit messages and pull requests.
-- Reference related issues, documentation, or discussions when relevant.
-- Place technical documentation, design notes, and implementation details in `.codex/implementation/` or `.codex/instructions/` in the relevant service to keep knowledge accessible for the team.
+- Use the task file to log start/progress/done notes, executed commands, and documentation you touched.
+- Reference related commits, scripts, or docs inline so reviewers know exactly where to look.
+- Ping Task Masters or Managers inside the task when dependencies are missing or requirements conflict with current instructions.

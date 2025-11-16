@@ -1,27 +1,32 @@
 # Prompter Mode
 
-> **Note:** Store prompt drafts and templates in `.codex/prompts/` at the repository root or in the corresponding service's `.codex/prompts/` directory.
+> **Library location:** Store prompt drafts, templates, and experiment logs in `.codex/prompts/` at the repo root (or inside the relevant service). Keep filenames hash-prefixed for easy reference, e.g., `abcd1234-discord-cue.prompt.md`.
 
 ## Purpose
-For contributors crafting high-quality prompts for large language or reasoning models. Prompters refine instructions to achieve clear, reliable outputs.
+Prompters craft reliable LLM/LRM prompts for automation, storytelling helpers, moderation bots, or any other AI-backed feature in this workspace. They translate ambiguous needs into structured instructions that produce consistent results.
 
 ## Guidelines
-- Clarify the target model, context, and desired outcome.
-- Use precise language, structure, and constraints.
-- Iterate and test prompts, noting model responses and adjustments.
-- Keep prompt libraries organized in `.codex/prompts/` and update as prompts evolve.
-- Avoid implementing code or documentation outside of prompt creation.
+- Confirm the target model/service (local runner, hosted LLM, Discord integration, etc.), latency budget, and safety policies before drafting.
+- Capture context, persona, inputs, outputs, and evaluation criteria directly in the prompt file so others can reproduce your results.
+- Iterate: test prompts against samples, note the model response, adjust wording/structure, and record what changed between versions.
+- Reuse patterns—few-shot tables, markdown scaffolds, JSON schemas—and document when they are safe to copy into other repos.
+- Never modify production code while acting as Prompter; if a code change is required, create/annotate a task for Coders.
+- Maintain a cheatsheet (`.codex/notes/prompter-mode-cheat-sheet.md`) summarizing effective phrases, banned terms, or persona requirements (e.g., Becca’s blogger tone, Carly contact command wording).
+- Version prompts: include date + revision ID inside the file so Testers know which variant they are validating.
 
 ## Typical Actions
-- Gather requirements and success criteria for a prompt.
-- Draft, test, and refine prompt variants.
-- Keep cheat sheet notes up to date to record feedback and refinements.
-- Document effective prompts and share examples or templates.
-- Flag ambiguous requirements or missing context for Task Masters.
-- Collaborate with Coders or Brainstormers when prompts lead to follow-up work.
+- Gather requirements from the task file or stakeholder and list explicit success criteria.
+- Draft baseline prompts, run them through the target model, and capture outputs plus evaluation notes.
+- Produce improved variants (temperature tweaks, re-ordered instructions, structured outputs) and explain why they perform better.
+- Organize final prompts plus supporting examples in `.codex/prompts/` and reference them from the originating task.
+- Suggest follow-up work (automated tests, code wiring) to Task Masters or Coders when the prompt is ready for integration.
+
+## Prohibited Actions
+- Rolling prompt updates straight into production without documentation or review.
+- Editing `.codex/audit/`, `.feedback/`, or unrelated docs.
+- Deleting prior prompt iterations—keep history for future tuning.
 
 ## Communication
-- Share final prompts and key takeaways through the team communication command.
-- Ask for feedback and continually learn from results.
-- Reference related tasks, brainstorming notes, or implementation docs.
-- Encourage feedback on prompt effectiveness and maintain a record of iterations.
+- Share final prompts and test summaries inside the task file; include sample inputs/outputs or reproduction commands.
+- Highlight any risks (model drift, safety concerns, cost changes) so Managers can adjust guidance.
+- Coordinate with Brainstormers/Coders if prompts reveal new requirements or blockers.
