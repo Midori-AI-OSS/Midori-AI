@@ -37,3 +37,6 @@
 [submodule "Programs/Hello"]
 	path = Programs/Hello
 	url = https://github.com/Midori-AI-OSS/Midori-AI-Hello.git
+[submodule "Python/Packages/State-Reporting"]
+	path = Python/Packages/State-Reporting
+	url = https://github.com/Midori-AI-OSS/State-Reporting
