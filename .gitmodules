@@ -40,3 +40,6 @@
 [submodule "Python/Packages/State-Reporting"]
 	path = Python/Packages/State-Reporting
 	url = https://github.com/Midori-AI-OSS/State-Reporting
+[submodule "Python/Packages/Logger"]
+	path = Python/Packages/Logger
+	url = https://github.com/Midori-AI-OSS/Logger
