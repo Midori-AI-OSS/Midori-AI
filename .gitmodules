@@ -30,19 +30,6 @@
 	path = Endless-Autofighter
 	url = https://github.com/Midori-AI-OSS/Midori-AI-AutoFighter.git
 	branch = master
-[submodule "AGI/Lyra-Project"]
-	path = AGI/Lyra-Project
-	url = https://github.com/Midori-AI-OSS/Lyra-Emergence.git
-	branch = main
-[submodule "Programs/Hello"]
-	path = Programs/Hello
-	url = https://github.com/Midori-AI-OSS/Midori-AI-Hello.git
-[submodule "Python/Packages/State-Reporting"]
-	path = Python/Packages/State-Reporting
-	url = https://github.com/Midori-AI-OSS/State-Reporting
-[submodule "Python/Packages/Logger"]
-	path = Python/Packages/Logger
-	url = https://github.com/Midori-AI-OSS/Logger
 [submodule "Python/agents-packages"]
 	path = Python/agents-packages
 	url = https://github.com/Midori-AI-OSS/agents-packages

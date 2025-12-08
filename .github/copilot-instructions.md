@@ -4,7 +4,7 @@ This guide enables coding agents to be immediately productive in this multi-serv
 Follow these actionable instructions to maximize effectiveness and avoid common pitfalls.
 
 ## Big Picture Architecture
-- The repository is a **multi-project mono-repo**: each major directory (e.g., `AGI/Lyra-Project`, `Endless-Autofighter`, `Cluster-OS`, `Subsystem-Manager`, `Website`) is a distinct service or product, often with its own build/test conventions and agent rules.
+- The repository is a **multi-project mono-repo**: each major directory (e.g., `Endless-Autofighter`, `Cluster-OS`, `Subsystem-Manager`, `Website`) is a distinct service or product, often with its own build/test conventions and agent rules.
 - **Service boundaries** are defined by top-level folders. Each service may have its own `AGENTS.md`, `.codex/`, and `README.md` with local rules and workflows.
 - **Cross-service integration** is managed via containerization (Docker, Compose) and shared OS images (see `Cluster-OS/pixelarch_os/`, `Subsystem-Manager`).
 - **Data flows**: Most agent services use Python, with data and models in `data/`, and plugins/extensions in `plugins/` or `mods/`.
@@ -28,7 +28,6 @@ Follow these actionable instructions to maximize effectiveness and avoid common 
 - **Subsystem-Manager** integrates with external LLMs (LocalAI, Ollama, AnythingLLM, Big-AGI, etc.) via Docker and API calls.
 - **Cluster-OS** and **PixelArch OS** provide containerized environments for scalable AI workloads.
 - **Endless-Autofighter** uses Panda3D (active branch: Ver2) and supports plugin-based character/enemy extension.
-- **Lyra-Project** uses FAISS, sentence-transformers, LangChain, and HuggingFace for agent intelligence.
 
 ## Key Files & Directories
 - `Cluster-OS/pixelarch_os/`: Custom OS Dockerfiles

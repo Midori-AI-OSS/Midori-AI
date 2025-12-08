@@ -5,7 +5,7 @@ This guide explains how to manually collect commit logs from all git repositorie
 ## Step 1: Extract Repo Links from the Main README
 
 1. Open the main `README.md` in the project root.
-2. Identify all links to subrepos/services. These are typically markdown links to subfolders (e.g., `[Lyra-Project](AGI/Lyra-Project/)`).
+2. Identify all links to subrepos/services. These are typically markdown links to subfolders (e.g., `[Endless-Autofighter](Endless-Autofighter/)`).
 3. Copy the relative paths for each linked repo/service.
 
 *Tip: To extract all markdown links to subfolders, you can use a command like:*
@@ -24,7 +24,7 @@ git log -n 10 --pretty=format:"%h %ad %s" --date=short
 cd -
 ```
 
-Replace `<repo-folder>` with the path from the README link (e.g., `AGI/Lyra-Project`).
+Replace `<repo-folder>` with the path from the README link (e.g., `Endless-Autofighter`).
 
 ## Step 3: Save or Organize the Output
 
