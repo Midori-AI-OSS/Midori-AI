@@ -58,7 +58,7 @@ def parse_python_file(file_path: Path) -> Optional[CharacterData]:
 
     char_class = None
     for node in tree.body:
-        if isinstance(node, ast.ClassDef):
+        if isinstance(node, ast.ClassDef) and not node.name.startswith("_"):
             char_class = node
             break
 
@@ -176,23 +176,71 @@ def parse_python_file(file_path: Path) -> Optional[CharacterData]:
         return None
 
     # Derive asset path and COPY asset
-    potential_path = ASSET_BASE_DIR / f"{data.id}.png"
-    destination_path = LOCAL_ASSET_DIR / f"{data.id}.png"
+    # Strategy: 
+    # 1. Exact match in ASSET_BASE_DIR/{id}.png
+    # 2. Check for folder match ASSET_BASE_DIR/{id} or ASSET_BASE_DIR/{id without prefix}
+    # 3. If folder found, COPY THE ENTIRE FOLDER to LOCAL_ASSET_DIR/{id}/
+    # 4. If only file found, copy to LOCAL_ASSET_DIR/{id}.png
     
-    # Ensure local asset dir exists
-    LOCAL_ASSET_DIR.mkdir(parents=True, exist_ok=True)
+    source_path = None
+    is_directory = False
+    
+    # 1. Direct match (File)
+    direct_path = ASSET_BASE_DIR / f"{data.id}.png"
+    if direct_path.exists():
+        source_path = direct_path
+        is_directory = False
+    
+    # 2. Folder match (Preferred over single file if we want random images?)
+    # Actually, if a folder exists, it usually contains variations.
+    # Let's check for folder first or second? 
+    # Existing behavior: checking file first.
+    # Let's check for folder.
+    
+    folder_candidates = [
+        ASSET_BASE_DIR / data.id,
+    ]
+    if data.id.startswith("lady_"):
+        folder_candidates.append(ASSET_BASE_DIR / data.id.replace("lady_", ""))
+    
+    found_folder = None
+    for cand in folder_candidates:
+        if cand.exists() and cand.is_dir():
+            found_folder = cand
+            break
+            
+    if found_folder:
+        source_path = found_folder
+        is_directory = True
+    elif not source_path:
+        # If no folder and no direct file matched yet, check fuzzy file locations?
+        pass
 
-    if potential_path.exists():
+    # Destination
+    if is_directory and source_path:
+        dest_dir = LOCAL_ASSET_DIR / data.id
+        if dest_dir.exists():
+            shutil.rmtree(dest_dir) # Clean replace
         try:
-            shutil.copy2(potential_path, destination_path)
-            # Store RELATIVE path for portable usage (assuming running from project root)
-            data.ui["portrait"] = str(destination_path)
+            shutil.copytree(source_path, dest_dir)
+            data.ui["portrait"] = str(dest_dir)
+            print(f"  Copied image directory for {data.id} from {source_path}")
         except Exception as e:
-            print(f"Failed to copy asset {potential_path}: {e}")
+            print(f"Failed to copy directory {source_path}: {e}")
             data.ui["portrait"] = None
+            
+    elif source_path and not is_directory:
+        dest_file = LOCAL_ASSET_DIR / f"{data.id}.png"
+        LOCAL_ASSET_DIR.mkdir(parents=True, exist_ok=True)
+        try:
+            shutil.copy2(source_path, dest_file)
+            data.ui["portrait"] = str(dest_file)
+            print(f"  Copied image file for {data.id} from {source_path}")
+        except Exception as e:
+             print(f"Failed to copy file {source_path}: {e}")
+             data.ui["portrait"] = None
     else:
-        # Check folder (skip complex folder logic for now, just look for main png)
-        # or maybe we can copy the folder? simplified for now as per MVP
+        print(f"  No image found for {data.id}")
         data.ui["portrait"] = None
 
 

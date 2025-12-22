@@ -5,6 +5,7 @@ from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QPixmap, QIcon
 from idle_game.core.game_state import GameState
 from idle_game.gui.character_window import CharacterWindow
+from idle_game.gui.fight_window import FightWindow
 from pathlib import Path
 
 class CharacterCard(QFrame):
@@ -14,8 +15,31 @@ class CharacterCard(QFrame):
         self.game_state = game_state
         self.char_id = character_data["id"]
         
-        self.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
         self.setFixedSize(160, 240)
+        self.setCursor(Qt.PointingHandCursor)
+        
+        self.base_style = """
+            CharacterCard {
+                background-color: #2c3e50;
+                border: 2px solid #34495e;
+                border-radius: 10px;
+            }
+            CharacterCard:hover {
+                background-color: #34495e;
+                border: 2px solid #3498db;
+            }
+        """
+        self.selected_style = """
+            CharacterCard {
+                background-color: #34495e;
+                border: 2px solid #e67e22;
+                border-radius: 10px;
+            }
+            CharacterCard:hover {
+                border: 2px solid #f39c12;
+            }
+        """
+        self.setStyleSheet(self.base_style)
         
         layout = QVBoxLayout(self)
         
@@ -23,7 +47,8 @@ class CharacterCard(QFrame):
         self.portrait_label = QLabel()
         self.portrait_label.setAlignment(Qt.AlignCenter)
         self.portrait_label.setFixedSize(130, 130)
-        self.portrait_label.setStyleSheet("background-color: #333; border-radius: 5px;")
+        self.portrait_label.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.portrait_label.setStyleSheet("background-color: #333; border-radius: 5px; border: none;")
         
         portrait_path = character_data.get("ui", {}).get("portrait")
         if portrait_path and Path(portrait_path).exists():
@@ -37,16 +62,20 @@ class CharacterCard(QFrame):
         # Name
         name_label = QLabel(character_data.get("name", "Unknown"))
         name_label.setAlignment(Qt.AlignCenter)
-        name_label.setStyleSheet("font-weight: bold;")
+        name_label.setStyleSheet("font-weight: bold; color: white;")
+        name_label.setAttribute(Qt.WA_TransparentForMouseEvents)
         layout.addWidget(name_label)
         
         # Level / Info
         self.info_label = QLabel(f"Lvl {character_data['runtime']['level']}")
         self.info_label.setAlignment(Qt.AlignCenter)
+        self.info_label.setStyleSheet("color: #bdc3c7;")
+        self.info_label.setAttribute(Qt.WA_TransparentForMouseEvents)
         layout.addWidget(self.info_label)
 
         # Selection Checkbox
         self.checkbox = QCheckBox("Select")
+        self.checkbox.setStyleSheet("color: white;")
         self.checkbox.stateChanged.connect(self.on_toggle)
         layout.addWidget(self.checkbox)
         
@@ -54,21 +83,37 @@ class CharacterCard(QFrame):
         if self.char_id in self.game_state.active_party:
             self.checkbox.blockSignals(True)
             self.checkbox.setChecked(True)
+            self.update_style(True)
             self.checkbox.blockSignals(False)
 
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.checkbox.setChecked(not self.checkbox.isChecked())
+        super().mousePressEvent(event)
+
+    def update_style(self, selected):
+        if selected:
+            self.setStyleSheet(self.selected_style)
+        else:
+            self.setStyleSheet(self.base_style)
+
     def on_toggle(self, state):
-        if self.checkbox.isChecked():
+        is_checked = self.checkbox.isChecked()
+        if is_checked:
             success = self.game_state.toggle_party_member(self.char_id)
             if not success:
                 # Revert if failed (e.g. party full)
-                # Block signal to avoid recursion
                 self.checkbox.blockSignals(True)
                 self.checkbox.setChecked(False)
                 self.checkbox.blockSignals(False)
+                self.update_style(False)
+            else:
+                self.update_style(True)
         else:
             # Deselecting is always allowed if it was selected
             if self.char_id in self.game_state.active_party:
-                 self.game_state.toggle_party_member(self.char_id)
+                  self.game_state.toggle_party_member(self.char_id)
+            self.update_style(False)
 
 class MainWindow(QMainWindow):
     def __init__(self, game_state: GameState):
@@ -109,6 +154,7 @@ class MainWindow(QMainWindow):
         # Signals
         self.game_state.characters_loaded.connect(self.populate_roster)
         self.game_state.tick_update.connect(self.update_header)
+        self.game_state.start_duel.connect(self.launch_duel)
         
         # Initial population if data already loaded
         if self.game_state.characters:
@@ -160,4 +206,35 @@ class MainWindow(QMainWindow):
                 # Bring to front if already open
                 self.character_windows[char_id].show()
                 self.character_windows[char_id].activateWindow()
+
+    def launch_duel(self, char1_id, char2_id):
+        # Track IDs of windows that were open
+        open_ids = list(self.character_windows.keys())
+        
+        # Close all character windows
+        for cid in open_ids:
+             self.character_windows[cid].close()
+        self.character_windows.clear()
+
+        # Create Fight Window
+        c1 = self.game_state.characters_map.get(char1_id)
+        c2 = self.game_state.characters_map.get(char2_id)
+        
+        if c1 and c2:
+            self.fight_window = FightWindow(c1, c2, self.game_state)
+            # Reopen windows when fight is done
+            self.fight_window.finished.connect(lambda: self._on_duel_finished(open_ids))
+            self.fight_window.show()
+
+    def _on_duel_finished(self, restore_ids):
+        self.fight_window = None
+        # Restore windows
+        for char_id in restore_ids:
+            char_data = self.game_state.characters_map.get(char_id)
+            if char_data:
+                window = CharacterWindow(char_data, self.game_state)
+                window.show()
+                self.character_windows[char_id] = window
+
+
 

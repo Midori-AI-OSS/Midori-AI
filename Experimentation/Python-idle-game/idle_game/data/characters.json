@@ -253,7 +253,7 @@
       "special.ixia.lightning_burst"
     ],
     "ui": {
-      "portrait": null
+      "portrait": "idle_game/assets/characters/ixia"
     },
     "base_stats": {
       "max_hp": 1000,
@@ -317,7 +317,7 @@
     ],
     "special_abilities": [],
     "ui": {
-      "portrait": null
+      "portrait": "idle_game/assets/characters/kboshi"
     },
     "base_stats": {
       "max_hp": 1000,
@@ -382,7 +382,7 @@
     "special_abilities": [],
     "ui": {
       "portrait_pool": "player_gallery",
-      "portrait": null
+      "portrait": "idle_game/assets/characters/lady_echo"
     },
     "base_stats": {
       "max_hp": 1000,
@@ -542,7 +542,7 @@
     ],
     "special_abilities": [],
     "ui": {
-      "portrait": null
+      "portrait": "idle_game/assets/characters/lady_storm"
     },
     "base_stats": {
       "max_hp": 1000,
@@ -574,7 +574,40 @@
     ],
     "special_abilities": [],
     "ui": {
-      "portrait": null
+      "portrait": "idle_game/assets/characters/lady_wind"
+    },
+    "base_stats": {
+      "max_hp": 1000,
+      "atk": 100,
+      "defense": 50,
+      "mitigation": 1.0,
+      "base_aggro": 1.0,
+      "crit_rate": 0.05,
+      "crit_damage": 2.0,
+      "effect_hit_rate": 1.0,
+      "regain": 0,
+      "dodge_odds": 0.0,
+      "effect_resistance": 0.0,
+      "vitality": 1.0
+    },
+    "growth": {},
+    "metadata": {}
+  },
+  {
+    "id": "luna",
+    "name": "Luna",
+    "short_lore": "A precise starlit scholar who fights with moonlight magic and calculated blade work, controlling the battlefield like a clockmaker in a storm.",
+    "full_lore": "Luna Midori fights like a stargazer who mapped the constellations of violence\u2014quiet, exact, always a beat ahead. Her thin astral halo brightens as she sketches unseen wards; the Vessel of the Twin Veils keeps station at her shoulder, flaring to tip arrows off-line. She opens by controlling the field: silvery pressure that anchors feet, a hush that snuffs a spell mid-syllable, a ripple that leaves an after-image where she stood. When steel is required, the Glimmersteel rapier writes quick, grammatical cuts, the golden quarterstaff sets the tempo and distance, and the Bladeshift dagger ends what hesitation begins. She moves light and economical\u2014cloak skimming stone, angles over brute force\u2014talking just enough to knock an enemy off rhythm. Her magic is moon-cold and precise: starlight darts, gravity tugs, the soft collapse of air before a controlled blast\u2014never wasteful, always aimed at the lever that topples the fight. She isn't a brawler; she's a clockmaker in a storm, turning the right gear until the whole field ticks her way.",
+    "char_type": "B",
+    "gacha_rarity": 0,
+    "damage_type": "load_damage_type",
+    "passives": [
+      "luna_lunar_reservoir"
+    ],
+    "special_abilities": [],
+    "ui": {
+      "actions_display": "number",
+      "portrait": "idle_game/assets/characters/luna"
     },
     "base_stats": {
       "max_hp": 1000,
@@ -706,7 +739,7 @@
     ],
     "special_abilities": [],
     "ui": {
-      "portrait": null
+      "portrait": "idle_game/assets/characters/player"
     },
     "base_stats": {
       "max_hp": 1000,
@@ -739,7 +772,7 @@
     "special_abilities": [],
     "ui": {
       "actions_display": "number",
-      "portrait": null
+      "portrait": "idle_game/assets/characters/ryne"
     },
     "base_stats": {
       "max_hp": 1000,

@@ -8,6 +8,8 @@ class GameState(QObject):
     characters_loaded = Signal()
     # Signal when a tick occurs, carrying the current tick count
     tick_update = Signal(int)
+    # Signal to start a duel: (char1_id, char2_id)
+    start_duel = Signal(str, str)
 
     def __init__(self):
         super().__init__()
@@ -16,10 +18,14 @@ class GameState(QObject):
         self.characters_map: Dict[str, Dict[str, Any]] = {}
         self.active_party: List[str] = [] # List of char IDs
         self.active_viewing_ids: set = set() # Set of char IDs currently being viewed
-
+        
+        # Combat Boosts & Cooldowns (stored as expiry tick count)
+        self.fight_boost_expiry: Dict[str, int] = {}
+        self.fight_cooldown_expiry: Dict[str, int] = {}
+ 
         self.timer = QTimer()
         self.timer.timeout.connect(self._on_tick)
-        self.timer.start(1000) # 1 second tick
+        self.timer.start(100) # 10 ticks per second (100ms)
 
     def start_viewing(self, char_id: str):
         self.active_viewing_ids.add(char_id)
@@ -79,7 +85,21 @@ class GameState(QObject):
                 self.characters.append(char)
                 self.characters_map[char["id"]] = char
 
+                # Handle Random Image Selection (Folder support)
+                portrait_path = char.get("ui", {}).get("portrait")
+                if portrait_path:
+                    p = Path(portrait_path)
+                    if p.exists() and p.is_dir():
+                        # It's a directory, pick a random PNG
+                        pngs = list(p.glob("*.png"))
+                        if pngs:
+                            selected_img = random.choice(pngs)
+                            # Update to specific file path for the UI to load
+                            char["ui"]["portrait"] = str(selected_img)
+                            # print(f"Selected random image for {char['id']}: {selected_img.name}")
+
             print(f"Loaded {len(self.characters)} characters.")
+            self.load_game_state() # Apply saved progress
             self.characters_loaded.emit()
             
         except Exception as e:
@@ -109,20 +129,76 @@ class GameState(QObject):
             exp_mult = runtime.get("exp_multiplier", 1.0)
             req_mult = runtime.get("req_multiplier", 1.0)
             
-            # 1 EXP * Multiplier
-            gain = 1 * exp_mult
+            # Fight Boost: 2x EXP if boost is active
+            combat_boost = 1.0
+            if char["id"] in self.fight_boost_expiry:
+                if self.tick_count < self.fight_boost_expiry[char["id"]]:
+                    combat_boost = 2.0
+                else:
+                    del self.fight_boost_expiry[char["id"]]
+
+            # 1 EXP * Multipliers
+            gain = 1 * exp_mult * combat_boost
             runtime["exp"] += gain
             
             # Level Up Logic
-            # Base Exp Req = Level * 100
-            # Scaled Exp Req = (Level * 100) * req_multiplier
-            required_exp = (runtime["level"] * 100) * req_mult
+            # NEW REQ: (Level * 30 * req_multiplier) +/- 5%
+            if "next_req" not in runtime:
+                import random
+                runtime["next_req"] = (runtime["level"] * 30 * req_mult) * random.uniform(0.95, 1.05)
             
-            if runtime["exp"] >= required_exp:
-                runtime["exp"] = 0
-                runtime["level"] += 1
-                runtime["max_hp"] += 10 # Growth
-                runtime["hp"] = runtime["max_hp"]
+            if runtime["exp"] >= runtime["next_req"]:
+                self.level_up_character(char)
+                # Set up next level requirement
+                import random
+                runtime["next_req"] = (runtime["level"] * 30 * req_mult) * random.uniform(0.95, 1.05)
+                self.save_game_state() # Save on level up
+
+        # Autosave every 125 ticks
+        if self.tick_count % 125 == 0:
+            self.save_game_state()
+
+    def level_up_character(self, char: Dict[str, Any]):
+        """Increments level and applies weighted stat upgrades."""
+        import random
+        runtime = char["runtime"]
+        runtime["level"] += 1
+        runtime["exp"] = 0
+        runtime["max_hp"] += 10
+        runtime["hp"] = runtime["max_hp"]
+        
+        # Stat Upgrades
+        # Points: 1 + (Level // 10)
+        points = 1 + (runtime["level"] // 10)
+        
+        stat_keys = ["atk", "defense", "mitigation", "crit_rate", "crit_damage", "dodge_odds", "regain"]
+        base_stats = char["base_stats"]
+        
+        # Create weights based on current stats
+        # We need to normalize them since some are [0,1] and some are [10, 1000]
+        weights = []
+        for key in stat_keys:
+            val = base_stats.get(key, 0.1)
+            # Scaling factors to make smaller stats relevant
+            if key in ["crit_rate", "dodge_odds", "mitigation"]: # Usually small values
+                weights.append(val * 100)
+            elif key == "crit_damage": # 1.5 -> 15
+                weights.append(val * 10)
+            else:
+                weights.append(val)
+        
+        # Ensure no zero weights
+        weights = [max(0.1, w) for w in weights]
+        
+        # Pick stats to upgrade
+        chosen_stats = random.choices(stat_keys, weights=weights, k=points)
+        
+        for s_key in chosen_stats:
+            # Upgrade by 0.1%
+            current_val = base_stats.get(s_key, 1)
+            base_stats[s_key] = current_val * 1.001
+            
+        print(f"LEVEL UP: {char['id']} reached {runtime['level']}! Upgraded: {', '.join(chosen_stats)}")
 
     def rebirth_character(self, char_id: str):
         """Resets character to Level 1 with increased stats/multipliers."""
@@ -154,6 +230,7 @@ class GameState(QObject):
         # Track Rebirths
         runtime["rebirths"] = runtime.get("rebirths", 0) + 1
         
+        self.save_game_state() # Save rebirth
         return True
         
         # Autosave every 60 ticks
@@ -162,21 +239,101 @@ class GameState(QObject):
 
     def save_game_state(self):
         from idle_game.core.save_manager import SaveManager
-        SaveManager.save_game(self.characters)
+        SaveManager.save_game(self.characters, self.active_party)
 
     def load_game_state(self):
         from idle_game.core.save_manager import SaveManager
-        SaveManager.load_game(self.characters)
+        save_data = SaveManager.load_game()
+        if not save_data:
+            return
+
+        # Load Party
+        self.active_party = save_data.get("party", [])
+
+        # Load Character Progress
+        saved_chars = save_data.get("characters", {})
+        for char in self.characters:
+            char_id = char["id"]
+            if char_id in saved_chars:
+                item = saved_chars[char_id]
+                if isinstance(item, dict) and "runtime" in item:
+                    # New format: {runtime: ..., base_stats: ..., metadata: ...}
+                    char["runtime"].update(item.get("runtime", {}))
+                    char["base_stats"].update(item.get("base_stats", {}))
+                    char["metadata"].update(item.get("metadata", {}))
+                else:
+                    # Legacy format: item IS the runtime dict
+                    char["runtime"].update(item)
+                # Recalculate max_hp based on potentially loaded level
+                lvl = char["runtime"]["level"]
+                char["runtime"]["max_hp"] = char["base_stats"].get("max_hp", 1000) + (lvl * 10)
+        
+        print(f"Loaded save data for {len(saved_chars)} characters and party of {len(self.active_party)}")
 
     def toggle_party_member(self, char_id: str) -> bool:
         """Toggles a character in/out of the active party. Returns True if in party."""
+        changed = False
+        in_party = False
         if char_id in self.active_party:
             self.active_party.remove(char_id)
-            return False
+            changed = True
+            in_party = False
         else:
             if len(self.active_party) < 5:
                 self.active_party.append(char_id)
-                return True
-            return False
+                changed = True
+                in_party = True
+        
+        if changed:
+            self.save_game_state()
+        return in_party
+
+
+    def init_duel(self, char_id: str):
+        """Picks a random opponent and signals the duel start if not on cooldown."""
+        # Check cooldown
+        if char_id in self.fight_cooldown_expiry:
+            if self.tick_count < self.fight_cooldown_expiry[char_id]:
+                print(f"BATTLE: {char_id} is on cooldown.")
+                return
+            else:
+                del self.fight_cooldown_expiry[char["id"]]
+
+        import random
+        other_ids = [cid for cid in self.characters_map.keys() if cid != char_id]
+        if not other_ids:
+            return
+        
+        opponent_id = random.choice(other_ids)
+        
+        # Set Cooldown for the initiator immediately: 120s (1200 ticks)
+        self.fight_cooldown_expiry[char_id] = self.tick_count + 1200
+        
+        self.start_duel.emit(char_id, opponent_id)
+
+    def process_combat_win(self, char_id: str):
+        """Rewards the winner of a combat with a level up."""
+        char = self.characters_map.get(char_id)
+        if not char:
+            return
+            
+        self.level_up_character(char)
+        
+        # Set Boost: 30s (at 10 ticks/s = 300 ticks)
+        self.fight_boost_expiry[char_id] = self.tick_count + 300
+        
+        # Set Cooldown: 120s (at 10 ticks/s = 1200 ticks)
+        self.fight_cooldown_expiry[char_id] = self.tick_count + 1200
+
+        # Reset requirement for next level
+        runtime = char["runtime"]
+        req_mult = runtime.get("req_multiplier", 1.0)
+        import random
+        runtime["next_req"] = (runtime["level"] * 30 * req_mult) * random.uniform(0.95, 1.05)
+        
+        print(f"COMBAT REWARD: {char_id} reached Level {runtime['level']}")
+        self.save_game_state()
+
+
 
 

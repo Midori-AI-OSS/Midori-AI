@@ -1,140 +1,140 @@
 {
   "ally": {
-    "level": 3,
-    "exp": 170,
-    "hp": 1020,
-    "max_hp": 1020
+    "level": 1,
+    "exp": 0,
+    "max_hp": 936,
+    "hp": 936
   },
   "becca": {
-    "level": 3,
-    "exp": 170,
-    "hp": 1020,
-    "max_hp": 1020
+    "level": 1,
+    "exp": 0,
+    "max_hp": 1026,
+    "hp": 1000
   },
   "bubbles": {
-    "level": 3,
-    "exp": 170,
-    "hp": 1020,
-    "max_hp": 1020
+    "level": 1,
+    "exp": 0,
+    "max_hp": 972,
+    "hp": 972
   },
   "carly": {
-    "level": 3,
-    "exp": 170,
-    "hp": 1620,
-    "max_hp": 1620
+    "level": 1,
+    "exp": 0,
+    "max_hp": 1674,
+    "hp": 1600
   },
   "casno": {
-    "level": 3,
-    "exp": 170,
-    "hp": 1020,
-    "max_hp": 1020
+    "level": 1,
+    "exp": 0,
+    "max_hp": 996,
+    "hp": 996
   },
   "graygray": {
-    "level": 3,
-    "exp": 170,
-    "hp": 1020,
-    "max_hp": 1020
+    "level": 1,
+    "exp": 0,
+    "max_hp": 1014,
+    "hp": 1000
   },
   "hilander": {
-    "level": 3,
-    "exp": 170,
-    "hp": 1020,
-    "max_hp": 1020
+    "level": 1,
+    "exp": 0,
+    "max_hp": 1006,
+    "hp": 1000
   },
   "ixia": {
-    "level": 3,
-    "exp": 170,
-    "hp": 1020,
-    "max_hp": 1020
+    "level": 1,
+    "exp": 0,
+    "max_hp": 951,
+    "hp": 951
   },
   "jennifer_feltmann": {
-    "level": 3,
-    "exp": 170,
-    "hp": 1020,
-    "max_hp": 1020
+    "level": 1,
+    "exp": 0,
+    "max_hp": 964,
+    "hp": 964
   },
   "kboshi": {
-    "level": 3,
-    "exp": 170,
-    "hp": 1020,
-    "max_hp": 1020
+    "level": 1,
+    "exp": 0,
+    "max_hp": 1076,
+    "hp": 1000
   },
   "lady_darkness": {
-    "level": 3,
-    "exp": 170,
-    "hp": 1020,
-    "max_hp": 1020
+    "level": 1,
+    "exp": 0,
+    "max_hp": 1080,
+    "hp": 1000
   },
   "lady_echo": {
-    "level": 3,
-    "exp": 170,
-    "hp": 1020,
-    "max_hp": 1020
+    "level": 1,
+    "exp": 0,
+    "max_hp": 972,
+    "hp": 972
   },
   "lady_fire_and_ice": {
-    "level": 3,
-    "exp": 170,
-    "hp": 1020,
-    "max_hp": 1020
+    "level": 1,
+    "exp": 0,
+    "max_hp": 1071,
+    "hp": 1000
   },
   "lady_light": {
-    "level": 3,
-    "exp": 170,
-    "hp": 1020,
-    "max_hp": 1020
+    "level": 1,
+    "exp": 0,
+    "max_hp": 947,
+    "hp": 947
   },
   "lady_lightning": {
-    "level": 3,
-    "exp": 170,
-    "hp": 1020,
-    "max_hp": 1020
+    "level": 1,
+    "exp": 0,
+    "max_hp": 1002,
+    "hp": 1000
   },
   "lady_of_fire": {
-    "level": 3,
-    "exp": 170,
-    "hp": 1020,
-    "max_hp": 1020
+    "level": 1,
+    "exp": 0,
+    "max_hp": 947,
+    "hp": 947
   },
   "lady_storm": {
-    "level": 3,
-    "exp": 170,
-    "hp": 1020,
-    "max_hp": 1020
+    "level": 1,
+    "exp": 0,
+    "max_hp": 1105,
+    "hp": 1000
   },
   "lady_wind": {
-    "level": 3,
-    "exp": 170,
-    "hp": 1020,
-    "max_hp": 1020
+    "level": 1,
+    "exp": 0,
+    "max_hp": 933,
+    "hp": 933
   },
   "mezzy": {
-    "level": 3,
-    "exp": 170,
-    "hp": 1020,
-    "max_hp": 1020
+    "level": 1,
+    "exp": 0,
+    "max_hp": 1055,
+    "hp": 1000
   },
   "persona_ice": {
-    "level": 3,
-    "exp": 170,
-    "hp": 1670,
-    "max_hp": 1670
+    "level": 1,
+    "exp": 0,
+    "max_hp": 1582,
+    "hp": 1582
   },
   "persona_light_and_dark": {
-    "level": 3,
-    "exp": 170,
-    "hp": 1720,
-    "max_hp": 1720
+    "level": 1,
+    "exp": 0,
+    "max_hp": 1613,
+    "hp": 1613
   },
   "player": {
-    "level": 3,
-    "exp": 170,
-    "hp": 1020,
-    "max_hp": 1020
+    "level": 1,
+    "exp": 0,
+    "max_hp": 1018,
+    "hp": 1000
   },
   "ryne": {
-    "level": 3,
-    "exp": 170,
-    "hp": 1020,
-    "max_hp": 1020
+    "level": 1,
+    "exp": 0,
+    "max_hp": 981,
+    "hp": 981
   }
 }
