@@ -4,6 +4,7 @@ from typing import Dict, Any
 
 class SaveManager:
     SAVE_FILE = Path(__file__).parent.parent / "data" / "save.json"
+    SETTINGS_FILE = Path(__file__).parent.parent / "data" / "settings.json"
 
     @staticmethod
     def save_game(characters: list[dict[str, Any]], party: list[str]):
@@ -40,4 +41,34 @@ class SaveManager:
         except Exception as e:
             print(f"Error loading game: {e}")
             return None
+
+    @staticmethod
+    def save_setting(key: str, value: Any):
+        """Saves a single setting to the settings file."""
+        settings = {}
+        if SaveManager.SETTINGS_FILE.exists():
+            try:
+                with open(SaveManager.SETTINGS_FILE, "r", encoding="utf-8") as f:
+                    settings = json.load(f)
+            except: pass
+        
+        settings[key] = value
+        try:
+            SaveManager.SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
+            with open(SaveManager.SETTINGS_FILE, "w", encoding="utf-8") as f:
+                json.dump(settings, f, indent=2)
+        except Exception as e:
+            print(f"Error saving setting: {e}")
+
+    @staticmethod
+    def load_setting(key: str, default: Any = None) -> Any:
+        """Loads a single setting from the settings file."""
+        if not SaveManager.SETTINGS_FILE.exists():
+            return default
+        try:
+            with open(SaveManager.SETTINGS_FILE, "r", encoding="utf-8") as f:
+                settings = json.load(f)
+                return settings.get(key, default)
+        except:
+            return default
 

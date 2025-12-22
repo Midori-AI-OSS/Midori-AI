@@ -1,7 +1,8 @@
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QProgressBar, QHBoxLayout, QPushButton)
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QPixmap
+from PySide6.QtCore import Qt, QPropertyAnimation, QVariantAnimation, QPoint, Property
+from PySide6.QtGui import QPixmap, QColor
 from pathlib import Path
+from idle_game.core.save_manager import SaveManager
 
 class CharacterWindow(QWidget):
     def __init__(self, character_data, game_state):
@@ -13,6 +14,16 @@ class CharacterWindow(QWidget):
         self.setWindowTitle(f"Status: {character_data.get('name', 'Unknown')}")
         # 16:9 Aspect Ratio (e.g., 800x450)
         self.setFixedSize(800, 450)
+        
+        self._pos_restored = False
+        
+        # Pulse Animation Setup
+        self._pulse_color = QColor(26, 26, 26) # Default dark background
+        self.pulse_anim = QVariantAnimation(self)
+        self.pulse_anim.setDuration(3000) # Slow pulse (3s)
+        self.pulse_anim.setLoopCount(-1)
+        self.pulse_anim.valueChanged.connect(self._update_pulse_style)
+        self.current_pulse_type = None # None, 'boost', 'debuff'
         
         # Main Horizontal Layout
         main_layout = QHBoxLayout(self)
@@ -130,7 +141,21 @@ class CharacterWindow(QWidget):
         
         self.update_stats(0) # Initial update
     
+    def _update_pulse_style(self, color):
+        self._pulse_color = color
+        self.setStyleSheet(f"background-color: {color.name()}; color: white;")
+
+    def moveEvent(self, event):
+        if self.isVisible():
+            SaveManager.save_setting(f"win_pos_{self.char_id}", [self.x(), self.y()])
+        super().moveEvent(event)
+
     def showEvent(self, event):
+        if not self._pos_restored:
+            pos = SaveManager.load_setting(f"win_pos_{self.char_id}")
+            if pos:
+                self.move(pos[0], pos[1])
+            self._pos_restored = True
         self.game_state.start_viewing(self.char_id)
         super().showEvent(event)
         
@@ -255,6 +280,8 @@ class CharacterWindow(QWidget):
         return self.character_data["base_stats"].get(key, 0)
 
     def update_stats(self, tick):
+        gs = self.game_state
+        char_id = self.char_id
         runtime = self.character_data["runtime"]
         level = runtime["level"]
         hp = runtime["hp"]
@@ -280,28 +307,23 @@ class CharacterWindow(QWidget):
         else:
             self.rebirth_btn.setVisible(False)
 
-        self.hp_bar.setFormat(f"{int(hp)}/{int(max_hp)}")
+        self.hp_bar.setFormat(f"{hp:.2f}/{max_hp:.2f}")
         self.hp_bar.setRange(0, int(max_hp))
         self.hp_bar.setValue(int(hp))
         
-        self.exp_bar.setFormat(f"{int(exp)}/{int(max_exp)}")
+        self.exp_bar.setFormat(f"{exp:.2f}/{max_exp:.2f}")
         self.exp_bar.setRange(0, int(max_exp))
         self.exp_bar.setValue(int(exp))
 
         atk = self._get_base("atk") + (level * 2) 
         defense = self._get_base("defense") + (level * 1)
         
-        self.atk_bar.setFormat(f"{atk} (x{exp_mult:.2f} Exp)") # Show Exp Mult on ATK for now as debug/info? Or just assume hidden
-        # Actually user didn't ask to see extra stats visually yet, just "show each bar". 
-        # But showing the exp multiplier somewhere is nice. Let's put it on the EXP bar text? 
-        # No, format is restricted. I'll leave it as is.
-        
-        self.atk_bar.setFormat(f"{atk}")
+        self.atk_bar.setFormat(f"{atk:.2f}")
         self.atk_bar.setRange(0, 1000) 
         self.atk_bar.setValue(int(atk))
         
         # Defense (Left of split)
-        self.def_bar.setFormat(f"{defense}")
+        self.def_bar.setFormat(f"{defense:.2f}")
         self.def_bar.setRange(0, 1000)
         self.def_bar.setValue(int(defense))
         
@@ -312,46 +334,68 @@ class CharacterWindow(QWidget):
         mitigation = self._get_base("mitigation")
         regen = self._get_base("regain")
         
+        # Update Pulse Background
+        self._check_pulse_state(char_id, gs)
+
         # Update Fight Button & Cooldown
         self._update_fight_ui()
 
         # Crit Rate (0-100%)
-        self.crit_rate_bar.setFormat(f"{crit_rate*100:.1f}%")
+        self.crit_rate_bar.setFormat(f"{crit_rate*100:.2f}%")
         self.crit_rate_bar.setRange(0, 100)
         self.crit_rate_bar.setValue(int(crit_rate * 100))
 
-        # Crit Damage (Usually > 100%, maybe cap at 300 visual?)
-        # Fix: Ensure text is visible and format is clear
-        self.crit_dmg_bar.setFormat(f"{crit_dmg*100:.0f}%")
+        # Crit Damage
+        self.crit_dmg_bar.setFormat(f"{crit_dmg*100:.2f}%")
         self.crit_dmg_bar.setRange(0, 300) 
         self.crit_dmg_bar.setValue(int(crit_dmg * 100))
-        # self.crit_dmg_bar.setAlignment(Qt.AlignCenter) # Removed manual alignment to fix vertical offset
 
         # Dodge (0-100%)
-        self.dodge_bar.setFormat(f"{dodge*100:.1f}%")
+        self.dodge_bar.setFormat(f"{dodge*100:.2f}%")
         self.dodge_bar.setRange(0, 100)
         self.dodge_bar.setValue(int(dodge * 100))
 
         # Mitigation (Right of split)
-        # Assuming percent based for bar, but displaying raw value or formatted
-        mit_percent = min(mitigation * 10, 100) # Arbitrary scaling for visuals
+        mit_percent = min(mitigation * 10, 100) 
         self.mit_bar.setFormat(f"{mitigation:.2f}")
         self.mit_bar.setRange(0, 100)
         self.mit_bar.setValue(int(mit_percent))
-        # self.mit_bar.setAlignment(Qt.AlignCenter)
 
         # Regen (Raw value)
-        self.regen_bar.setFormat(f"{regen}")
-        self.regen_bar.setRange(0, 100) # Assuming 100 is high regen
+        self.regen_bar.setFormat(f"{regen:.2f}")
+        self.regen_bar.setRange(0, 100) 
         self.regen_bar.setValue(int(regen))
+    
+    def _check_pulse_state(self, char_id, gs):
+        current_tick = gs.tick_count
+        has_boost = (char_id in gs.fight_boost_expiry and current_tick < gs.fight_boost_expiry[char_id])
+        has_debuff = (char_id in gs.fight_debuff_expiry and current_tick < gs.fight_debuff_expiry[char_id])
+        
+        new_type = None
+        if has_boost: new_type = 'boost'
+        elif has_debuff: new_type = 'debuff'
+        
+        if new_type != self.current_pulse_type:
+            self.current_pulse_type = new_type
+            self.pulse_anim.stop()
+            
+            if new_type:
+                target_color = QColor(20, 45, 20) if new_type == 'boost' else QColor(45, 20, 20)
+                self.pulse_anim.setStartValue(QColor(26, 26, 26))
+                self.pulse_anim.setEndValue(QColor(26, 26, 26))
+                self.pulse_anim.setKeyValueAt(0.5, target_color)
+                self.pulse_anim.start()
+            else:
+                self.setStyleSheet("background-color: #1a1a1a; color: white;")
     
     def _update_fight_ui(self):
         gs = self.game_state
         char_id = self.char_id
         current_tick = gs.tick_count
         
-        # Check Boost
+        # Check Boost & Debuff
         has_boost = (char_id in gs.fight_boost_expiry and current_tick < gs.fight_boost_expiry[char_id])
+        has_debuff = (char_id in gs.fight_debuff_expiry and current_tick < gs.fight_debuff_expiry[char_id])
         
         # Check Cooldown
         expiry = gs.fight_cooldown_expiry.get(char_id, 0)
@@ -372,6 +416,13 @@ class CharacterWindow(QWidget):
                 self.cooldown_bar.setStyleSheet("""
                     QProgressBar { border: 2px solid #555; border-radius: 8px; background-color: #222; }
                     QProgressBar::chunk { background-color: #f1c40f; border-radius: 6px; }
+                """)
+            elif has_debuff:
+                remaining_debuff = (gs.fight_debuff_expiry[char_id] - current_tick) // 10
+                self.fight_btn.setText(f"PENALIZED! (0.25x EXP) {remaining_debuff}s")
+                self.cooldown_bar.setStyleSheet("""
+                    QProgressBar { border: 2px solid #555; border-radius: 8px; background-color: #222; }
+                    QProgressBar::chunk { background-color: #3498db; border-radius: 6px; }
                 """)
             else:
                 self.fight_btn.setText("FIGHT")

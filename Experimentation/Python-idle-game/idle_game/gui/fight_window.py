@@ -2,6 +2,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QHBoxLayout, QPushB
 from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QPoint, QEasingCurve, Signal
 from PySide6.QtGui import QPixmap, QFont
 from pathlib import Path
+from idle_game.core.save_manager import SaveManager
 import random
 
 class FightWindow(QWidget):
@@ -19,6 +20,8 @@ class FightWindow(QWidget):
         self.setWindowTitle(f"DUEL: {char1_data['name']} vs {char2_data['name']}")
         self.setFixedSize(1600, 600) # Even longer and slightly shorter
         self.setStyleSheet("background-color: #1a1a1a; color: white;")
+        
+        self._pos_restored = False
         
         main_layout = QVBoxLayout(self)
         
@@ -127,16 +130,16 @@ class FightWindow(QWidget):
         atk = stats.get("atk", 10) + (level * 2)
         atk_bar.setRange(0, 1000)
         atk_bar.setValue(int(atk))
-        atk_bar.setFormat(f"{int(atk)}")
+        atk_bar.setFormat(f"{atk:.2f}")
 
-        crit_r.setRange(0, 100); crit_r.setValue(int(stats.get("crit_rate", 0)*100)); crit_r.setFormat(f"{stats.get('crit_rate',0)*100:.1f}%")
-        crit_d.setRange(0, 300); crit_d.setValue(int(stats.get("crit_damage", 1.5)*100)); crit_d.setFormat(f"{stats.get('crit_damage',1.5)*100:.0f}%")
+        crit_r.setRange(0, 100); crit_r.setValue(int(stats.get("crit_rate", 0)*100)); crit_r.setFormat(f"{stats.get('crit_rate',0)*100:.2f}%")
+        crit_d.setRange(0, 300); crit_d.setValue(int(stats.get("crit_damage", 1.5)*100)); crit_d.setFormat(f"{stats.get('crit_damage',1.5)*100:.2f}%")
         
-        def_v = stats.get("defense",0) + level; def_b.setRange(0, 500); def_b.setValue(int(def_v)); def_b.setFormat(f"{int(def_v)}")
+        def_v = stats.get("defense",0) + level; def_b.setRange(0, 500); def_b.setValue(int(def_v)); def_b.setFormat(f"{def_v:.2f}")
         mit_v = stats.get("mitigation",0); mit_b.setRange(0, 100); mit_b.setValue(int(mit_v*10)); mit_b.setFormat(f"{mit_v:.2f}")
         
-        dodge_v = stats.get("dodge_odds",0); dodge_b.setRange(0, 100); dodge_b.setValue(int(dodge_v*100)); dodge_b.setFormat(f"{dodge_v*100:.1f}%")
-        regen_v = stats.get("regain",0); regen_b.setRange(0, 100); regen_b.setValue(int(regen_v)); regen_b.setFormat(f"{regen_v:.1f}")
+        dodge_v = stats.get("dodge_odds",0); dodge_b.setRange(0, 100); dodge_b.setValue(int(dodge_v*100)); dodge_b.setFormat(f"{dodge_v*100:.2f}%")
+        regen_v = stats.get("regain",0); regen_b.setRange(0, 100); regen_b.setValue(int(regen_v)); regen_b.setFormat(f"{regen_v:.2f}")
 
         layout.addStretch()
         return container
@@ -317,12 +320,17 @@ class FightWindow(QWidget):
 
 
     def _end_fight(self):
-        winner = self.char1 if self.p1_hp > 0 else self.char2
+        if self.p1_hp > 0:
+            winner, loser = self.char1, self.char2
+        else:
+            winner, loser = self.char2, self.char1
+
         self.log_label.setText(f"VICTORY: {winner['name']} wins!")
         self.log_label.setStyleSheet("color: #2ecc71; font-size: 20px; font-weight: bold;")
         
-        # Reward
+        # Process Results
         self.game_state.process_combat_win(winner["id"])
+        self.game_state.process_combat_loss(loser["id"])
         
         self.close_btn.setVisible(True)
 
@@ -341,6 +349,19 @@ class FightWindow(QWidget):
         anim.finished.connect(label.close)
         anim.start()
         self.bits.append(anim) # Keep ref
+
+    def moveEvent(self, event):
+        if self.isVisible():
+            SaveManager.save_setting("win_pos_fight", [self.x(), self.y()])
+        super().moveEvent(event)
+
+    def showEvent(self, event):
+        if not self._pos_restored:
+            pos = SaveManager.load_setting("win_pos_fight")
+            if pos:
+                self.move(pos[0], pos[1])
+            self._pos_restored = True
+        super().showEvent(event)
 
     def closeEvent(self, event):
         self.finished.emit()

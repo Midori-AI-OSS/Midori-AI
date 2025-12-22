@@ -21,6 +21,7 @@ class GameState(QObject):
         
         # Combat Boosts & Cooldowns (stored as expiry tick count)
         self.fight_boost_expiry: Dict[str, int] = {}
+        self.fight_debuff_expiry: Dict[str, int] = {}
         self.fight_cooldown_expiry: Dict[str, int] = {}
  
         self.timer = QTimer()
@@ -130,15 +131,22 @@ class GameState(QObject):
             req_mult = runtime.get("req_multiplier", 1.0)
             
             # Fight Boost: 2x EXP if boost is active
-            combat_boost = 1.0
+            # Fight Debuff: 0.25x EXP if debuff is active
+            combat_mult = 1.0
             if char["id"] in self.fight_boost_expiry:
                 if self.tick_count < self.fight_boost_expiry[char["id"]]:
-                    combat_boost = 2.0
+                    combat_mult *= 2.0
                 else:
                     del self.fight_boost_expiry[char["id"]]
 
+            if char["id"] in self.fight_debuff_expiry:
+                if self.tick_count < self.fight_debuff_expiry[char["id"]]:
+                    combat_mult *= 0.25
+                else:
+                    del self.fight_debuff_expiry[char["id"]]
+
             # 1 EXP * Multipliers
-            gain = 1 * exp_mult * combat_boost
+            gain = 1 * exp_mult * combat_mult
             runtime["exp"] += gain
             
             # Level Up Logic
@@ -297,7 +305,7 @@ class GameState(QObject):
                 print(f"BATTLE: {char_id} is on cooldown.")
                 return
             else:
-                del self.fight_cooldown_expiry[char["id"]]
+                del self.fight_cooldown_expiry[char_id]
 
         import random
         other_ids = [cid for cid in self.characters_map.keys() if cid != char_id]
@@ -332,6 +340,18 @@ class GameState(QObject):
         runtime["next_req"] = (runtime["level"] * 30 * req_mult) * random.uniform(0.95, 1.05)
         
         print(f"COMBAT REWARD: {char_id} reached Level {runtime['level']}")
+        self.save_game_state()
+
+    def process_combat_loss(self, char_id: str):
+        """Applies a 1-minute 75% EXP reduction debuff to the loser."""
+        char = self.characters_map.get(char_id)
+        if not char:
+            return
+            
+        # Set Debuff: 60s (at 10 ticks/s = 600 ticks)
+        self.fight_debuff_expiry[char_id] = self.tick_count + 600
+        
+        print(f"COMBAT PENALTY: {char_id} received a 75% EXP debuff for 60s.")
         self.save_game_state()
 
 
