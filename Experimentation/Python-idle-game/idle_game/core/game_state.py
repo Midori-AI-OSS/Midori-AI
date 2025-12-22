@@ -14,13 +14,19 @@ class GameState(QObject):
         self.tick_count = 0
         self.characters: List[Dict[str, Any]] = []
         self.characters_map: Dict[str, Dict[str, Any]] = {}
-        self.active_party: List[str] = [] # List of character IDs
+        self.active_party: List[str] = [] # List of char IDs
+        self.active_viewing_ids: set = set() # Set of char IDs currently being viewed
 
-        
-        # Setup tick timer (1 second for now)
-        self.timer = QTimer(self)
+        self.timer = QTimer()
         self.timer.timeout.connect(self._on_tick)
-        self.timer.start(1000)
+        self.timer.start(1000) # 1 second tick
+
+    def start_viewing(self, char_id: str):
+        self.active_viewing_ids.add(char_id)
+        
+    def stop_viewing(self, char_id: str):
+        if char_id in self.active_viewing_ids:
+            self.active_viewing_ids.remove(char_id)
 
     def load_characters(self):
         """Loads character data from the extracted JSON."""
@@ -31,21 +37,48 @@ class GameState(QObject):
             return
 
         try:
+            import random
             with open(data_path, "r", encoding="utf-8") as f:
-                self.characters = json.load(f)
-                
-            # Create a lookup map
-            self.characters_map = {c["id"]: c for c in self.characters}
+                raw_characters_data = json.load(f)
             
-            # Initializing runtime state for each character if not present
-            for char in self.characters:
+            self.characters = []
+            self.characters_map = {}
+
+            for char in raw_characters_data:
+                # Ensure metadata exists for randomization check
+                char.setdefault("metadata", {})
+
+                # Initializing runtime state for each character if not present
                 char.setdefault("runtime", {
                     "level": 1,
                     "exp": 0,
-                    "hp": char["base_stats"].get("max_hp", 100),
-                    "max_hp": char["base_stats"].get("max_hp", 100)
+                    "max_hp": char["base_stats"].get("max_hp", 1000),
+                    "hp": char["base_stats"].get("max_hp", 1000)
                 })
+                # Ensure runtime hp is synced with max_hp if missing
+                if "hp" not in char["runtime"]:
+                     char["runtime"]["hp"] = char["runtime"]["max_hp"]
             
+                # Stat Randomness (Variance)
+                if "randomized" not in char["metadata"]:
+                    for key in ["atk", "defense", "max_hp", "crit_rate", "crit_damage"]:
+                        if key in char["base_stats"]:
+                             # +/- 10%
+                             variance = random.uniform(0.9, 1.1)
+                             original = char["base_stats"][key]
+                             if isinstance(original, int):
+                                 char["base_stats"][key] = int(original * variance)
+                             elif isinstance(original, float):
+                                 char["base_stats"][key] = original * variance
+                    char["metadata"]["randomized"] = True
+                    # Update runtime max_hp if it was just randomized
+                    char["runtime"]["max_hp"] = char["base_stats"].get("max_hp", 1000) + (char["runtime"]["level"] * 10)
+                    if char["runtime"]["hp"] > char["runtime"]["max_hp"]:
+                        char["runtime"]["hp"] = char["runtime"]["max_hp"]
+                
+                self.characters.append(char)
+                self.characters_map[char["id"]] = char
+
             print(f"Loaded {len(self.characters)} characters.")
             self.characters_loaded.emit()
             
@@ -58,8 +91,17 @@ class GameState(QObject):
         self.tick_update.emit(self.tick_count)
         
         # Passive Growth: Experience gain every tick
+        if not self.characters:
+            self.load_characters()
+
         # Passive Growth: Experience gain every tick
         for char in self.characters:
+            # Conditional EXP: Only gains if someone is viewing (active_viewing_ids)
+            # The user requirement was "Chars exp should only tick when their window is open."
+            # So check if char['id'] is in self.active_viewing_ids
+            if char["id"] not in self.active_viewing_ids:
+                continue
+
             runtime = char["runtime"]
             
             # --- Rebirth & Growth Logic ---

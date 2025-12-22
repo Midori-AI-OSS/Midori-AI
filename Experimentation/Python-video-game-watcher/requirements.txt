@@ -1,0 +1,8 @@
+PySide6>=6.5
+mss>=6.1.0
+opencv-python>=4.7.0
+numpy>=1.24
+pygame>=2.1
+ultralytics>=8.0.0
+torch>=2.0.0  # optional if using ultralytics; install suitable CUDA build separately
+tqdm

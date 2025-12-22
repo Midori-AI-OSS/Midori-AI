@@ -54,7 +54,13 @@ class CharacterWindow(QWidget):
         self.exp_bar = self._create_bar("EXP", "#f1c40f", right_layout)
         self.atk_bar = self._create_bar("ATK", "#3498db", right_layout)
         self.def_bar = self._create_bar("DEF", "#9b59b6", right_layout)
-        
+
+        self.crit_rate_bar = self._create_bar("Crit Rate", "#e67e22", right_layout)
+        self.crit_dmg_bar = self._create_bar("Crit Dmg", "#c0392b", right_layout)
+        self.dodge_bar = self._create_bar("Dodge", "#16a085", right_layout)
+        self.mit_bar = self._create_bar("Mitigation", "#7f8c8d", right_layout)
+        self.regen_bar = self._create_bar("Regen", "#2ecc71", right_layout)
+
         # Rebirth Button
         self.rebirth_btn = QPushButton("REBIRTH (Lvl 50)")
         self.rebirth_btn.setStyleSheet("background-color: #e67e22; font-weight: bold; color: white;")
@@ -69,6 +75,14 @@ class CharacterWindow(QWidget):
         self.game_state.tick_update.connect(self.update_stats)
         
         self.update_stats(0) # Initial update
+    
+    def showEvent(self, event):
+        self.game_state.start_viewing(self.char_id)
+        super().showEvent(event)
+        
+    def closeEvent(self, event):
+        self.game_state.stop_viewing(self.char_id)
+        super().closeEvent(event)
     
     def on_rebirth_click(self):
         if self.game_state.rebirth_character(self.char_id):
@@ -154,8 +168,42 @@ class CharacterWindow(QWidget):
         
         self.atk_bar.setFormat(f"{atk}")
         self.atk_bar.setRange(0, 1000) 
-        self.atk_bar.setValue(atk)
+        self.atk_bar.setValue(int(atk))
         
         self.def_bar.setFormat(f"{defense}")
         self.def_bar.setRange(0, 1000)
-        self.def_bar.setValue(defense)
+        self.def_bar.setValue(int(defense))
+        
+        # Update Extra Stats
+        crit_rate = self._get_base("crit_rate")
+        crit_dmg = self._get_base("crit_damage")
+        dodge = self._get_base("dodge_odds")
+        mitigation = self._get_base("mitigation")
+        regen = self._get_base("regain")
+        
+        # Crit Rate (0-100%)
+        self.crit_rate_bar.setFormat(f"{crit_rate*100:.1f}%")
+        self.crit_rate_bar.setRange(0, 100)
+        self.crit_rate_bar.setValue(int(crit_rate * 100))
+
+        # Crit Damage (Usually > 100%, maybe cap at 300 visual?)
+        self.crit_dmg_bar.setFormat(f"{crit_dmg*100:.0f}%")
+        self.crit_dmg_bar.setRange(0, 300) 
+        self.crit_dmg_bar.setValue(int(crit_dmg * 100))
+
+        # Dodge (0-100%)
+        self.dodge_bar.setFormat(f"{dodge*100:.1f}%")
+        self.dodge_bar.setRange(0, 100)
+        self.dodge_bar.setValue(int(dodge * 100))
+
+        # Mitigation (Usually small number like 0-1, or maybe more?)
+        # Assuming percent based for bar, but displaying raw value
+        mit_percent = min(mitigation * 10, 100) # Arbitrary scaling for visuals
+        self.mit_bar.setFormat(f"{mitigation:.2f}")
+        self.mit_bar.setRange(0, 100)
+        self.mit_bar.setValue(int(mit_percent))
+
+        # Regen (Raw value)
+        self.regen_bar.setFormat(f"{regen}")
+        self.regen_bar.setRange(0, 100) # Assuming 100 is high regen
+        self.regen_bar.setValue(int(regen))

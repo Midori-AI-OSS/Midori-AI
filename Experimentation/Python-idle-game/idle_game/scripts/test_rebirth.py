@@ -88,7 +88,7 @@ def test_rebirth():
     
     # Should be hidden (Lvl 1)
     window.update_stats(0)
-    if not window.rebirth_btn.isVisible():
+    if window.rebirth_btn.isHidden():
         print("PASS: Rebirth button hidden at Level 1.")
     else:
         print("FAIL: Rebirth button visible at Level 1.")
@@ -96,7 +96,7 @@ def test_rebirth():
     # Level up to 50 manually
     runtime["level"] = 50
     window.update_stats(0)
-    if window.rebirth_btn.isVisible():
+    if not window.rebirth_btn.isHidden():
         print("PASS: Rebirth button visible at Level 50.")
     else:
         print("FAIL: Rebirth button hidden at Level 50.")
