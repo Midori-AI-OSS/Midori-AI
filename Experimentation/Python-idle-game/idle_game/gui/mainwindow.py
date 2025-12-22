@@ -97,7 +97,7 @@ class MainWindow(QMainWindow):
         pos = SaveManager.load_setting("win_pos_main")
         if pos:
             self.move(pos[0], pos[1])
-        self.character_windows = {} # Keep references
+        self.active_char_window = None # Single active window
         
         # Main Layout
         central_widget = QWidget()
@@ -110,12 +110,6 @@ class MainWindow(QMainWindow):
         self.header_label = QLabel("Idle Roster - Tick: 0")
         self.header_label.setStyleSheet("font-size: 18px; font-weight: bold;")
         header_layout.addWidget(self.header_label)
-        
-        header_layout.addStretch()
-        
-        self.launch_btn = QPushButton("Launch Party Windows")
-        self.launch_btn.clicked.connect(self.launch_party)
-        header_layout.addWidget(self.launch_btn)
         
         main_layout.addLayout(header_layout)
         
@@ -152,6 +146,7 @@ class MainWindow(QMainWindow):
                 continue
                 
             card = CharacterCard(char, self.game_state)
+            card.clicked.connect(self.open_char_window)
             self.roster_layout.addWidget(card, row, col)
             
             col += 1
@@ -160,30 +155,26 @@ class MainWindow(QMainWindow):
                 row += 1
 
     def update_header(self, tick_count):
-        self.header_label.setText(f"Idle Roster - Tick: {tick_count} | Party: {len(self.game_state.active_party)}/5")
+        self.header_label.setText(f"Idle Roster - Tick: {tick_count}")
 
-    def launch_party(self):
-        # Close existing windows that aren't in party anymore
-        active_ids = self.game_state.active_party
-        to_close = [cid for cid in self.character_windows if cid not in active_ids]
-        for cid in to_close:
-            self.character_windows[cid].close()
-            del self.character_windows[cid]
+    def open_char_window(self, char_id):
+        # Close existing
+        if self.active_char_window:
+            self.active_char_window.close()
             
-        # Open new windows
-        for char_id in active_ids:
-            if char_id not in self.character_windows:
-                char_data = self.game_state.characters_map.get(char_id)
-                if char_data:
-                    window = CharacterWindow(char_data, self.game_state)
-                    window.show()
-                    self.character_windows[char_id] = window
-            else:
-                # Bring to front if already open
-                self.character_windows[char_id].show()
-                self.character_windows[char_id].activateWindow()
+        char_data = self.game_state.characters_map.get(char_id)
+        if char_data:
+            self.active_char_window = CharacterWindow(char_data, self.game_state)
+            self.active_char_window.show()
+
 
     def launch_duel(self, char1_id, char2_id):
+        # No need to close characters here as they are managed via active_char_window
+        # but if one is open, maybe keep it? Or close it? 
+        # User said "stay when theres a fights" previously. 
+        # But now they say "only one char open at a time". 
+        # This usually refers to the "Status" windows.
+        
         # Create Fight Window
         c1 = self.game_state.characters_map.get(char1_id)
         c2 = self.game_state.characters_map.get(char2_id)
