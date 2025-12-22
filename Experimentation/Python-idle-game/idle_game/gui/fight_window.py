@@ -1,8 +1,10 @@
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QHBoxLayout, QPushButton, QFrame, QProgressBar)
+from PySide6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QHBoxLayout, QPushButton, QFrame)
 from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QPoint, QEasingCurve, Signal
 from PySide6.QtGui import QPixmap, QFont
 from pathlib import Path
 from idle_game.core.save_manager import SaveManager
+from idle_game.gui.widgets import PulseProgressBar
+from typing import Dict, Any
 import random
 
 class FightWindow(QWidget):
@@ -13,6 +15,10 @@ class FightWindow(QWidget):
         self.char1 = char1_data
         self.char2 = char2_data
         self.game_state = game_state
+        
+        # Resolve Dual Types for the duration of this fight
+        self.p1_type = self._resolve_type(self.char1)
+        self.p2_type = self._resolve_type(self.char2)
         
         self.p1_hp = 100
         self.p2_hp = 100
@@ -79,7 +85,7 @@ class FightWindow(QWidget):
         self.combat_timer = QTimer()
         self.combat_timer.timeout.connect(self._combat_step)
         
-        QTimer.singleShot(1500, lambda: self.combat_timer.start(800))
+        QTimer.singleShot(1500, lambda: self.combat_timer.start(1200))
 
     def _create_stats_panel(self, data, side):
         container = QWidget()
@@ -127,19 +133,18 @@ class FightWindow(QWidget):
         hp_bar.setRange(0, 100)
         hp_bar.setValue(100)
         
-        atk = stats.get("atk", 10) + (level * 2)
-        atk_bar.setRange(0, 1000)
-        atk_bar.setValue(int(atk))
-        atk_bar.setFormat(f"{atk:.2f}")
+        eff = self.game_state.get_effective_stats(data)
+        
+        atk_bar.setRange(0, 1000); atk_bar.setValue(int(eff["atk"])); atk_bar.setFormat(f"{eff['atk']:.2f}")
 
-        crit_r.setRange(0, 100); crit_r.setValue(int(stats.get("crit_rate", 0)*100)); crit_r.setFormat(f"{stats.get('crit_rate',0)*100:.2f}%")
-        crit_d.setRange(0, 300); crit_d.setValue(int(stats.get("crit_damage", 1.5)*100)); crit_d.setFormat(f"{stats.get('crit_damage',1.5)*100:.2f}%")
+        crit_r.setRange(0, 100); crit_r.setValue(int(eff.get("crit_rate", 0)*100)); crit_r.setFormat(f"{eff.get('crit_rate',0)*100:.2f}%")
+        crit_d.setRange(0, 300); crit_d.setValue(int(eff.get("crit_damage", 1.5)*100)); crit_d.setFormat(f"{eff.get('crit_damage',1.5)*100:.2f}%")
         
-        def_v = stats.get("defense",0) + level; def_b.setRange(0, 500); def_b.setValue(int(def_v)); def_b.setFormat(f"{def_v:.2f}")
-        mit_v = stats.get("mitigation",0); mit_b.setRange(0, 100); mit_b.setValue(int(mit_v*10)); mit_b.setFormat(f"{mit_v:.2f}")
+        def_v = eff["defense"]; def_b.setRange(0, 500); def_b.setValue(int(def_v)); def_b.setFormat(f"{def_v:.2f}")
+        mit_v = eff.get("mitigation",0); mit_b.setRange(0, 100); mit_b.setValue(int(mit_v*10)); mit_b.setFormat(f"{mit_v:.2f}")
         
-        dodge_v = stats.get("dodge_odds",0); dodge_b.setRange(0, 100); dodge_b.setValue(int(dodge_v*100)); dodge_b.setFormat(f"{dodge_v*100:.2f}%")
-        regen_v = stats.get("regain",0); regen_b.setRange(0, 100); regen_b.setValue(int(regen_v)); regen_b.setFormat(f"{regen_v:.2f}")
+        dodge_v = eff.get("dodge_odds",0); dodge_b.setRange(0, 100); dodge_b.setValue(int(dodge_v*100)); dodge_b.setFormat(f"{dodge_v*100:.2f}%")
+        regen_v = eff.get("regain",0); regen_b.setRange(0, 100); regen_b.setValue(int(regen_v)); regen_b.setFormat(f"{regen_v:.2f}")
 
         layout.addStretch()
         return container
@@ -154,7 +159,9 @@ class FightWindow(QWidget):
         if align_right: label.setAlignment(Qt.AlignRight)
         layout.addWidget(label)
         
-        bar = QProgressBar()
+        bar = PulseProgressBar()
+        # Pulse AWAY from the center (P1 is on left, pulses RTL. P2 is on right, pulses LTR)
+        bar.setPulseDirection("rtl" if not align_right else "ltr")
         bar.setFixedSize(260, 22)
         bar.setStyleSheet(f"""
             QProgressBar {{
@@ -190,7 +197,8 @@ class FightWindow(QWidget):
         bar_layout = QHBoxLayout(bar_container)
         bar_layout.setContentsMargins(0, 0, 0, 0); bar_layout.setSpacing(0)
         
-        b1 = QProgressBar()
+        b1 = PulseProgressBar()
+        b1.setPulseDirection("rtl") # Always outwards from split center
         b1.setInvertedAppearance(True)
         b1.setFixedSize(130, 22)
         b1.setStyleSheet(f"""
@@ -199,7 +207,8 @@ class FightWindow(QWidget):
             QProgressBar::chunk {{ background-color: {color1}; border-top-left-radius: 2px; border-bottom-left-radius: 2px; }}
         """)
         
-        b2 = QProgressBar()
+        b2 = PulseProgressBar()
+        b2.setPulseDirection("ltr") # Always outwards from split center
         b2.setFixedSize(130, 22)
         b2.setStyleSheet(f"""
             QProgressBar {{ border: 2px solid #34495e; border-left: 1px; border-top-right-radius: 4px; border-bottom-right-radius: 4px;
@@ -218,7 +227,17 @@ class FightWindow(QWidget):
         
         img_label = QLabel()
         img_label.setFixedSize(280, 360) # Slightly larger portraits
-        img_label.setStyleSheet("border: 3px solid #555; border-radius: 12px; background-color: #222;")
+        dtype = data.get("damage_type", "Generic")
+        type_info = self.game_state.TYPE_CHART.get(dtype, self.game_state.TYPE_CHART["Generic"])
+        type_color = type_info["color"]
+
+        img_label.setStyleSheet(f"""
+            QLabel {{
+                border: 3px solid {type_color};
+                border-radius: 12px;
+                background-color: #222;
+            }}
+        """)
         img_label.setAlignment(Qt.AlignCenter)
         
         portrait = data.get("ui", {}).get("portrait")
@@ -250,44 +269,51 @@ class FightWindow(QWidget):
             side = "right"
 
         # Regen Step (Half regain per combat tick)
-        self.p1_hp = min(100, self.p1_hp + (self.char1["base_stats"].get("regain", 0) / 2))
-        self.p2_hp = min(100, self.p2_hp + (self.char2["base_stats"].get("regain", 0) / 2))
+        eff1 = self.game_state.get_effective_stats(self.char1)
+        eff2 = self.game_state.get_effective_stats(self.char2)
+        
+        self.p1_hp = min(100, self.p1_hp + (eff1.get("regain", 0) / 2))
+        self.p2_hp = min(100, self.p2_hp + (eff2.get("regain", 0) / 2))
         self.p1_hp_bar.setValue(int(self.p1_hp))
         self.p2_hp_bar.setValue(int(self.p2_hp))
 
         # --- Damage Logic ---
-        atkr_stats = atkr["base_stats"]
-        dfndr_stats = dfndr["base_stats"]
-        atkr_lvl = atkr["runtime"]["level"]
+        atkr_stats = self.game_state.get_effective_stats(atkr)
+        dfndr_stats = self.game_state.get_effective_stats(dfndr)
         
         # 1. Dodge Check
         dodge_chance = dfndr_stats.get("dodge_odds", 0)
         if random.random() < dodge_chance:
             self.log_label.setText(f"{dfndr['name']} DODGED the attack!")
             self.log_label.setStyleSheet("color: #3498db; font-weight: bold; font-size: 16px;")
-            self._spawn_projectile("MISS!", self._get_center(atkr_idx), self._get_center(3-attacker_idx))
+            self._spawn_projectile("MISS!", self._get_center(attacker_idx), self._get_center(3-attacker_idx))
             return
 
-        # 2. Base Damage
-        base_dmg = atkr_stats.get("atk", 10) * (1 + atkr_lvl / 50)
+        # 2. Typing Multiplier
+        atkr_type = self.p1_type if attacker_idx == 1 else self.p2_type
+        dfndr_type = self.p2_type if attacker_idx == 1 else self.p1_type
+        type_mult = self.game_state.get_type_multiplier(atkr_type, dfndr_type)
+
+        # 3. Base Damage
+        base_dmg = atkr_stats["atk"] * type_mult
         
-        # 3. Crit Check
+        # 4. Crit Check
         crit_chance = atkr_stats.get("crit_rate", 0)
         is_crit = random.random() < crit_chance
         if is_crit:
             base_dmg *= atkr_stats.get("crit_damage", 1.5)
             
-        # 4. Mitigation & Defense
-        # Mitigation is raw reduction factor? (Based on game_state calculation, it seems like a small float)
+        # 5. Mitigation & Defense
         mitigation = dfndr_stats.get("mitigation", 0)
         mitigated_dmg = base_dmg * (1 - min(0.8, mitigation / 100)) # Cap at 80% reduction
         
         defense = dfndr_stats.get("defense", 0)
-        final_dmg = max(5, mitigated_dmg - (defense / 2))
+        # We use a floor of 10 for internal damage so it yields at least 1 after scaling
+        final_dmg = max(10, mitigated_dmg - (defense / 2))
         final_dmg *= random.uniform(0.9, 1.1)
         
         # Apply Damage
-        damage = int(final_dmg / 10) # Scale to 100 HP bar
+        damage = max(1, int(final_dmg / 10)) # Scale to 100 HP bar, min 1
         if attacker_idx == 1:
             self.p2_hp = max(0, self.p2_hp - damage)
             self.p2_hp_bar.setValue(int(self.p2_hp))
@@ -296,10 +322,16 @@ class FightWindow(QWidget):
             self.p1_hp_bar.setValue(int(self.p1_hp))
 
         # Feedback
-        log_text = f"{atkr['name']} deals {damage} damage!"
+        effectiveness_prefix = ""
+        if type_mult > 1.0: effectiveness_prefix = "SUPER EFFECTIVE! "
+        elif type_mult < 1.0: effectiveness_prefix = "RESISTED! "
+
+        log_text = f"{effectiveness_prefix}{atkr['name']} deals {damage} damage!"
         if is_crit:
             log_text = f"CRITICAL! {log_text}"
             self.log_label.setStyleSheet("color: #e67e22; font-weight: bold; font-size: 18px;")
+        elif type_mult > 1.0:
+            self.log_label.setStyleSheet("color: #e74c3c; font-weight: bold; font-size: 17px;")
         else:
             self.log_label.setStyleSheet("color: #f1c40f; font-weight: bold; font-size: 16px;")
             
@@ -312,6 +344,14 @@ class FightWindow(QWidget):
         if self.p1_hp <= 0 or self.p2_hp <= 0:
             self.combat_timer.stop()
             self._end_fight()
+
+    def _resolve_type(self, data: Dict[str, Any]) -> str:
+        """Picks a single type if character has multiple (e.g. 'Fire / Ice')."""
+        dtype = data.get("damage_type", "Dark")
+        if "/" in dtype:
+            types = [t.strip() for t in dtype.split("/")]
+            return random.choice(types)
+        return dtype
 
     def _get_center(self, char_idx):
         if char_idx == 1:

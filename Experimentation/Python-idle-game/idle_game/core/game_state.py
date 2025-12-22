@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 from typing import Dict, Any, List
+import random
 from PySide6.QtCore import QObject, Signal, Slot, QTimer
 
 class GameState(QObject):
@@ -23,7 +24,16 @@ class GameState(QObject):
         self.fight_boost_expiry: Dict[str, int] = {}
         self.fight_debuff_expiry: Dict[str, int] = {}
         self.fight_cooldown_expiry: Dict[str, int] = {}
+        
+        # Risk & Reward Penalties (Stacking)
+        self.rr_penalty_expiry: Dict[str, int] = {}
+        self.rr_penalty_stacks: Dict[str, int] = {}
  
+        self.mods = {
+            "shared_exp": False,
+            "risk_reward": {"enabled": False, "level": 1}
+        }
+
         self.timer = QTimer()
         self.timer.timeout.connect(self._on_tick)
         self.timer.start(100) # 10 ticks per second (100ms)
@@ -55,6 +65,21 @@ class GameState(QObject):
                 # Ensure metadata exists for randomization check
                 char.setdefault("metadata", {})
 
+                # Resolve Damage Type
+                dtype = char.get("damage_type", "Dark")
+                if dtype == "load_damage_type":
+                    if char["id"] == "luna":
+                        dtype = "Generic"
+                    elif char["id"] == "lady_fire_and_ice":
+                        dtype = "Fire / Ice"
+                    elif char["id"] == "persona_light_and_dark":
+                        dtype = "Light / Dark"
+                    elif char["id"] == "lady_storm":
+                        dtype = "Lightning / Wind"
+                    else:
+                        dtype = "Dark"
+                char["damage_type"] = dtype
+
                 # Initializing runtime state for each character if not present
                 char.setdefault("runtime", {
                     "level": 1,
@@ -78,11 +103,14 @@ class GameState(QObject):
                              elif isinstance(original, float):
                                  char["base_stats"][key] = original * variance
                     char["metadata"]["randomized"] = True
-                    # Update runtime max_hp if it was just randomized
                     char["runtime"]["max_hp"] = char["base_stats"].get("max_hp", 1000) + (char["runtime"]["level"] * 10)
                     if char["runtime"]["hp"] > char["runtime"]["max_hp"]:
                         char["runtime"]["hp"] = char["runtime"]["max_hp"]
                 
+                # Snapshot the base stats after randomization but before any level-up growth
+                if "initial_base_stats" not in char:
+                    char["initial_base_stats"] = char["base_stats"].copy()
+
                 self.characters.append(char)
                 self.characters_map[char["id"]] = char
 
@@ -115,23 +143,30 @@ class GameState(QObject):
         if not self.characters:
             self.load_characters()
 
-        # Passive Growth: Experience gain every tick
-        for char in self.characters:
-            # Conditional EXP: Only gains if someone is viewing (active_viewing_ids)
-            # The user requirement was "Chars exp should only tick when their window is open."
-            # So check if char['id'] is in self.active_viewing_ids
-            if char["id"] not in self.active_viewing_ids:
-                continue
+        # Calculate shared bonus once per tick if mod is active
+        shared_bonus = 0.0
+        if self.mods.get("shared_exp"):
+            for vid in self.active_viewing_ids:
+                vchar = self.characters_map.get(vid)
+                if vchar:
+                    v_rt = vchar["runtime"]
+                    v_exp_mult = v_rt.get("exp_multiplier", 1.0)
+                    v_c_mult = 1.0
+                    if vchar["id"] in self.fight_boost_expiry and self.tick_count < self.fight_boost_expiry[vchar["id"]]:
+                        v_c_mult = 2.0
+                    elif vchar["id"] in self.fight_debuff_expiry and self.tick_count < self.fight_debuff_expiry[vchar["id"]]:
+                        v_c_mult = 0.25
+                    
+                    # 1% of untaxed potential
+                    shared_bonus += (1.0 * v_exp_mult * v_c_mult) * 0.01
 
+        needs_save = False
+        for char_id, char in self.characters_map.items():
             runtime = char["runtime"]
-            
-            # --- Rebirth & Growth Logic ---
-            # Default multipliers if not present
             exp_mult = runtime.get("exp_multiplier", 1.0)
             req_mult = runtime.get("req_multiplier", 1.0)
             
-            # Fight Boost: 2x EXP if boost is active
-            # Fight Debuff: 0.25x EXP if debuff is active
+            # Fight Boost/Debuff Logic
             combat_mult = 1.0
             if char["id"] in self.fight_boost_expiry:
                 if self.tick_count < self.fight_boost_expiry[char["id"]]:
@@ -145,30 +180,94 @@ class GameState(QObject):
                 else:
                     del self.fight_debuff_expiry[char["id"]]
 
-            # 1 EXP * Multipliers
-            gain = 1 * exp_mult * combat_mult
-            runtime["exp"] += gain
+            # 1. Calculate Base Gain
+            raw_gain = 1 * exp_mult * combat_mult
             
+            # --- Apply Stacking Death Penalties ---
+            stacks = self.rr_penalty_stacks.get(char_id, 0)
+            if stacks > 0 and char_id in self.rr_penalty_expiry:
+                if self.tick_count < self.rr_penalty_expiry[char_id]:
+                    penalty_mult = 0.01 ** stacks
+                    raw_gain *= penalty_mult
+                else:
+                    del self.rr_penalty_expiry[char_id]
+                    self.rr_penalty_stacks[char_id] = 0
+
+            # 2. View-based constraint & Mod tax
+            is_viewed = char["id"] in self.active_viewing_ids
+            gain = raw_gain
+            
+            if self.mods.get("shared_exp"):
+                if is_viewed:
+                    gain *= 0.45 
+                else:
+                    gain = 0 
+            else:
+                if not is_viewed:
+                    gain = 0 
+
+            # Risk & Reward Mod: Multiplier
+            rr = self.mods.get("risk_reward", {})
+            if rr.get("enabled"):
+                gain *= (rr.get("level", 1) + 1)
+
+            # 3. Apply gain + global shared bonus
+            runtime["exp"] += gain + shared_bonus
+
+            # --- Regeneration & Risk/Reward Damage ---
+            eff = self.get_effective_stats(char)
+            regain = eff.get("regain", 0)
+            if "Light" in char.get("damage_type", ""):
+                 regain *= 15.0
+            
+            # Apply passive regain
+            regain_tick = regain / 10.0
+            if not self.active_viewing_ids:
+                regain_tick += 5.0 # Everyone gets 5 HP/tick bonus when idle (no windows)
+            
+            runtime["hp"] = min(runtime["max_hp"], runtime["hp"] + regain_tick)
+
+            # Risk & Reward Penalty: ONLY for characters who are currently obtaining bonus (viewed)
+            # This prevents killing the entire roster in the background.
+            if rr.get("enabled") and is_viewed and self.tick_count % 5 == 0:
+                drain = 1.5 * rr.get("level", 1)
+                prev_hp = runtime["hp"]
+                runtime["hp"] -= drain
+                
+                # Handling "Death" - Only trigger if they were above 0
+                if runtime["hp"] <= 0 and prev_hp > 0:
+                    runtime["hp"] = 0
+                    penalty_ticks = 35 * 60 * 10
+                    self.rr_penalty_stacks[char_id] = self.rr_penalty_stacks.get(char_id, 0) + 1
+                    
+                    current_expiry = self.rr_penalty_expiry.get(char_id, self.tick_count)
+                    base_time = max(self.tick_count, current_expiry)
+                    self.rr_penalty_expiry[char_id] = base_time + penalty_ticks
+                    needs_save = True
+
             # Level Up Logic
-            # NEW REQ: (Level * 30 * req_multiplier) +/- 5%
             if "next_req" not in runtime:
-                import random
                 runtime["next_req"] = (runtime["level"] * 30 * req_mult) * random.uniform(0.95, 1.05)
             
             if runtime["exp"] >= runtime["next_req"]:
                 self.level_up_character(char)
-                # Set up next level requirement
-                import random
-                runtime["next_req"] = (runtime["level"] * 30 * req_mult) * random.uniform(0.95, 1.05)
-                self.save_game_state() # Save on level up
+                
+                # Dynamic Slowdown: Compounding 1.5x tax per 5 levels over 50
+                lvl = runtime["level"]
+                tax_mult = 1.0
+                if lvl >= 50:
+                    steps = (lvl - 50) // 5
+                    tax_mult = (1.5 ** steps)
+                
+                runtime["next_req"] = (lvl * 30 * req_mult * tax_mult) * random.uniform(0.95, 1.05)
+                needs_save = True
 
-        # Autosave every 125 ticks
-        if self.tick_count % 125 == 0:
+        # Global Save Logic
+        if needs_save or (self.tick_count % 125 == 0):
             self.save_game_state()
 
     def level_up_character(self, char: Dict[str, Any]):
         """Increments level and applies weighted stat upgrades."""
-        import random
         runtime = char["runtime"]
         runtime["level"] += 1
         runtime["exp"] = 0
@@ -187,13 +286,20 @@ class GameState(QObject):
         weights = []
         for key in stat_keys:
             val = base_stats.get(key, 0.1)
+            w = 0.1
             # Scaling factors to make smaller stats relevant
             if key in ["crit_rate", "dodge_odds", "mitigation"]: # Usually small values
-                weights.append(val * 100)
+                w = val * 100
             elif key == "crit_damage": # 1.5 -> 15
-                weights.append(val * 10)
+                w = val * 10
             else:
-                weights.append(val)
+                w = val
+            
+            # Character specific favors
+            if char["id"] == "luna" and key == "dodge_odds":
+                w *= 5 # Luna favors dodge significantly
+                
+            weights.append(w)
         
         # Ensure no zero weights
         weights = [max(0.1, w) for w in weights]
@@ -220,23 +326,37 @@ class GameState(QObject):
             
         print(f"Rebirthing {char_id}...")
         
+        # Capture old level for bonus calculation
+        old_level = runtime["level"]
+        
         # Reset Stats
         runtime["level"] = 1
         runtime["exp"] = 0
+        
+        # RESTORE BASE STATS to their initial level 1 values (wiping level-up growth)
+        if "initial_base_stats" in char:
+            char["base_stats"] = char["initial_base_stats"].copy()
+            
         runtime["max_hp"] = char["base_stats"].get("max_hp", 1000)
         runtime["hp"] = runtime["max_hp"]
         
         # Apply Bonuses
-        # +25% EXP Gain
-        current_exp_mult = runtime.get("exp_multiplier", 1.0)
-        runtime["exp_multiplier"] = current_exp_mult + 0.25
+        # Formula: 0.25 * (1 + 0.01 * (old_level - 50))
+        bonus = 0.25 * (1 + 0.01 * (old_level - 50))
         
-        # +5% EXP Required
+        current_exp_mult = runtime.get("exp_multiplier", 1.0)
+        runtime["exp_multiplier"] = current_exp_mult + bonus
+        
+        # Apply EXP Tax (Permanent 5% per Rebirth)
         current_req_mult = runtime.get("req_multiplier", 1.0)
         runtime["req_multiplier"] = current_req_mult + 0.05
         
         # Track Rebirths
         runtime["rebirths"] = runtime.get("rebirths", 0) + 1
+        
+        # Reset EXP requirement for Level 1
+        req_mult = runtime["req_multiplier"]
+        runtime["next_req"] = (1 * 30 * req_mult) * random.uniform(0.95, 1.05)
         
         self.save_game_state() # Save rebirth
         return True
@@ -248,6 +368,9 @@ class GameState(QObject):
     def save_game_state(self):
         from idle_game.core.save_manager import SaveManager
         SaveManager.save_game(self.characters, self.active_party)
+        SaveManager.save_setting("active_mods", self.mods)
+        SaveManager.save_setting("rr_penalty_expiry", self.rr_penalty_expiry)
+        SaveManager.save_setting("rr_penalty_stacks", self.rr_penalty_stacks)
 
     def load_game_state(self):
         from idle_game.core.save_manager import SaveManager
@@ -265,9 +388,11 @@ class GameState(QObject):
             if char_id in saved_chars:
                 item = saved_chars[char_id]
                 if isinstance(item, dict) and "runtime" in item:
-                    # New format: {runtime: ..., base_stats: ..., metadata: ...}
+                    # New format: {runtime: ..., base_stats: ..., metadata: ..., initial_base_stats: ...}
                     char["runtime"].update(item.get("runtime", {}))
                     char["base_stats"].update(item.get("base_stats", {}))
+                    if "initial_base_stats" in item:
+                        char["initial_base_stats"] = item["initial_base_stats"].copy()
                     char["metadata"].update(item.get("metadata", {}))
                 else:
                     # Legacy format: item IS the runtime dict
@@ -276,25 +401,70 @@ class GameState(QObject):
                 lvl = char["runtime"]["level"]
                 char["runtime"]["max_hp"] = char["base_stats"].get("max_hp", 1000) + (lvl * 10)
         
+        saved_mods = SaveManager.load_setting("active_mods")
+        if saved_mods:
+            self.mods.update(saved_mods)
+            
+        self.rr_penalty_expiry = SaveManager.load_setting("rr_penalty_expiry", {})
+        self.rr_penalty_stacks = SaveManager.load_setting("rr_penalty_stacks", {})
+            
         print(f"Loaded save data for {len(saved_chars)} characters and party of {len(self.active_party)}")
 
-    def toggle_party_member(self, char_id: str) -> bool:
-        """Toggles a character in/out of the active party. Returns True if in party."""
-        changed = False
-        in_party = False
-        if char_id in self.active_party:
-            self.active_party.remove(char_id)
-            changed = True
-            in_party = False
-        else:
-            if len(self.active_party) < 5:
-                self.active_party.append(char_id)
-                changed = True
-                in_party = True
+    TYPE_CHART = {
+        "Fire": {"weakness": "Ice", "resistance": "Fire", "color": "#e74c3c"},
+        "Ice": {"weakness": "Fire", "resistance": "Ice", "color": "#3498db"},
+        "Wind": {"weakness": "Lightning", "resistance": "Wind", "color": "#2ecc71"},
+        "Lightning": {"weakness": "Wind", "resistance": "Lightning", "color": "#f1c40f"},
+        "Light": {"weakness": "Dark", "resistance": "Light", "color": "#ecf0f1"},
+        "Dark": {"weakness": "Light", "resistance": "Dark", "color": "#9b59b6"},
+        "Generic": {"weakness": "none", "resistance": "all", "color": "#bdc3c7"}
+    }
+
+    def get_type_multiplier(self, attacker_type: str, defender_type: str) -> float:
+        """Calculates damage multiplier based on elemental typing."""
+        if not attacker_type or not defender_type:
+            return 1.0
+            
+        def_info = self.TYPE_CHART.get(defender_type, self.TYPE_CHART["Generic"])
         
-        if changed:
-            self.save_game_state()
-        return in_party
+        # Weakness: Attacker is what Defender is weak against
+        if def_info["weakness"] == attacker_type:
+            return 1.25
+            
+        # Resistance: Attacker is what Defender resists
+        if def_info["resistance"] == "all" or def_info["resistance"] == attacker_type:
+            return 0.75
+            
+        return 1.0
+
+    def get_effective_stats(self, char_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Calculates derived stats based on base stats, level, and rebirths."""
+        runtime = char_data["runtime"]
+        base_stats = char_data["base_stats"]
+        level = runtime["level"]
+        rebirths = runtime.get("rebirths", 0)
+        
+        # Base stats (including level-up specializations)
+        stats = base_stats.copy()
+        
+        # Consistent ATK & DEF formulas
+        stats["atk"] = stats.get("atk", 10) + (level * 2)
+        stats["defense"] = stats.get("defense", 0) + (level * 1)
+        
+        # Dodge Growth: +0.01 per 25 levels (x2+rebirths) with fall-off at 50
+        dodge_lvl = min(level, 50)
+        if level > 50:
+            dodge_lvl += (level - 50) ** 0.5 # Logarithmic fall-off after 50
+        
+        dodge_bonus = (dodge_lvl / 25.0) * 0.01 * (2 + rebirths)
+        stats["dodge_odds"] = stats.get("dodge_odds", 0) + dodge_bonus
+        
+        # Regain Growth: +0.2 per tick per 50 levels (x5 times rebirths)
+        # Note: 5*rebirths means 0 if no rebirths, as per literal request
+        regen_bonus = (level / 50.0) * 0.2 * (5 * rebirths)
+        stats["regain"] = stats.get("regain", 0) + regen_bonus
+        
+        return stats
 
 
     def init_duel(self, char_id: str):
@@ -307,7 +477,6 @@ class GameState(QObject):
             else:
                 del self.fight_cooldown_expiry[char_id]
 
-        import random
         other_ids = [cid for cid in self.characters_map.keys() if cid != char_id]
         if not other_ids:
             return
@@ -336,7 +505,6 @@ class GameState(QObject):
         # Reset requirement for next level
         runtime = char["runtime"]
         req_mult = runtime.get("req_multiplier", 1.0)
-        import random
         runtime["next_req"] = (runtime["level"] * 30 * req_mult) * random.uniform(0.95, 1.05)
         
         print(f"COMBAT REWARD: {char_id} reached Level {runtime['level']}")

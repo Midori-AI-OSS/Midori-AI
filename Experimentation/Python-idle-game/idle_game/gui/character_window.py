@@ -1,10 +1,13 @@
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QProgressBar, QHBoxLayout, QPushButton)
-from PySide6.QtCore import Qt, QPropertyAnimation, QVariantAnimation, QPoint, Property
+from PySide6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QHBoxLayout, QPushButton)
+from PySide6.QtCore import Qt, QPropertyAnimation, QVariantAnimation, QPoint, Property, Signal
 from PySide6.QtGui import QPixmap, QColor
 from pathlib import Path
 from idle_game.core.save_manager import SaveManager
+from idle_game.gui.widgets import PulseProgressBar
 
 class CharacterWindow(QWidget):
+    closed = Signal()
+
     def __init__(self, character_data, game_state):
         super().__init__()
         self.character_data = character_data
@@ -57,7 +60,7 @@ class CharacterWindow(QWidget):
         fight_stack.setContentsMargins(0, 5, 0, 0)
 
         # We create a bar that fills up over 2 minutes
-        self.cooldown_bar = QProgressBar()
+        self.cooldown_bar = PulseProgressBar()
         self.cooldown_bar.setFixedSize(350, 45)
         self.cooldown_bar.setTextVisible(False)
         self.cooldown_bar.setStyleSheet("""
@@ -103,10 +106,23 @@ class CharacterWindow(QWidget):
         right_layout = QVBoxLayout(right_panel)
         right_layout.setAlignment(Qt.AlignTop)
         
-        # Name Header
+        # Header with Name and Type
+        header_layout = QHBoxLayout()
+        header_layout.setAlignment(Qt.AlignLeft)
+        
         name_label = QLabel(character_data.get("name", "Unknown"))
         name_label.setStyleSheet("font-size: 24px; font-weight: bold; color: #ecf0f1;")
-        right_layout.addWidget(name_label)
+        header_layout.addWidget(name_label)
+        
+        # Spacer
+        header_layout.addSpacing(15)
+        
+        # Type Label
+        self.type_label = QLabel(f"[{character_data.get('damage_type', 'Generic').upper()}]")
+        self.type_label.setStyleSheet("font-size: 16px; color: #e67e22; font-weight: bold;")
+        header_layout.addWidget(self.type_label)
+        
+        right_layout.addLayout(header_layout)
 
         # Level Label
         self.level_label = QLabel(f"Level: {self._get_runtime('level')}")
@@ -114,16 +130,16 @@ class CharacterWindow(QWidget):
         right_layout.addWidget(self.level_label)
 
         # Stats Bars
-        self.hp_bar = self._create_bar("HP", "#e74c3c", right_layout)
-        self.exp_bar = self._create_bar("EXP", "#f1c40f", right_layout)
-        self.atk_bar = self._create_bar("ATK", "#3498db", right_layout)
+        _, self.hp_bar = self._create_bar("HP", "#e74c3c", right_layout)
+        self.exp_label, self.exp_bar = self._create_bar("EXP", "#f1c40f", right_layout)
+        _, self.atk_bar = self._create_bar("ATK", "#3498db", right_layout)
         # self.def_bar = self._create_bar("DEF", "#9b59b6", right_layout) # Replaced by split bar
 
         self.crit_rate_bar, self.crit_dmg_bar = self._create_split_bar("Crit Rate", "#e67e22", "Crit Dmg", "#c0392b", right_layout)
         self.def_bar, self.mit_bar = self._create_split_bar("Defense", "#9b59b6", "Mitigation", "#7f8c8d", right_layout)
-        self.dodge_bar = self._create_bar("Dodge", "#16a085", right_layout)
+        _, self.dodge_bar = self._create_bar("Dodge", "#16a085", right_layout)
         # self.mit_bar = self._create_bar("Mitigation", "#7f8c8d", right_layout) # Replaced by split bar
-        self.regen_bar = self._create_bar("Regen", "#2ecc71", right_layout)
+        _, self.regen_bar = self._create_bar("Regen", "#2ecc71", right_layout)
 
         # Rebirth Button
         self.rebirth_btn = QPushButton("REBIRTH (Lvl 50)")
@@ -147,6 +163,7 @@ class CharacterWindow(QWidget):
 
     def moveEvent(self, event):
         if self.isVisible():
+            from idle_game.core.save_manager import SaveManager
             SaveManager.save_setting(f"win_pos_{self.char_id}", [self.x(), self.y()])
         super().moveEvent(event)
 
@@ -158,9 +175,10 @@ class CharacterWindow(QWidget):
             self._pos_restored = True
         self.game_state.start_viewing(self.char_id)
         super().showEvent(event)
-        
+
     def closeEvent(self, event):
         self.game_state.stop_viewing(self.char_id)
+        self.closed.emit()
         super().closeEvent(event)
     
     def on_rebirth_click(self):
@@ -181,7 +199,7 @@ class CharacterWindow(QWidget):
         label.setStyleSheet("font-weight: bold; font-size: 12px; color: #95a5a6;")
         layout.addWidget(label)
         
-        bar = QProgressBar()
+        bar = PulseProgressBar()
         bar.setStyleSheet(f"""
             QProgressBar {{
                 border: 2px solid #34495e;
@@ -199,7 +217,7 @@ class CharacterWindow(QWidget):
         layout.addWidget(bar)
         
         parent_layout.addWidget(container)
-        return bar
+        return label, bar
 
     def _create_split_bar(self, label1, color1, label2, color2, parent_layout):
         container = QWidget()
@@ -226,7 +244,8 @@ class CharacterWindow(QWidget):
         bar_layout.setSpacing(0)
         
         # Left Bar (Inverted)
-        bar1 = QProgressBar()
+        bar1 = PulseProgressBar()
+        bar1.setPulseDirection("rtl") # Always outwards from center
         bar1.setInvertedAppearance(True)
         bar1.setStyleSheet(f"""
             QProgressBar {{
@@ -247,7 +266,8 @@ class CharacterWindow(QWidget):
         """)
         
         # Right Bar
-        bar2 = QProgressBar()
+        bar2 = PulseProgressBar()
+        bar2.setPulseDirection("ltr") # Always outwards from center
         bar2.setStyleSheet(f"""
             QProgressBar {{
                 border: 2px solid #34495e;
@@ -282,7 +302,33 @@ class CharacterWindow(QWidget):
     def update_stats(self, tick):
         gs = self.game_state
         char_id = self.char_id
+        
+        char = gs.characters_map.get(char_id)
+        if not char: return
+        
+        self.character_data = char
         runtime = self.character_data["runtime"]
+        
+        # Update Type/Element Info
+        dtype = char.get("damage_type", "Generic")
+        
+        # If dual-type, use the first one for color
+        color_key = dtype.split("/")[0].strip() if "/" in dtype else dtype
+        type_info = self.game_state.TYPE_CHART.get(color_key, self.game_state.TYPE_CHART["Generic"])
+        type_color = type_info["color"]
+        
+        self.type_label.setText(f"[{dtype.upper()}]")
+        self.type_label.setStyleSheet(f"font-size: 16px; color: {type_color}; font-weight: bold;")
+        
+        # Update portrait container color (No background, just border)
+        self.portrait_label.setStyleSheet(f"""
+            QLabel {{
+                background-color: #222; 
+                border-radius: 10px; 
+                border: 3px solid {type_color};
+            }}
+        """)
+
         level = runtime["level"]
         hp = runtime["hp"]
         max_hp = runtime["max_hp"]
@@ -301,22 +347,39 @@ class CharacterWindow(QWidget):
         self.level_label.setText(title)
         
         # Toggle Rebirth Button
+        # Toggle Rebirth Button & Update its text
         if level >= 50:
+            potential_bonus = 0.25 * (1 + 0.01 * (level - 50))
+            self.rebirth_btn.setText(f"REBIRTH (+{potential_bonus*100:.2f}% EXP Buff)")
             self.rebirth_btn.setVisible(True)
             self.rebirth_btn.setEnabled(True)
         else:
             self.rebirth_btn.setVisible(False)
 
-        self.hp_bar.setFormat(f"{hp:.2f}/{max_hp:.2f}")
+        self.hp_bar.setFormat(f"{runtime.get('hp', max_hp):.2f}/{max_hp:.2f}")
         self.hp_bar.setRange(0, int(max_hp))
-        self.hp_bar.setValue(int(hp))
+        self.hp_bar.setValue(int(runtime.get('hp', max_hp)))
         
+        # Update EXP Label with Buff% and Dynamic Tax
+        current_buff = (exp_mult - 1.0) * 100
+        tax_text = ""
+        if level >= 50:
+            steps = (level - 50) // 5
+            tax_mult = (1.5 ** steps)
+            if tax_mult > 1.0:
+                tax_text = f" [Tax {tax_mult:.2f}x]"
+        
+        self.exp_label.setText(f"EXP ({current_buff:.0f}%){tax_text}")
+
         self.exp_bar.setFormat(f"{exp:.2f}/{max_exp:.2f}")
         self.exp_bar.setRange(0, int(max_exp))
         self.exp_bar.setValue(int(exp))
 
-        atk = self._get_base("atk") + (level * 2) 
-        defense = self._get_base("defense") + (level * 1)
+        # Get Effective Stats (Base + Growth)
+        eff_stats = gs.get_effective_stats(self.character_data)
+        
+        atk = eff_stats["atk"]
+        defense = eff_stats["defense"]
         
         self.atk_bar.setFormat(f"{atk:.2f}")
         self.atk_bar.setRange(0, 1000) 
@@ -328,11 +391,11 @@ class CharacterWindow(QWidget):
         self.def_bar.setValue(int(defense))
         
         # Update Extra Stats
-        crit_rate = self._get_base("crit_rate")
-        crit_dmg = self._get_base("crit_damage")
-        dodge = self._get_base("dodge_odds")
-        mitigation = self._get_base("mitigation")
-        regen = self._get_base("regain")
+        crit_rate = eff_stats.get("crit_rate", 0)
+        crit_dmg = eff_stats.get("crit_damage", 1.5)
+        dodge = eff_stats.get("dodge_odds", 0)
+        mitigation = eff_stats.get("mitigation", 0)
+        regen = eff_stats.get("regain", 0)
         
         # Update Pulse Background
         self._check_pulse_state(char_id, gs)
