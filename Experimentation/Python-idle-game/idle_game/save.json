@@ -1,0 +1,140 @@
+{
+  "ally": {
+    "level": 3,
+    "exp": 170,
+    "hp": 1020,
+    "max_hp": 1020
+  },
+  "becca": {
+    "level": 3,
+    "exp": 170,
+    "hp": 1020,
+    "max_hp": 1020
+  },
+  "bubbles": {
+    "level": 3,
+    "exp": 170,
+    "hp": 1020,
+    "max_hp": 1020
+  },
+  "carly": {
+    "level": 3,
+    "exp": 170,
+    "hp": 1620,
+    "max_hp": 1620
+  },
+  "casno": {
+    "level": 3,
+    "exp": 170,
+    "hp": 1020,
+    "max_hp": 1020
+  },
+  "graygray": {
+    "level": 3,
+    "exp": 170,
+    "hp": 1020,
+    "max_hp": 1020
+  },
+  "hilander": {
+    "level": 3,
+    "exp": 170,
+    "hp": 1020,
+    "max_hp": 1020
+  },
+  "ixia": {
+    "level": 3,
+    "exp": 170,
+    "hp": 1020,
+    "max_hp": 1020
+  },
+  "jennifer_feltmann": {
+    "level": 3,
+    "exp": 170,
+    "hp": 1020,
+    "max_hp": 1020
+  },
+  "kboshi": {
+    "level": 3,
+    "exp": 170,
+    "hp": 1020,
+    "max_hp": 1020
+  },
+  "lady_darkness": {
+    "level": 3,
+    "exp": 170,
+    "hp": 1020,
+    "max_hp": 1020
+  },
+  "lady_echo": {
+    "level": 3,
+    "exp": 170,
+    "hp": 1020,
+    "max_hp": 1020
+  },
+  "lady_fire_and_ice": {
+    "level": 3,
+    "exp": 170,
+    "hp": 1020,
+    "max_hp": 1020
+  },
+  "lady_light": {
+    "level": 3,
+    "exp": 170,
+    "hp": 1020,
+    "max_hp": 1020
+  },
+  "lady_lightning": {
+    "level": 3,
+    "exp": 170,
+    "hp": 1020,
+    "max_hp": 1020
+  },
+  "lady_of_fire": {
+    "level": 3,
+    "exp": 170,
+    "hp": 1020,
+    "max_hp": 1020
+  },
+  "lady_storm": {
+    "level": 3,
+    "exp": 170,
+    "hp": 1020,
+    "max_hp": 1020
+  },
+  "lady_wind": {
+    "level": 3,
+    "exp": 170,
+    "hp": 1020,
+    "max_hp": 1020
+  },
+  "mezzy": {
+    "level": 3,
+    "exp": 170,
+    "hp": 1020,
+    "max_hp": 1020
+  },
+  "persona_ice": {
+    "level": 3,
+    "exp": 170,
+    "hp": 1670,
+    "max_hp": 1670
+  },
+  "persona_light_and_dark": {
+    "level": 3,
+    "exp": 170,
+    "hp": 1720,
+    "max_hp": 1720
+  },
+  "player": {
+    "level": 3,
+    "exp": 170,
+    "hp": 1020,
+    "max_hp": 1020
+  },
+  "ryne": {
+    "level": 3,
+    "exp": 170,
+    "hp": 1020,
+    "max_hp": 1020
+  }
+}
