@@ -90,7 +90,7 @@ jobs:
     strategy:
       max-parallel: 1
       matrix:
-        ver: [carly_codex/carly_codex_topaz, blackpixelarch/strikearch_emerald]
+        ver: [blackpixelarch/strikearch_emerald]
     runs-on: ubuntu-latest
     timeout-minutes: 360
     needs: push_arch_to_hub
