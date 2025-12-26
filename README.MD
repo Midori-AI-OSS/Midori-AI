@@ -27,16 +27,16 @@ This repository contains the following major projects and modules:
 
 - **Experimentation**  
   Contains experimental AI projects and tools:
-  - **Swarm-o-codex**: Persona-driven orchestration layer for large reasoning models (LRMs). Multi-backend execution system with specialized agents (Task Master, Manager, Coder, Reviewer, Auditor, Storyteller) for coding, auditing, storytelling, and automation tasks. Supports local LRM execution (`gpt-oss:20b`) and cloud APIs with tool-augmented reasoning via Model Context Protocol servers.
+  - **Swarm-o-codex**: Persona-driven orchestration layer for large reasoning models (LRMs). Features a multi-backend execution system with specialized agents (Task Master, Manager, Coder, Reviewer, Auditor, Storyteller) for collaborative coding, auditing, storytelling, and automation. Supports local LRM execution (`gpt-oss:20b`) and cloud APIs, with tool-augmented reasoning via Model Context Protocol servers.
   - **lrm-testing** *(Git Submodule)*: Tools for Large Reasoning Model chat and Q&A data pipeline.
   - **rpg-note-taker** *(Git Submodule)*: RPG note-taking utilities.
 
 - **Programs**  
   CLI utility scripts for Midori AI ecosystem management:
   - **Downloader** (`helper_app.py`): Asynchronous file download tool with API key authentication and encryption support.
-  - **File_manager** (`file_manager.py`): Comprehensive file and folder management tool for packing, unpacking, uploading, and downloading files to/from Midori AI servers with encryption.
-  - **Login_program** (`midori_ai_login_app.py`): User authentication and access management CLI tool with platform checks and user creation capabilities.
-  - **Updater** (`midori_ai_updater.py`): System updater for Midori AI programs, supporting PixelArch, EndeavourOS, Arch Linux, and Gentoo flavors.
+  - **File_manager** (`file_manager.py`): Comprehensive file and folder management tool for packing, unpacking, uploading, and downloading files to/from Midori AI servers. Features built-in encryption for secure transfers.
+  - **Login_program** (`midori_ai_login_app.py`): User authentication and access management CLI tool. Includes platform checks and user creation capabilities.
+  - **Updater** (`midori_ai_updater.py`): System updater for Midori AI programs. Supports PixelArch, EndeavourOS, Arch Linux, and Gentoo flavors.
   - **Hello**: Placeholder/template program directory.
 
 - **Python**  
