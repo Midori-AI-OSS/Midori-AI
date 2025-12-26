@@ -11,28 +11,36 @@ Midori AI is a cutting-edge initiative dedicated to advancing the field of artif
 This repository contains the following major projects and modules:
 
 - **Cluster-OS / PixelArch OS**  
-  Arch-based OS for managing Docker images and scalable AI clusters. Includes PixelArch OS (Docker-optimized Arch Linux) and tools for distributed AI training and infrastructure.
+  Arch-based OS engineered for Docker containerization and distributed AI workloads. PixelArch OS leverages Arch Linux with `yay` and `pacman` package managers, optimized specifically for running AI training and inference in containerized environments. Enables scalable cluster computing for distributed AI model training and deployment.
 
 - **DiscordLLMBot**  
-  A Discord bot leveraging LLMs, RAG, and integrations with ChromaDB, LangChain, and OpenAI. Designed for interactive AI experiences on Discord.
+  Discord bot with LLM integration featuring RAG (Retrieval-Augmented Generation) capabilities. Built with interactions.py, ChromaDB for vector storage, LangChain for text processing, and OpenAI-compatible API support. Automatically upserts documents from data folder into vector database for context-aware responses with hotword activation.
 
 - **Endless-Autofighter**  
-  Panda3D-based rewrite of the AutoFighter RPG. Includes legacy Pygame code, plugins, mods, and assets for extensible AI-driven gameplay.
-
-- **Subsystem-Manager**  
-  Manages AI workloads using containerization (Docker, Podman, LXC) and PixelArch OS. Simplifies deployment, experimentation, and scaling of AI systems.
+  Web-based auto-battler game with strategic party management and elemental combat system. Built with Svelte/SvelteKit frontend and Python Quart async backend. Features turn-based combat, character progression, equipment management, plugin-based character/enemy systems, and optional LLM-powered interactions. Supports Docker deployment with CPU, NVIDIA GPU (CUDA), and AMD GPU configurations.
 
 - **Website**  
-  Source for the Midori AI website ([https://io.midori-ai.xyz/](https://io.midori-ai.xyz/)), built with Hugo.
+  Midori AI's main website ([https://io.midori-ai.xyz/](https://io.midori-ai.xyz/)) built with Hugo static site generator. Serves as the central hub for project information, documentation, and community resources.
 
 - **Obsidian-Notes**  
-  Shared knowledge base and idea repository using Obsidian, for team and partner collaboration.
+  Collaborative knowledge base using Obsidian for internal documentation, planning, and team coordination. Shared workspace for partners and contributors.
 
 - **Experimentation**  
-  Contains subprojects like `lrm-testing` (tools for Large Reasoning Model chat and Q&A data pipeline) and `rpg-note-taker`.
+  Experimental AI projects and proof-of-concept implementations:
+  - **Swarm-o-codex**: Persona-driven orchestration layer for large reasoning models (LRMs).
+    - Multi-backend execution system with specialized agents (Task Master, Manager, Coder, Reviewer, Auditor, Storyteller)
+    - Supports collaborative coding, auditing, storytelling, and automation tasks
+    - Enables local LRM execution (`gpt-oss:20b`) and cloud API integration
+    - Features tool-augmented reasoning via Model Context Protocol servers
+  - **lrm-testing**: Tools and utilities for Large Reasoning Model chat interfaces and Q&A data pipeline development.
+  - **rpg-note-taker**: Utilities for RPG campaign note-taking and management.
 
-- **Programs**  
-  Utility scripts and helper programs for cluster management, downloading, file management, login, updating, and web server operations.
+- **Python**  
+  Python package monorepo for AI agent systems:
+  - **agents-packages**: Collection of Python packages for building LRM agent systems including core agent implementations (OpenAI, HuggingFace, LangChain), context management, vector storage, media lifecycle management, mood engine, reranker, and logging utilities.
+
+- **Codex-Template**  
+  Standardized repository template defining `.codex/` directory structure, contributor documentation patterns, and development workflows used across all Midori AI projects.
 
 ---
 
