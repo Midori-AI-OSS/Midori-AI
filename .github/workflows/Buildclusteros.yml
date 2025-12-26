@@ -1,4 +1,4 @@
-name: Build and Upload Cluster OS
+name: Build and Upload Pixelarch OS
 
 on:
   workflow_dispatch:
@@ -6,8 +6,8 @@ on:
     - cron: '30 8 * * 3'
 
 jobs:
-  push_cluster_os_arch_to_hub:
-    name: Push Midori AI's PixelArch (Cluster OS) to Docker Hub
+  push_pixelarch_os_arch_to_hub:
+    name: Push Midori AI's Pixelarch OS to Docker Hub
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -29,11 +29,11 @@ jobs:
           tags: |
             type=raw,value=latest
 
-      - name: Build and push Cluster OS (Arch Linux) Docker Image
+      - name: Build and push Pixelarch OS (Arch Linux) Docker Image
         uses: docker/build-push-action@master
         with:
-          context: ./Cluster-OS/aiclusteros/
-          file: ./Cluster-OS/aiclusteros/dockerfile
+          context: ./Pixelarch-OS/aiclusteros/
+          file: ./Pixelarch-OS/aiclusteros/dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

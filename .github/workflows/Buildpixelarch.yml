@@ -37,8 +37,8 @@ jobs:
       - name: Build and push PixelArch Docker Image
         uses: docker/build-push-action@master
         with:
-          context: ./Cluster-OS/pixelarch_os/
-          file: ./Cluster-OS/pixelarch_os/arch_dockerfile
+          context: ./Pixelarch-OS/pixelarch_os/
+          file: ./Pixelarch-OS/pixelarch_os/arch_dockerfile
           platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
@@ -78,8 +78,8 @@ jobs:
       - name: Build and push PixelArch ${{ matrix.ver }} OS Docker Image
         uses: docker/build-push-action@master
         with:
-          context: ./Cluster-OS/pixelarch_os/
-          file: ./Cluster-OS/pixelarch_os/arch_dockerfile_${{ matrix.ver }}
+          context: ./Pixelarch-OS/pixelarch_os/
+          file: ./Pixelarch-OS/pixelarch_os/arch_dockerfile_${{ matrix.ver }}
           platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
@@ -118,8 +118,8 @@ jobs:
         uses: docker/build-push-action@master
         continue-on-error: true
         with:
-          context: ./Cluster-OS/pixelarch_os/subvers/
-          file: ./Cluster-OS/pixelarch_os/subvers/${{ matrix.ver }}
+          context: ./Pixelarch-OS/pixelarch_os/subvers/
+          file: ./Pixelarch-OS/pixelarch_os/subvers/${{ matrix.ver }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
