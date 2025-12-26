@@ -10,19 +10,19 @@ Midori AI is a cutting-edge initiative dedicated to advancing the field of artif
 
 This repository contains the following major projects and modules:
 
-- **Cluster-OS / PixelArch OS** *(Git Submodule)*  
+- **Cluster-OS / PixelArch OS**  
   Arch-based OS for managing Docker images and scalable AI clusters. Includes PixelArch OS (Docker-optimized Arch Linux) and tools for distributed AI training and infrastructure.
 
-- **DiscordLLMBot** *(Git Submodule)*  
+- **DiscordLLMBot**  
   A Discord bot leveraging LLMs, RAG, and integrations with ChromaDB, LangChain, and OpenAI. Designed for interactive AI experiences on Discord.
 
-- **Endless-Autofighter** *(Git Submodule)*  
-  Panda3D-based rewrite of the AutoFighter RPG. Includes legacy Pygame code, plugins, mods, and assets for extensible AI-driven gameplay.
+- **Endless-Autofighter**  
+  A Panda3D-based action RPG with AI-driven gameplay mechanics. Features plugin-based character and enemy systems, mod support, and extensible gameplay framework.
 
-- **Website** *(Git Submodule)*  
+- **Website**  
   Source for the Midori AI website ([https://io.midori-ai.xyz/](https://io.midori-ai.xyz/)), built with Hugo.
 
-- **Obsidian-Notes** *(Git Submodule)*  
+- **Obsidian-Notes**  
   Shared knowledge base and idea repository using Obsidian, for team and partner collaboration.
 
 - **Experimentation**  
@@ -32,29 +32,14 @@ This repository contains the following major projects and modules:
     - Supports collaborative coding, auditing, storytelling, and automation tasks
     - Enables local LRM execution (`gpt-oss:20b`) and cloud API integration
     - Features tool-augmented reasoning via Model Context Protocol servers
-  - **lrm-testing** *(Git Submodule)*: Tools for Large Reasoning Model chat and Q&A data pipeline.
-  - **rpg-note-taker** *(Git Submodule)*: RPG note-taking utilities.
-
-- **Programs**  
-  CLI utility scripts for Midori AI ecosystem management:
-  - **Downloader** (`helper_app.py`): Asynchronous file download tool.
-    - Features API key authentication and encryption support
-  - **File_manager** (`file_manager.py`): Comprehensive file and folder management tool.
-    - Supports packing, unpacking, uploading, and downloading files to/from Midori AI servers
-    - Features built-in encryption for secure transfers
-  - **Login_program** (`midori_ai_login_app.py`): User authentication and access management CLI tool.
-    - Includes platform checks and user creation capabilities
-  - **Updater** (`midori_ai_updater.py`): System updater for Midori AI programs.
-    - Supports PixelArch, EndeavourOS, Arch Linux, and Gentoo flavors
-  - **Hello**: Placeholder/template program directory.
+  - **lrm-testing**: Tools for Large Reasoning Model chat and Q&A data pipeline.
+  - **rpg-note-taker**: RPG note-taking utilities.
 
 - **Python**  
   Python packages and shared libraries:
-  - **Packages/Logger**: Logging utilities for Midori AI services.
-  - **Packages/State-Reporting**: State reporting and monitoring tools.
-  - **agents-packages** *(Git Submodule)*: Agent framework and packages.
+  - **agents-packages**: Agent framework and packages.
 
-- **Codex-Template** *(Git Submodule)*  
+- **Codex-Template**  
   Template repository for standardized `.codex/` directory structure and contributor documentation across Midori AI projects.
 
 ---
