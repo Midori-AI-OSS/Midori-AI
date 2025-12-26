@@ -2,10 +2,6 @@
 	path = Website
 	url = https://github.com/lunamidori5/Midori-AI-Website.git
 	branch = master
-[submodule "Subsystem-Manager"]
-	path = Subsystem-Manager
-	url = https://github.com/lunamidori5/subsystem-manager.git
-	branch = master
 [submodule "Cluster-OS"]
 	path = Cluster-OS
 	url = https://github.com/lunamidori5/Midori-AI-Cluster-OS.git
