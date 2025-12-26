@@ -2,9 +2,9 @@
 	path = Website
 	url = https://github.com/lunamidori5/Midori-AI-Website.git
 	branch = master
-[submodule "Cluster-OS"]
-	path = Cluster-OS
-	url = https://github.com/lunamidori5/Midori-AI-Cluster-OS.git
+[submodule "Pixelarch-OS"]
+	path = Pixelarch-OS
+	url = https://github.com/lunamidori5/Midori-AI-Pixelarch-OS.git
 	branch = master
 [submodule "DiscordLLMBot"]
 	path = DiscordLLMBot

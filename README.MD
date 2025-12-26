@@ -10,8 +10,10 @@ Midori AI is a cutting-edge initiative dedicated to advancing the field of artif
 
 This repository contains the following major projects and modules:
 
-- **Cluster-OS / PixelArch OS**  
-  Arch-based OS engineered for Docker containerization and distributed AI workloads. PixelArch OS leverages Arch Linux with `yay` and `pacman` package managers, optimized specifically for running AI training and inference in containerized environments. Enables scalable cluster computing for distributed AI model training and deployment.
+- **Pixel OS**  
+  Collection of containerized OS environments for distributed AI workloads:
+  - **PixelArch**: Arch-based OS leveraging Arch Linux with `yay` and `pacman` package managers, optimized for AI training and inference in containerized environments.
+  - **PixelGen**: Gentoo-based OS that uses `yay` via a wrapper enabling yay commands on Gentoo for package management.
 
 - **DiscordLLMBot**  
   Discord bot with LLM integration featuring RAG (Retrieval-Augmented Generation) capabilities. Built with interactions.py, ChromaDB for vector storage, LangChain for text processing, and OpenAI-compatible API support. Automatically upserts documents from data folder into vector database for context-aware responses with hotword activation.

@@ -4,9 +4,9 @@ This guide enables coding agents to be immediately productive in this multi-serv
 Follow these actionable instructions to maximize effectiveness and avoid common pitfalls.
 
 ## Big Picture Architecture
-- The repository is a **multi-project mono-repo**: each major directory (e.g., `Endless-Autofighter`, `Cluster-OS`, `Subsystem-Manager`, `Website`) is a distinct service or product, often with its own build/test conventions and agent rules.
+- The repository is a **multi-project mono-repo**: each major directory (e.g., `Endless-Autofighter`, `Pixelarch-OS`, `Subsystem-Manager`, `Website`) is a distinct service or product, often with its own build/test conventions and agent rules.
 - **Service boundaries** are defined by top-level folders. Each service may have its own `AGENTS.md`, `.codex/`, and `README.md` with local rules and workflows.
-- **Cross-service integration** is managed via containerization (Docker, Compose) and shared OS images (see `Cluster-OS/pixelarch_os/`, `Subsystem-Manager`).
+- **Cross-service integration** is managed via containerization (Docker, Compose) and shared OS images (see `Pixelarch-OS/pixelarch_os/`, `Subsystem-Manager`).
 - **Data flows**: Most agent services use Python, with data and models in `data/`, and plugins/extensions in `plugins/` or `mods/`.
 
 ## Critical Developer Workflows
@@ -14,7 +14,7 @@ Follow these actionable instructions to maximize effectiveness and avoid common 
   - Example: `uv run main.py` or `uv run lyra.py`
 - **Node/React:** Use [`bun`](https://bun.sh/) for JS tooling, not `npm` or `yarn`.
 - **Testing:** Run tests with `uv run pytest` (Python). Any test running >25s is auto-aborted.
-- **Builds:** Container builds use Dockerfiles in service subfolders. Cluster/OS images use custom Arch-based Dockerfiles (`Cluster-OS/pixelarch_os/`).
+- **Builds:** Container builds use Dockerfiles in service subfolders. Pixelarch OS images use custom Arch-based Dockerfiles (`Pixelarch-OS/pixelarch_os/`).
 - **Commits:** Use `[TYPE] Title` format for commit messages and PRs. Example: `[FIX] Resolve agent startup bug`
 
 ## Project-Specific Conventions
@@ -26,11 +26,11 @@ Follow these actionable instructions to maximize effectiveness and avoid common 
 
 ## Integration Points & External Dependencies
 - **Subsystem-Manager** integrates with external LLMs (LocalAI, Ollama, AnythingLLM, Big-AGI, etc.) via Docker and API calls.
-- **Cluster-OS** and **PixelArch OS** provide containerized environments for scalable AI workloads.
+- **Pixelarch OS** provides containerized environments for scalable AI workloads.
 - **Endless-Autofighter** uses Panda3D (active branch: Ver2) and supports plugin-based character/enemy extension.
 
 ## Key Files & Directories
-- `Cluster-OS/pixelarch_os/`: Custom OS Dockerfiles
+- `Pixelarch-OS/pixelarch_os/`: Custom OS Dockerfiles
 - `README.md` (per-service): Quickstart, architecture, setup
 - `AGENTS.md` (global and per-service): Agent rules, contributor practices
 - `.codex/` (per-service): Contributor docs, implementation notes, instructions
