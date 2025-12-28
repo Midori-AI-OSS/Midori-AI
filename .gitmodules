@@ -24,7 +24,7 @@
 	branch = master
 [submodule "Endless-Autofighter"]
 	path = Endless-Autofighter
-	url = https://github.com/Midori-AI-OSS/Midori-AI-AutoFighter.git
+	url = https://github.com/Midori-AI-OSS/Stained-Glass-Odyssey-Endless
 	branch = master
 [submodule "Python/agents-packages"]
 	path = Python/agents-packages
