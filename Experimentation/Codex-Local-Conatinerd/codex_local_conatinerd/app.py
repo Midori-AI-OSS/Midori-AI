@@ -4,6 +4,7 @@ import time
 import shutil
 import shlex
 
+from pathlib import Path
 from uuid import uuid4
 from datetime import datetime
 from datetime import timezone
@@ -17,6 +18,7 @@ from PySide6.QtCore import QTimer
 from PySide6.QtCore import Signal
 from PySide6.QtGui import QColor
 from PySide6.QtGui import QFontMetrics
+from PySide6.QtGui import QIcon
 from PySide6.QtGui import QPainter
 from PySide6.QtGui import QPainterPath
 from PySide6.QtWidgets import QApplication
@@ -64,6 +66,14 @@ from codex_local_conatinerd.widgets import StatusGlyph
 
 
 PIXELARCH_EMERALD_IMAGE = "lunamidori5/pixelarch:emerald"
+APP_TITLE = "Midori AI Agents Runner"
+
+
+def _app_icon() -> QIcon | None:
+    icon_path = Path(__file__).resolve().with_name("midoriai-logo.png")
+    if not icon_path.exists():
+        return None
+    return QIcon(str(icon_path))
 
 
 def _parse_docker_time(value: str | None) -> datetime | None:
@@ -1253,7 +1263,7 @@ class SettingsPage(QWidget):
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("Codex Container Runner")
+        self.setWindowTitle(APP_TITLE)
         self.setFixedSize(1280, 720)
 
         self._settings_data: dict[str, object] = {
@@ -1804,8 +1814,15 @@ class MainWindow(QMainWindow):
 
 def run_app(argv: list[str]) -> None:
     app = QApplication(argv)
+    app.setApplicationDisplayName(APP_TITLE)
+    app.setApplicationName(APP_TITLE)
+    icon = _app_icon()
+    if icon is not None:
+        app.setWindowIcon(icon)
     app.setStyleSheet(app_stylesheet())
 
     window = MainWindow()
+    if icon is not None:
+        window.setWindowIcon(icon)
     window.show()
     sys.exit(app.exec())
