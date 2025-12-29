@@ -29,11 +29,13 @@ class DockerRunnerConfig:
     pull_before_run: bool = True
     settings_preflight_script: str | None = None
     environment_preflight_script: str | None = None
-    container_settings_preflight_path: str = "/tmp/codex-preflight-settings.sh"
-    container_environment_preflight_path: str = "/tmp/codex-preflight-environment.sh"
+    # Use a task-specific filename by default to avoid collisions when multiple
+    # runs share a container or temp directory.
+    container_settings_preflight_path: str = "/tmp/codex-preflight-settings-{task_id}.sh"
+    container_environment_preflight_path: str = "/tmp/codex-preflight-environment-{task_id}.sh"
     env_vars: dict[str, str] = field(default_factory=dict)
     extra_mounts: list[str] = field(default_factory=list)
-    codex_extra_args: list[str] = field(default_factory=list)
+    agent_cli_args: list[str] = field(default_factory=list)
 
 
 def _run_docker(args: list[str], timeout_s: float = 30.0) -> str:
@@ -111,6 +113,13 @@ class DockerPreflightWorker:
         try:
             os.makedirs(self._config.host_codex_dir, exist_ok=True)
             container_name = f"codex-preflight-{uuid.uuid4().hex[:10]}"
+            task_token = self._config.task_id or "task"
+            settings_container_path = self._config.container_settings_preflight_path.replace(
+                "{task_id}", task_token
+            )
+            environment_container_path = self._config.container_environment_preflight_path.replace(
+                "{task_id}", task_token
+            )
 
             def _write_preflight_script(script: str, label: str) -> str:
                 fd, tmp_path = tempfile.mkstemp(
@@ -160,16 +169,16 @@ class DockerPreflightWorker:
             preflight_mounts: list[str] = []
             if settings_preflight_tmp_path is not None:
                 self._on_log(
-                    f"[host] settings preflight enabled; mounting -> {self._config.container_settings_preflight_path} (ro)"
+                    f"[host] settings preflight enabled; mounting -> {settings_container_path} (ro)"
                 )
                 preflight_mounts.extend(
                     [
                         "-v",
-                        f"{settings_preflight_tmp_path}:{self._config.container_settings_preflight_path}:ro",
+                        f"{settings_preflight_tmp_path}:{settings_container_path}:ro",
                     ]
                 )
                 preflight_clause += (
-                    f'PREFLIGHT_SETTINGS={shlex.quote(self._config.container_settings_preflight_path)}; '
+                    f'PREFLIGHT_SETTINGS={shlex.quote(settings_container_path)}; '
                     'echo "[preflight] settings: running"; '
                     '/bin/bash "${PREFLIGHT_SETTINGS}"; '
                     'echo "[preflight] settings: done"; '
@@ -177,16 +186,16 @@ class DockerPreflightWorker:
 
             if environment_preflight_tmp_path is not None:
                 self._on_log(
-                    f"[host] environment preflight enabled; mounting -> {self._config.container_environment_preflight_path} (ro)"
+                    f"[host] environment preflight enabled; mounting -> {environment_container_path} (ro)"
                 )
                 preflight_mounts.extend(
                     [
                         "-v",
-                        f"{environment_preflight_tmp_path}:{self._config.container_environment_preflight_path}:ro",
+                        f"{environment_preflight_tmp_path}:{environment_container_path}:ro",
                     ]
                 )
                 preflight_clause += (
-                    f'PREFLIGHT_ENV={shlex.quote(self._config.container_environment_preflight_path)}; '
+                    f'PREFLIGHT_ENV={shlex.quote(environment_container_path)}; '
                     'echo "[preflight] environment: running"; '
                     '/bin/bash "${PREFLIGHT_ENV}"; '
                     'echo "[preflight] environment: done"; '
@@ -342,6 +351,13 @@ class DockerCodexWorker:
         try:
             os.makedirs(self._config.host_codex_dir, exist_ok=True)
             container_name = f"codex-gui-{uuid.uuid4().hex[:10]}"
+            task_token = self._config.task_id or "task"
+            settings_container_path = self._config.container_settings_preflight_path.replace(
+                "{task_id}", task_token
+            )
+            environment_container_path = self._config.container_environment_preflight_path.replace(
+                "{task_id}", task_token
+            )
 
             def _write_preflight_script(script: str, label: str) -> str:
                 fd, tmp_path = tempfile.mkstemp(
@@ -396,8 +412,8 @@ class DockerCodexWorker:
             if not _is_git_repo_root(self._config.host_workdir):
                 codex_args.append("--skip-git-repo-check")
                 self._on_log("[host] .git missing in workdir; adding --skip-git-repo-check")
-            if self._config.codex_extra_args:
-                codex_args.extend(self._config.codex_extra_args)
+            if self._config.agent_cli_args:
+                codex_args.extend(self._config.agent_cli_args)
             codex_args.append(self._prompt)
 
             codex_cmd = " ".join(shlex.quote(part) for part in codex_args)
@@ -405,16 +421,16 @@ class DockerCodexWorker:
             preflight_mounts: list[str] = []
             if settings_preflight_tmp_path is not None:
                 self._on_log(
-                    f"[host] settings preflight enabled; mounting -> {self._config.container_settings_preflight_path} (ro)"
+                    f"[host] settings preflight enabled; mounting -> {settings_container_path} (ro)"
                 )
                 preflight_mounts.extend(
                     [
                         "-v",
-                        f"{settings_preflight_tmp_path}:{self._config.container_settings_preflight_path}:ro",
+                        f"{settings_preflight_tmp_path}:{settings_container_path}:ro",
                     ]
                 )
                 preflight_clause += (
-                    f'PREFLIGHT_SETTINGS={shlex.quote(self._config.container_settings_preflight_path)}; '
+                    f'PREFLIGHT_SETTINGS={shlex.quote(settings_container_path)}; '
                     'echo "[preflight] settings: running"; '
                     '/bin/bash "${PREFLIGHT_SETTINGS}"; '
                     'echo "[preflight] settings: done"; '
@@ -422,16 +438,16 @@ class DockerCodexWorker:
 
             if environment_preflight_tmp_path is not None:
                 self._on_log(
-                    f"[host] environment preflight enabled; mounting -> {self._config.container_environment_preflight_path} (ro)"
+                    f"[host] environment preflight enabled; mounting -> {environment_container_path} (ro)"
                 )
                 preflight_mounts.extend(
                     [
                         "-v",
-                        f"{environment_preflight_tmp_path}:{self._config.container_environment_preflight_path}:ro",
+                        f"{environment_preflight_tmp_path}:{environment_container_path}:ro",
                     ]
                 )
                 preflight_clause += (
-                    f'PREFLIGHT_ENV={shlex.quote(self._config.container_environment_preflight_path)}; '
+                    f'PREFLIGHT_ENV={shlex.quote(environment_container_path)}; '
                     'echo "[preflight] environment: running"; '
                     '/bin/bash "${PREFLIGHT_ENV}"; '
                     'echo "[preflight] environment: done"; '

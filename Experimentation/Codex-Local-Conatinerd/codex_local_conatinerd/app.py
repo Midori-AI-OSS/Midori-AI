@@ -1,8 +1,11 @@
 import os
 import sys
 import time
+import random
+import math
 import shutil
 import shlex
+import tempfile
 
 from pathlib import Path
 from uuid import uuid4
@@ -12,6 +15,7 @@ from dataclasses import dataclass
 from dataclasses import field
 
 from PySide6.QtCore import QObject
+from PySide6.QtCore import QPointF
 from PySide6.QtCore import Qt
 from PySide6.QtCore import QThread
 from PySide6.QtCore import QTimer
@@ -21,6 +25,7 @@ from PySide6.QtGui import QFontMetrics
 from PySide6.QtGui import QIcon
 from PySide6.QtGui import QPainter
 from PySide6.QtGui import QPainterPath
+from PySide6.QtGui import QRadialGradient
 from PySide6.QtWidgets import QApplication
 from PySide6.QtWidgets import QCheckBox
 from PySide6.QtWidgets import QComboBox
@@ -61,6 +66,8 @@ from codex_local_conatinerd.prompt_sanitizer import sanitize_prompt
 from codex_local_conatinerd.log_format import parse_docker_datetime
 from codex_local_conatinerd.log_format import prettify_log_line
 from codex_local_conatinerd.style import app_stylesheet
+from codex_local_conatinerd.terminal_apps import detect_terminal_options
+from codex_local_conatinerd.terminal_apps import launch_in_terminal
 from codex_local_conatinerd.widgets import GlassCard
 from codex_local_conatinerd.widgets import LogHighlighter
 from codex_local_conatinerd.widgets import StatusGlyph
@@ -146,12 +153,157 @@ def _stain_color(stain: str) -> QColor:
     return QColor(148, 163, 184, 220)
 
 
+@dataclass
+class _BackgroundOrb:
+    x: float
+    y: float
+    vx: float
+    vy: float
+    radius: float
+    color: QColor
+
+    def render_radius(self) -> float:
+        return self.radius * 1.65
+
+
 class GlassRoot(QWidget):
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._animate_orbs = False
+        self._orb_rng = random.Random()
+        self._orbs: list[_BackgroundOrb] = []
+        self._orb_last_tick_s = time.monotonic()
+        self._orb_timer: QTimer | None = None
+        if self._animate_orbs:
+            timer = QTimer(self)
+            timer.setInterval(33)
+            timer.timeout.connect(self._tick_orbs)
+            timer.start()
+            self._orb_timer = timer
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._constrain_orbs()
+
+    def _theme_colors(self) -> list[QColor]:
+        return [
+            QColor(56, 189, 248),
+            QColor(16, 185, 129),
+            QColor(139, 92, 246),
+            QColor(244, 63, 94),
+            QColor(245, 158, 11),
+        ]
+
+    def _ensure_orbs(self) -> None:
+        if self._orbs:
+            return
+        w = self.width()
+        h = self.height()
+        if w < 80 or h < 80:
+            return
+
+        colors = self._theme_colors()
+        count = 9
+        orbs: list[_BackgroundOrb] = []
+        for idx in range(count):
+            radius = self._orb_rng.uniform(140.0, 260.0)
+            render_r = radius * 1.65
+            x_min = render_r
+            y_min = render_r
+            x_max = max(x_min, w - render_r)
+            y_max = max(y_min, h - render_r)
+
+            x = self._orb_rng.uniform(x_min, x_max)
+            y = self._orb_rng.uniform(y_min, y_max)
+
+            angle = self._orb_rng.uniform(0.0, 6.283185307179586)
+            speed = self._orb_rng.uniform(8.0, 22.0)
+            vx = math.cos(angle) * speed if self._animate_orbs else 0.0
+            vy = math.sin(angle) * speed if self._animate_orbs else 0.0
+
+            color = colors[idx % len(colors)]
+            orbs.append(_BackgroundOrb(x=x, y=y, vx=vx, vy=vy, radius=radius, color=color))
+
+        self._orbs = orbs
+        self._constrain_orbs()
+
+    def _constrain_orbs(self) -> None:
+        w = self.width()
+        h = self.height()
+        if w <= 0 or h <= 0 or not self._orbs:
+            return
+        for orb in self._orbs:
+            r = orb.render_radius()
+            orb.x = min(max(orb.x, r), w - r)
+            orb.y = min(max(orb.y, r), h - r)
+
+    def _tick_orbs(self) -> None:
+        if not self._animate_orbs:
+            return
+        now_s = time.monotonic()
+        dt = now_s - self._orb_last_tick_s
+        self._orb_last_tick_s = now_s
+
+        if dt <= 0:
+            return
+        dt = min(dt, 0.060)
+
+        self._ensure_orbs()
+        if not self._orbs:
+            return
+
+        w = float(max(1, self.width()))
+        h = float(max(1, self.height()))
+        for orb in self._orbs:
+            orb.x += orb.vx * dt
+            orb.y += orb.vy * dt
+
+            r = orb.render_radius()
+            if orb.x - r <= 0.0:
+                orb.x = r
+                orb.vx = abs(orb.vx)
+            elif orb.x + r >= w:
+                orb.x = w - r
+                orb.vx = -abs(orb.vx)
+
+            if orb.y - r <= 0.0:
+                orb.y = r
+                orb.vy = abs(orb.vy)
+            elif orb.y + r >= h:
+                orb.y = h - r
+                orb.vy = -abs(orb.vy)
+
+        self.update()
+
+    def _paint_orbs(self, painter: QPainter) -> None:
+        if not self._orbs:
+            return
+        painter.save()
+        painter.setRenderHint(QPainter.Antialiasing, True)
+        painter.setPen(Qt.NoPen)
+
+        for orb in self._orbs:
+            for shrink, alpha in ((1.0, 34), (0.82, 24), (0.66, 16)):
+                r = max(1.0, orb.render_radius() * shrink)
+                center = QPointF(float(orb.x), float(orb.y))
+                grad = QRadialGradient(center, float(r))
+                c = orb.color
+                grad.setColorAt(0.0, QColor(c.red(), c.green(), c.blue(), alpha))
+                grad.setColorAt(0.55, QColor(c.red(), c.green(), c.blue(), int(alpha * 0.30)))
+                grad.setColorAt(1.0, QColor(c.red(), c.green(), c.blue(), 0))
+                painter.setBrush(grad)
+                painter.drawEllipse(center, float(r), float(r))
+
+        painter.restore()
+
     def paintEvent(self, event) -> None:
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing, True)
 
         painter.fillRect(self.rect(), QColor(10, 12, 18))
+
+        self._ensure_orbs()
+        self._paint_orbs(painter)
 
         w = max(1, self.width())
         h = max(1, self.height())
@@ -420,6 +572,7 @@ class TaskRow(QWidget):
 
 class DashboardPage(QWidget):
     task_selected = Signal(str)
+    clean_old_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -445,9 +598,16 @@ class DashboardPage(QWidget):
         c3.setStyleSheet("color: rgba(237, 239, 245, 150); font-weight: 650;")
         c1.setMinimumWidth(260)
         c2.setMinimumWidth(180)
+        self._btn_clean_old = QToolButton()
+        self._btn_clean_old.setIcon(self.style().standardIcon(QStyle.SP_TrashIcon))
+        self._btn_clean_old.setText("Clean old")
+        self._btn_clean_old.setToolTip("Clean old tasks")
+        self._btn_clean_old.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        self._btn_clean_old.clicked.connect(self.clean_old_requested.emit)
         columns_layout.addWidget(c1, 5)
         columns_layout.addWidget(c2, 0)
         columns_layout.addWidget(c3, 4)
+        columns_layout.addWidget(self._btn_clean_old, 0, Qt.AlignRight)
 
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
@@ -835,6 +995,183 @@ class NewTaskPage(QWidget):
         self._prompt.setFocus(Qt.OtherFocusReason)
 
 
+class NewInteractiveTaskPage(QWidget):
+    requested_launch = Signal(str, str, str, str, str)
+    back_requested = Signal()
+    environment_changed = Signal(str)
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(14)
+
+        header = GlassCard()
+        header_layout = QVBoxLayout(header)
+        header_layout.setContentsMargins(18, 16, 18, 16)
+        header_layout.setSpacing(6)
+
+        top_row = QHBoxLayout()
+        top_row.setSpacing(10)
+        title = QLabel("New task (interactive)")
+        title.setStyleSheet("font-size: 18px; font-weight: 750;")
+
+        back = QToolButton()
+        back.setText("Back")
+        back.setToolButtonStyle(Qt.ToolButtonTextOnly)
+        back.clicked.connect(self.back_requested.emit)
+
+        top_row.addWidget(title)
+        top_row.addStretch(1)
+        top_row.addWidget(back, 0, Qt.AlignRight)
+
+        header_layout.addLayout(top_row)
+        layout.addWidget(header)
+
+        card = GlassCard()
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(18, 16, 18, 16)
+        card_layout.setSpacing(10)
+
+        hint = QLabel("Opens a terminal window and runs the container with TTY/stdin for agent TUIs.")
+        hint.setStyleSheet("color: rgba(237, 239, 245, 160);")
+
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(10)
+        grid.setVerticalSpacing(10)
+
+        self._environment = QComboBox()
+        self._environment.currentIndexChanged.connect(self._on_environment_changed)
+
+        self._terminal = QComboBox()
+        self._refresh_terminals()
+
+        refresh_terminals = QToolButton()
+        refresh_terminals.setText("Refresh")
+        refresh_terminals.setToolButtonStyle(Qt.ToolButtonTextOnly)
+        refresh_terminals.clicked.connect(self._refresh_terminals)
+
+        self._command = QLineEdit("codex --sandbox danger-full-access")
+        self._command.setPlaceholderText("Command to run inside the container (e.g. codex …, claude, bash)")
+
+        self._host_codex = QLineEdit(os.path.expanduser("~/.codex"))
+        self._host_workdir = QLineEdit(os.getcwd())
+
+        browse_workdir = QPushButton("Browse…")
+        browse_workdir.setFixedWidth(100)
+        browse_workdir.clicked.connect(self._pick_workdir)
+
+        grid.addWidget(QLabel("Environment"), 0, 0)
+        grid.addWidget(self._environment, 0, 1, 1, 2)
+        grid.addWidget(QLabel("Terminal"), 1, 0)
+        grid.addWidget(self._terminal, 1, 1)
+        grid.addWidget(refresh_terminals, 1, 2)
+        grid.addWidget(QLabel("Container command"), 2, 0)
+        grid.addWidget(self._command, 2, 1, 1, 2)
+        grid.addWidget(QLabel("Host Config folder"), 3, 0)
+        grid.addWidget(self._host_codex, 3, 1, 1, 2)
+        grid.addWidget(QLabel("Host Workdir"), 4, 0)
+        grid.addWidget(self._host_workdir, 4, 1)
+        grid.addWidget(browse_workdir, 4, 2)
+
+        buttons = QHBoxLayout()
+        buttons.setSpacing(10)
+        run = QPushButton("Open terminal")
+        run.clicked.connect(self._on_launch)
+        buttons.addWidget(run)
+        buttons.addStretch(1)
+
+        card_layout.addWidget(hint)
+        card_layout.addLayout(grid)
+        card_layout.addLayout(buttons)
+
+        layout.addWidget(card, 1)
+
+    def _refresh_terminals(self) -> None:
+        current = str(self._terminal.currentData() or "")
+        options = detect_terminal_options()
+        self._terminal.blockSignals(True)
+        try:
+            self._terminal.clear()
+            for opt in options:
+                self._terminal.addItem(opt.label, opt.terminal_id)
+            desired = current
+            if desired:
+                idx = self._terminal.findData(desired)
+                if idx >= 0:
+                    self._terminal.setCurrentIndex(idx)
+                    return
+            if self._terminal.count() > 0:
+                self._terminal.setCurrentIndex(0)
+        finally:
+            self._terminal.blockSignals(False)
+
+    def _pick_workdir(self) -> None:
+        path = QFileDialog.getExistingDirectory(self, "Select host Workdir", self._host_workdir.text())
+        if path:
+            self._host_workdir.setText(path)
+
+    def _on_launch(self) -> None:
+        command = (self._command.text() or "").strip()
+        if not command:
+            command = "bash"
+
+        host_codex = os.path.expanduser((self._host_codex.text() or "").strip())
+        host_workdir = os.path.expanduser((self._host_workdir.text() or "").strip())
+        if not os.path.isdir(host_workdir):
+            QMessageBox.warning(self, "Invalid Workdir", "Host Workdir does not exist.")
+            return
+
+        terminal_id = str(self._terminal.currentData() or "").strip()
+        if not terminal_id:
+            QMessageBox.warning(
+                self,
+                "No terminals found",
+                "Could not detect an installed terminal emulator to launch.",
+            )
+            return
+
+        env_id = str(self._environment.currentData() or "")
+        self.requested_launch.emit(command, host_workdir, host_codex, env_id, terminal_id)
+
+    def _on_environment_changed(self, index: int) -> None:
+        self.environment_changed.emit(str(self._environment.currentData() or ""))
+
+    def set_environments(self, envs: list[tuple[str, str]], active_id: str) -> None:
+        current = str(self._environment.currentData() or "")
+        self._environment.blockSignals(True)
+        try:
+            self._environment.clear()
+            for env_id, name in envs:
+                self._environment.addItem(name, env_id)
+            desired = active_id or current
+            idx = self._environment.findData(desired)
+            if idx >= 0:
+                self._environment.setCurrentIndex(idx)
+        finally:
+            self._environment.blockSignals(False)
+
+    def set_environment_id(self, env_id: str) -> None:
+        idx = self._environment.findData(env_id)
+        if idx >= 0:
+            self._environment.setCurrentIndex(idx)
+
+    def set_defaults(self, host_workdir: str, host_codex: str) -> None:
+        if host_workdir:
+            self._host_workdir.setText(host_workdir)
+        if host_codex:
+            self._host_codex.setText(host_codex)
+
+    def set_interactive_defaults(self, terminal_id: str, command: str) -> None:
+        if command:
+            self._command.setText(command)
+        if terminal_id:
+            idx = self._terminal.findData(terminal_id)
+            if idx >= 0:
+                self._terminal.setCurrentIndex(idx)
+
+
 class EnvironmentsPage(QWidget):
     back_requested = Signal()
     updated = Signal(str)
@@ -927,7 +1264,11 @@ class EnvironmentsPage(QWidget):
 
         self._host_workdir = QLineEdit()
         self._host_codex_dir = QLineEdit()
-        self._codex_args = QLineEdit()
+        self._agent_cli_args = QLineEdit()
+        self._agent_cli_args.setPlaceholderText("--model … (optional)")
+        self._agent_cli_args.setToolTip(
+            "Extra CLI flags appended to the agent command inside the container."
+        )
 
         browse_workdir = QPushButton("Browse…")
         browse_workdir.setFixedWidth(100)
@@ -947,8 +1288,8 @@ class EnvironmentsPage(QWidget):
         grid.addWidget(QLabel("Default Host Config folder"), 3, 0)
         grid.addWidget(self._host_codex_dir, 3, 1)
         grid.addWidget(browse_codex, 3, 2)
-        grid.addWidget(QLabel("Codex extra args"), 4, 0)
-        grid.addWidget(self._codex_args, 4, 1, 1, 2)
+        grid.addWidget(QLabel("Agent CLI Flags"), 4, 0)
+        grid.addWidget(self._agent_cli_args, 4, 1, 1, 2)
 
         general_layout.addLayout(grid)
 
@@ -1028,7 +1369,7 @@ class EnvironmentsPage(QWidget):
             self._name.setText("")
             self._host_workdir.setText("")
             self._host_codex_dir.setText("")
-            self._codex_args.setText("")
+            self._agent_cli_args.setText("")
             self._preflight_enabled.setChecked(False)
             self._preflight_script.setPlainText("")
             self._env_vars.setPlainText("")
@@ -1041,7 +1382,7 @@ class EnvironmentsPage(QWidget):
             self._color.setCurrentIndex(idx)
         self._host_workdir.setText(env.host_workdir)
         self._host_codex_dir.setText(env.host_codex_dir)
-        self._codex_args.setText(env.codex_extra_args)
+        self._agent_cli_args.setText(env.agent_cli_args)
         self._preflight_enabled.setChecked(bool(env.preflight_enabled))
         self._preflight_script.setEnabled(bool(env.preflight_enabled))
         self._preflight_script.setPlainText(env.preflight_script or "")
@@ -1080,7 +1421,7 @@ class EnvironmentsPage(QWidget):
             color=color,
             host_workdir=base.host_workdir if base else "",
             host_codex_dir=base.host_codex_dir if base else "",
-            codex_extra_args=base.codex_extra_args if base else "",
+            agent_cli_args=base.agent_cli_args if base else "",
             preflight_enabled=base.preflight_enabled if base else False,
             preflight_script=base.preflight_script if base else "",
             env_vars=dict(base.env_vars) if base else {},
@@ -1117,7 +1458,7 @@ class EnvironmentsPage(QWidget):
 
         host_workdir = os.path.expanduser((self._host_workdir.text() or "").strip())
         host_codex_dir = os.path.expanduser((self._host_codex_dir.text() or "").strip())
-        codex_args = (self._codex_args.text() or "").strip()
+        agent_cli_args = (self._agent_cli_args.text() or "").strip()
         env_vars, errors = parse_env_vars_text(self._env_vars.toPlainText() or "")
         if errors:
             QMessageBox.warning(self, "Invalid env vars", "Fix env vars:\n" + "\n".join(errors[:12]))
@@ -1130,7 +1471,7 @@ class EnvironmentsPage(QWidget):
             color=str(self._color.currentData() or "slate"),
             host_workdir=host_workdir,
             host_codex_dir=host_codex_dir,
-            codex_extra_args=codex_args,
+            agent_cli_args=agent_cli_args,
             preflight_enabled=bool(self._preflight_enabled.isChecked()),
             preflight_script=str(self._preflight_script.toPlainText() or ""),
             env_vars=env_vars,
@@ -1149,7 +1490,7 @@ class EnvironmentsPage(QWidget):
 
         host_workdir = os.path.expanduser((self._host_workdir.text() or "").strip())
         host_codex_dir = os.path.expanduser((self._host_codex_dir.text() or "").strip())
-        codex_args = (self._codex_args.text() or "").strip()
+        agent_cli_args = (self._agent_cli_args.text() or "").strip()
         env_vars, errors = parse_env_vars_text(self._env_vars.toPlainText() or "")
         if errors:
             QMessageBox.warning(self, "Invalid env vars", "Fix env vars:\n" + "\n".join(errors[:12]))
@@ -1163,7 +1504,7 @@ class EnvironmentsPage(QWidget):
             color=str(self._color.currentData() or "slate"),
             host_workdir=host_workdir,
             host_codex_dir=host_codex_dir,
-            codex_extra_args=codex_args,
+            agent_cli_args=agent_cli_args,
             preflight_enabled=bool(self._preflight_enabled.isChecked()),
             preflight_script=str(self._preflight_script.toPlainText() or ""),
             env_vars=env_vars,
@@ -1333,6 +1674,8 @@ class MainWindow(QMainWindow):
             "host_workdir": os.environ.get("CODEX_HOST_WORKDIR", os.getcwd()),
             "host_codex_dir": os.environ.get("CODEX_HOST_CODEX_DIR", os.path.expanduser("~/.codex")),
             "active_environment_id": "default",
+            "interactive_terminal_id": "",
+            "interactive_command": "codex --sandbox danger-full-access",
         }
         self._environments: dict[str, Environment] = {}
         self._syncing_environment = False
@@ -1363,6 +1706,12 @@ class MainWindow(QMainWindow):
         top_layout.setContentsMargins(14, 12, 14, 12)
         top_layout.setSpacing(10)
 
+        self._btn_home = QToolButton()
+        self._btn_home.setText("Home")
+        self._btn_home.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        self._btn_home.setIcon(self.style().standardIcon(QStyle.SP_DirHomeIcon))
+        self._btn_home.clicked.connect(self._show_dashboard)
+
         self._btn_new = QToolButton()
         self._btn_new.setText("New task")
         self._btn_new.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
@@ -1373,12 +1722,7 @@ class MainWindow(QMainWindow):
         self._btn_new_interactive.setText("New task (interactive)")
         self._btn_new_interactive.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
         self._btn_new_interactive.setIcon(self.style().standardIcon(QStyle.SP_ComputerIcon))
-
-        self._btn_clean = QToolButton()
-        self._btn_clean.setText("Clean old tasks")
-        self._btn_clean.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
-        self._btn_clean.setIcon(self.style().standardIcon(QStyle.SP_TrashIcon))
-        self._btn_clean.clicked.connect(self._clean_old_tasks)
+        self._btn_new_interactive.clicked.connect(self._show_new_task_interactive)
 
         self._btn_envs = QToolButton()
         self._btn_envs.setText("Environments")
@@ -1398,9 +1742,9 @@ class MainWindow(QMainWindow):
         self._env_picker.setFixedWidth(260)
         self._env_picker.currentIndexChanged.connect(self._on_env_picker_changed)
 
+        top_layout.addWidget(self._btn_home)
         top_layout.addWidget(self._btn_new)
         top_layout.addWidget(self._btn_new_interactive)
-        top_layout.addWidget(self._btn_clean)
         top_layout.addWidget(self._btn_envs)
         top_layout.addWidget(self._btn_settings)
         top_layout.addStretch(1)
@@ -1411,10 +1755,15 @@ class MainWindow(QMainWindow):
 
         self._dashboard = DashboardPage()
         self._dashboard.task_selected.connect(self._open_task_details)
+        self._dashboard.clean_old_requested.connect(self._clean_old_tasks)
         self._new_task = NewTaskPage()
         self._new_task.requested_run.connect(self._start_task_from_ui)
         self._new_task.environment_changed.connect(self._on_new_task_env_changed)
         self._new_task.back_requested.connect(self._show_dashboard)
+        self._new_task_interactive = NewInteractiveTaskPage()
+        self._new_task_interactive.requested_launch.connect(self._start_interactive_task_from_ui)
+        self._new_task_interactive.environment_changed.connect(self._on_new_task_env_changed)
+        self._new_task_interactive.back_requested.connect(self._show_dashboard)
         self._details = TaskDetailsPage()
         self._details.back_requested.connect(self._show_dashboard)
         self._envs_page = EnvironmentsPage()
@@ -1432,11 +1781,13 @@ class MainWindow(QMainWindow):
         self._stack_layout.setSpacing(0)
         self._stack_layout.addWidget(self._dashboard)
         self._stack_layout.addWidget(self._new_task)
+        self._stack_layout.addWidget(self._new_task_interactive)
         self._stack_layout.addWidget(self._details)
         self._stack_layout.addWidget(self._envs_page)
         self._stack_layout.addWidget(self._settings)
         self._dashboard.show()
         self._new_task.hide()
+        self._new_task_interactive.hide()
         self._details.hide()
         self._envs_page.hide()
         self._settings.hide()
@@ -1448,6 +1799,7 @@ class MainWindow(QMainWindow):
 
     def _show_dashboard(self) -> None:
         self._new_task.hide()
+        self._new_task_interactive.hide()
         self._details.hide()
         self._envs_page.hide()
         self._settings.hide()
@@ -1455,15 +1807,25 @@ class MainWindow(QMainWindow):
 
     def _show_new_task(self) -> None:
         self._dashboard.hide()
+        self._new_task_interactive.hide()
         self._details.hide()
         self._envs_page.hide()
         self._settings.hide()
         self._new_task.reset_for_new_run()
         self._new_task.show()
 
+    def _show_new_task_interactive(self) -> None:
+        self._dashboard.hide()
+        self._new_task.hide()
+        self._details.hide()
+        self._envs_page.hide()
+        self._settings.hide()
+        self._new_task_interactive.show()
+
     def _show_task_details(self) -> None:
         self._dashboard.hide()
         self._new_task.hide()
+        self._new_task_interactive.hide()
         self._envs_page.hide()
         self._settings.hide()
         self._details.show()
@@ -1471,6 +1833,7 @@ class MainWindow(QMainWindow):
     def _show_environments(self) -> None:
         self._dashboard.hide()
         self._new_task.hide()
+        self._new_task_interactive.hide()
         self._details.hide()
         self._settings.hide()
         self._envs_page.set_environments(self._environments, self._active_environment_id())
@@ -1479,6 +1842,7 @@ class MainWindow(QMainWindow):
     def _show_settings(self) -> None:
         self._dashboard.hide()
         self._new_task.hide()
+        self._new_task_interactive.hide()
         self._details.hide()
         self._envs_page.hide()
         self._settings.set_settings(self._settings_data)
@@ -1532,6 +1896,11 @@ class MainWindow(QMainWindow):
 
             self._new_task.set_environments([(e.env_id, e.name or e.env_id) for e in envs], active_id=active_id)
             self._new_task.set_environment_id(active_id)
+            self._new_task_interactive.set_environments(
+                [(e.env_id, e.name or e.env_id) for e in envs],
+                active_id=active_id,
+            )
+            self._new_task_interactive.set_environment_id(active_id)
         finally:
             self._syncing_environment = False
 
@@ -1545,6 +1914,11 @@ class MainWindow(QMainWindow):
             if env.host_codex_dir:
                 host_codex = env.host_codex_dir
         self._new_task.set_defaults(host_workdir=host_workdir, host_codex=host_codex)
+        self._new_task_interactive.set_defaults(host_workdir=host_workdir, host_codex=host_codex)
+        self._new_task_interactive.set_interactive_defaults(
+            terminal_id=str(self._settings_data.get("interactive_terminal_id") or ""),
+            command=str(self._settings_data.get("interactive_command") or "codex --sandbox danger-full-access"),
+        )
         self._populate_environment_pickers()
 
     def _on_env_picker_changed(self, index: int) -> None:
@@ -1657,12 +2031,12 @@ class MainWindow(QMainWindow):
 
         image = PIXELARCH_EMERALD_IMAGE
 
-        codex_extra_args: list[str] = []
-        if env and env.codex_extra_args.strip():
+        agent_cli_args: list[str] = []
+        if env and env.agent_cli_args.strip():
             try:
-                codex_extra_args = shlex.split(env.codex_extra_args)
+                agent_cli_args = shlex.split(env.agent_cli_args)
             except ValueError as exc:
-                QMessageBox.warning(self, "Invalid Codex args", str(exc))
+                QMessageBox.warning(self, "Invalid agent CLI flags", str(exc))
                 return
 
         settings_preflight_script: str | None = None
@@ -1700,7 +2074,7 @@ class MainWindow(QMainWindow):
             environment_preflight_script=environment_preflight_script,
             env_vars=dict(env.env_vars) if env else {},
             extra_mounts=list(env.extra_mounts) if env else [],
-            codex_extra_args=codex_extra_args,
+            agent_cli_args=agent_cli_args,
         )
         bridge = TaskRunnerBridge(task_id=task_id, config=config, prompt=prompt)
         thread = QThread(self)
@@ -1723,6 +2097,208 @@ class MainWindow(QMainWindow):
         self._show_dashboard()
         self._new_task.reset_for_new_run()
         self._schedule_save()
+
+    def _start_interactive_task_from_ui(
+        self,
+        command: str,
+        host_workdir: str,
+        host_codex: str,
+        env_id: str,
+        terminal_id: str,
+    ) -> None:
+        if shutil.which("docker") is None:
+            QMessageBox.critical(self, "Docker not found", "Could not find `docker` in PATH.")
+            return
+
+        host_workdir = os.path.expanduser((host_workdir or "").strip())
+        host_codex = os.path.expanduser((host_codex or "").strip())
+        if not os.path.isdir(host_workdir):
+            QMessageBox.warning(self, "Invalid Workdir", "Host Workdir does not exist.")
+            return
+
+        options = {opt.terminal_id: opt for opt in detect_terminal_options()}
+        opt = options.get(str(terminal_id or "").strip())
+        if opt is None:
+            QMessageBox.warning(
+                self,
+                "Terminal not available",
+                "The selected terminal could not be found. Click Refresh on the interactive page and pick again.",
+            )
+            return
+
+        env_id = str(env_id or "").strip() or self._active_environment_id()
+        if env_id not in self._environments:
+            QMessageBox.warning(self, "Unknown environment", "Pick an environment first.")
+            return
+        env = self._environments.get(env_id)
+
+        agent_cli_args: list[str] = []
+        if env and env.agent_cli_args.strip():
+            try:
+                agent_cli_args = shlex.split(env.agent_cli_args)
+            except ValueError as exc:
+                QMessageBox.warning(self, "Invalid agent CLI flags", str(exc))
+                return
+
+        command = str(command or "").strip() or "bash"
+        try:
+            cmd_parts = shlex.split(command)
+        except ValueError as exc:
+            QMessageBox.warning(self, "Invalid container command", str(exc))
+            return
+        if not cmd_parts:
+            cmd_parts = ["bash"]
+
+        if cmd_parts[0] == "codex":
+            if len(cmd_parts) >= 2 and cmd_parts[1] == "exec":
+                cmd_parts.pop(1)
+            if agent_cli_args:
+                cmd_parts.extend(agent_cli_args)
+
+        image = PIXELARCH_EMERALD_IMAGE
+        os.makedirs(host_codex, exist_ok=True)
+
+        settings_preflight_script: str | None = None
+        if self._settings_data.get("preflight_enabled") and str(self._settings_data.get("preflight_script") or "").strip():
+            settings_preflight_script = str(self._settings_data.get("preflight_script") or "")
+
+        environment_preflight_script: str | None = None
+        if env and env.preflight_enabled and (env.preflight_script or "").strip():
+            environment_preflight_script = env.preflight_script
+
+        task_token = f"interactive-{uuid4().hex[:8]}"
+        container_name = f"codex-gui-it-{uuid4().hex[:10]}"
+        container_codex_dir = "/home/midori-ai/.codex"
+        container_workdir = "/home/midori-ai/workspace"
+
+        settings_tmp_path = ""
+        env_tmp_path = ""
+
+        preflight_clause = ""
+        preflight_mounts: list[str] = []
+        settings_container_path = f"/tmp/codex-preflight-settings-{task_token}.sh"
+        environment_container_path = f"/tmp/codex-preflight-environment-{task_token}.sh"
+
+        def _write_preflight_script(script: str, label: str) -> str:
+            fd, tmp_path = tempfile.mkstemp(prefix=f"codex-preflight-{label}-{task_token}-", suffix=".sh")
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    if not script.endswith("\n"):
+                        script += "\n"
+                    f.write(script)
+            except Exception:
+                try:
+                    os.close(fd)
+                except Exception:
+                    pass
+                raise
+            return tmp_path
+
+        try:
+            if (settings_preflight_script or "").strip():
+                settings_tmp_path = _write_preflight_script(str(settings_preflight_script or ""), "settings")
+                preflight_mounts.extend(["-v", f"{settings_tmp_path}:{settings_container_path}:ro"])
+                preflight_clause += (
+                    f'PREFLIGHT_SETTINGS={shlex.quote(settings_container_path)}; '
+                    'echo "[preflight] settings: running"; '
+                    '/bin/bash "${PREFLIGHT_SETTINGS}"; '
+                    'echo "[preflight] settings: done"; '
+                )
+
+            if (environment_preflight_script or "").strip():
+                env_tmp_path = _write_preflight_script(str(environment_preflight_script or ""), "environment")
+                preflight_mounts.extend(["-v", f"{env_tmp_path}:{environment_container_path}:ro"])
+                preflight_clause += (
+                    f'PREFLIGHT_ENV={shlex.quote(environment_container_path)}; '
+                    'echo "[preflight] environment: running"; '
+                    '/bin/bash "${PREFLIGHT_ENV}"; '
+                    'echo "[preflight] environment: done"; '
+                )
+        except Exception as exc:
+            for tmp in (settings_tmp_path, env_tmp_path):
+                try:
+                    if tmp and os.path.exists(tmp):
+                        os.unlink(tmp)
+                except Exception:
+                    pass
+            QMessageBox.warning(self, "Failed to prepare preflight scripts", str(exc))
+            return
+
+        try:
+            env_args: list[str] = []
+            for key, value in sorted((env.env_vars or {}).items() if env else []):
+                k = str(key).strip()
+                if not k:
+                    continue
+                env_args.extend(["-e", f"{k}={value}"])
+
+            extra_mount_args: list[str] = []
+            for mount in (env.extra_mounts or []) if env else []:
+                m = str(mount).strip()
+                if not m:
+                    continue
+                extra_mount_args.extend(["-v", m])
+
+            target_cmd = " ".join(shlex.quote(part) for part in cmd_parts)
+            verify_clause = ""
+            if cmd_parts[0] == "codex":
+                verify_clause = 'command -v codex >/dev/null 2>&1 || { echo "codex not found in PATH=$PATH"; exit 127; }; '
+
+            container_script = "set -euo pipefail; " f"{preflight_clause}{verify_clause}{target_cmd}"
+
+            docker_args = [
+                "docker",
+                "run",
+                "-it",
+                "--name",
+                container_name,
+                "-v",
+                f"{host_codex}:{container_codex_dir}",
+                "-v",
+                f"{host_workdir}:{container_workdir}",
+                *extra_mount_args,
+                *preflight_mounts,
+                *env_args,
+                "-w",
+                container_workdir,
+                image,
+                "/bin/bash",
+                "-lc",
+                container_script,
+            ]
+            docker_cmd = " ".join(shlex.quote(part) for part in docker_args)
+
+            host_script = " ; ".join(
+                [
+                    f'CONTAINER_NAME={shlex.quote(container_name)}',
+                    f'TMP_SETTINGS={shlex.quote(settings_tmp_path)}',
+                    f'TMP_ENV={shlex.quote(env_tmp_path)}',
+                    'cleanup() { docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true; '
+                    'if [ -n "$TMP_SETTINGS" ]; then rm -f -- "$TMP_SETTINGS" >/dev/null 2>&1 || true; fi; '
+                    'if [ -n "$TMP_ENV" ]; then rm -f -- "$TMP_ENV" >/dev/null 2>&1 || true; fi; }',
+                    "trap cleanup EXIT",
+                    f"docker pull {shlex.quote(image)} || {{ STATUS=$?; echo \"[host] docker pull failed (exit $STATUS)\"; read -r -p \"Press Enter to close...\"; exit $STATUS; }}",
+                    f"{docker_cmd}; STATUS=$?; if [ $STATUS -ne 0 ]; then echo \"[host] container command failed (exit $STATUS)\"; read -r -p \"Press Enter to close...\"; fi; exit $STATUS",
+                ]
+            )
+
+            self._settings_data["host_workdir"] = host_workdir
+            self._settings_data["host_codex_dir"] = host_codex
+            self._settings_data["active_environment_id"] = env_id
+            self._settings_data["interactive_terminal_id"] = str(terminal_id or "")
+            self._settings_data["interactive_command"] = command
+            self._apply_active_environment_to_new_task()
+            self._schedule_save()
+
+            launch_in_terminal(opt, host_script, cwd=host_workdir)
+        except Exception as exc:
+            for tmp in (settings_tmp_path, env_tmp_path):
+                try:
+                    if tmp and os.path.exists(tmp):
+                        os.unlink(tmp)
+                except Exception:
+                    pass
+            QMessageBox.warning(self, "Failed to launch terminal", str(exc))
 
     def _start_preflight_task(
         self,
@@ -1776,7 +2352,7 @@ class MainWindow(QMainWindow):
             environment_preflight_script=environment_preflight_script,
             env_vars=dict(env.env_vars) if env else {},
             extra_mounts=list(env.extra_mounts) if env else [],
-            codex_extra_args=[],
+            agent_cli_args=[],
         )
         bridge = TaskRunnerBridge(task_id=task_id, config=config, mode="preflight")
         thread = QThread(self)

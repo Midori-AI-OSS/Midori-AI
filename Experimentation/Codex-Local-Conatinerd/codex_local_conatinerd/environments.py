@@ -34,7 +34,7 @@ class Environment:
     color: str = "emerald"
     host_workdir: str = ""
     host_codex_dir: str = ""
-    codex_extra_args: str = ""
+    agent_cli_args: str = ""
     preflight_enabled: bool = False
     preflight_script: str = ""
     env_vars: dict[str, str] = field(default_factory=dict)
@@ -73,7 +73,7 @@ def _environment_from_payload(payload: dict[str, Any]) -> Environment | None:
     color = str(payload.get("color") or "slate").strip().lower()
     host_workdir = str(payload.get("host_workdir") or "").strip()
     host_codex_dir = str(payload.get("host_codex_dir") or "").strip()
-    codex_extra_args = str(payload.get("codex_extra_args") or "").strip()
+    agent_cli_args = str(payload.get("agent_cli_args") or payload.get("codex_extra_args") or "").strip()
     preflight_enabled = bool(payload.get("preflight_enabled") or False)
     preflight_script = str(payload.get("preflight_script") or "")
     env_vars = payload.get("env_vars") or {}
@@ -88,7 +88,7 @@ def _environment_from_payload(payload: dict[str, Any]) -> Environment | None:
         color=color,
         host_workdir=host_workdir,
         host_codex_dir=host_codex_dir,
-        codex_extra_args=codex_extra_args,
+        agent_cli_args=agent_cli_args,
         preflight_enabled=preflight_enabled,
         preflight_script=preflight_script,
         env_vars={str(k): str(v) for k, v in env_vars.items() if str(k).strip()},
@@ -128,7 +128,10 @@ def save_environment(env: Environment, data_dir: str | None = None) -> None:
         "color": env.normalized_color(),
         "host_workdir": env.host_workdir,
         "host_codex_dir": env.host_codex_dir,
-        "codex_extra_args": env.codex_extra_args,
+        # Stored under a generic key, but we also persist the legacy key for
+        # backwards compatibility with older builds.
+        "agent_cli_args": env.agent_cli_args,
+        "codex_extra_args": env.agent_cli_args,
         "preflight_enabled": bool(env.preflight_enabled),
         "preflight_script": env.preflight_script,
         "env_vars": dict(env.env_vars),
