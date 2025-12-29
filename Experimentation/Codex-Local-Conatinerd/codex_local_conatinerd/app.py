@@ -43,6 +43,7 @@ from PySide6.QtWidgets import QVBoxLayout
 from PySide6.QtWidgets import QWidget
 
 from codex_local_conatinerd.docker_runner import DockerCodexWorker
+from codex_local_conatinerd.docker_runner import DockerPreflightWorker
 from codex_local_conatinerd.docker_runner import DockerRunnerConfig
 from codex_local_conatinerd.environments import ALLOWED_STAINS
 from codex_local_conatinerd.environments import Environment
@@ -292,16 +293,24 @@ class TaskRunnerBridge(QObject):
     log = Signal(str)
     done = Signal(int, object)
 
-    def __init__(self, task_id: str, config: DockerRunnerConfig, prompt: str) -> None:
+    def __init__(self, task_id: str, config: DockerRunnerConfig, prompt: str = "", mode: str = "codex") -> None:
         super().__init__()
         self.task_id = task_id
-        self._worker = DockerCodexWorker(
-            config=config,
-            prompt=prompt,
-            on_state=self.state.emit,
-            on_log=self.log.emit,
-            on_done=lambda code, err: self.done.emit(code, err),
-        )
+        if mode == "preflight":
+            self._worker = DockerPreflightWorker(
+                config=config,
+                on_state=self.state.emit,
+                on_log=self.log.emit,
+                on_done=lambda code, err: self.done.emit(code, err),
+            )
+        else:
+            self._worker = DockerCodexWorker(
+                config=config,
+                prompt=prompt,
+                on_state=self.state.emit,
+                on_log=self.log.emit,
+                on_done=lambda code, err: self.done.emit(code, err),
+            )
 
     @property
     def container_id(self) -> str | None:
@@ -829,6 +838,7 @@ class NewTaskPage(QWidget):
 class EnvironmentsPage(QWidget):
     back_requested = Signal()
     updated = Signal(str)
+    test_preflight_requested = Signal(object)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -885,10 +895,16 @@ class EnvironmentsPage(QWidget):
         save_btn.setToolButtonStyle(Qt.ToolButtonTextOnly)
         save_btn.clicked.connect(self._on_save)
 
+        test_btn = QToolButton()
+        test_btn.setText("Test preflight")
+        test_btn.setToolButtonStyle(Qt.ToolButtonTextOnly)
+        test_btn.clicked.connect(self._on_test_preflight)
+
         top_row.addWidget(QLabel("Environment"))
         top_row.addWidget(self._env_select, 1)
         top_row.addWidget(new_btn)
         top_row.addWidget(delete_btn)
+        top_row.addWidget(test_btn)
         top_row.addWidget(save_btn)
         card_layout.addLayout(top_row)
 
@@ -1126,10 +1142,45 @@ class EnvironmentsPage(QWidget):
     def selected_environment_id(self) -> str:
         return str(self._env_select.currentData() or "")
 
+    def _draft_environment_from_form(self) -> Environment | None:
+        env_id = self._current_env_id
+        if not env_id:
+            return None
+
+        host_workdir = os.path.expanduser((self._host_workdir.text() or "").strip())
+        host_codex_dir = os.path.expanduser((self._host_codex_dir.text() or "").strip())
+        codex_args = (self._codex_args.text() or "").strip()
+        env_vars, errors = parse_env_vars_text(self._env_vars.toPlainText() or "")
+        if errors:
+            QMessageBox.warning(self, "Invalid env vars", "Fix env vars:\n" + "\n".join(errors[:12]))
+            return None
+
+        mounts = parse_mounts_text(self._mounts.toPlainText() or "")
+        name = (self._name.text() or "").strip() or env_id
+        return Environment(
+            env_id=env_id,
+            name=name,
+            color=str(self._color.currentData() or "slate"),
+            host_workdir=host_workdir,
+            host_codex_dir=host_codex_dir,
+            codex_extra_args=codex_args,
+            preflight_enabled=bool(self._preflight_enabled.isChecked()),
+            preflight_script=str(self._preflight_script.toPlainText() or ""),
+            env_vars=env_vars,
+            extra_mounts=mounts,
+        )
+
+    def _on_test_preflight(self) -> None:
+        env = self._draft_environment_from_form()
+        if env is None:
+            return
+        self.test_preflight_requested.emit(env)
+
 
 class SettingsPage(QWidget):
     back_requested = Signal()
     saved = Signal(dict)
+    test_preflight_requested = Signal(dict)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -1215,6 +1266,11 @@ class SettingsPage(QWidget):
         save.setText("Save")
         save.setToolButtonStyle(Qt.ToolButtonTextOnly)
         save.clicked.connect(self._on_save)
+        test = QToolButton()
+        test.setText("Test preflights (all envs)")
+        test.setToolButtonStyle(Qt.ToolButtonTextOnly)
+        test.clicked.connect(self._on_test_preflight)
+        buttons.addWidget(test)
         buttons.addWidget(save)
         buttons.addStretch(1)
 
@@ -1248,6 +1304,9 @@ class SettingsPage(QWidget):
 
     def _on_save(self) -> None:
         self.saved.emit(self.get_settings())
+
+    def _on_test_preflight(self) -> None:
+        self.test_preflight_requested.emit(self.get_settings())
 
     @staticmethod
     def _set_combo_value(combo: QComboBox, value: str, fallback: str) -> None:
@@ -1361,9 +1420,11 @@ class MainWindow(QMainWindow):
         self._envs_page = EnvironmentsPage()
         self._envs_page.back_requested.connect(self._show_dashboard)
         self._envs_page.updated.connect(self._reload_environments, Qt.QueuedConnection)
+        self._envs_page.test_preflight_requested.connect(self._on_environment_test_preflight, Qt.QueuedConnection)
         self._settings = SettingsPage()
         self._settings.back_requested.connect(self._show_dashboard)
         self._settings.saved.connect(self._apply_settings, Qt.QueuedConnection)
+        self._settings.test_preflight_requested.connect(self._on_settings_test_preflight, Qt.QueuedConnection)
 
         self._stack = QWidget()
         self._stack_layout = QVBoxLayout(self._stack)
@@ -1662,6 +1723,151 @@ class MainWindow(QMainWindow):
         self._show_dashboard()
         self._new_task.reset_for_new_run()
         self._schedule_save()
+
+    def _start_preflight_task(
+        self,
+        *,
+        label: str,
+        env: Environment,
+        host_workdir: str,
+        host_codex: str,
+        settings_preflight_script: str | None,
+        environment_preflight_script: str | None,
+    ) -> None:
+        if shutil.which("docker") is None:
+            QMessageBox.critical(self, "Docker not found", "Could not find `docker` in PATH.")
+            return
+
+        if not os.path.isdir(host_workdir):
+            QMessageBox.warning(self, "Invalid Workdir", "Host Workdir does not exist.")
+            return
+
+        if not (settings_preflight_script or "").strip() and not (environment_preflight_script or "").strip():
+            QMessageBox.information(self, "Nothing to test", "No preflight scripts are enabled.")
+            return
+
+        task_id = uuid4().hex[:10]
+        image = PIXELARCH_EMERALD_IMAGE
+
+        task = Task(
+            task_id=task_id,
+            prompt=label,
+            image=image,
+            host_workdir=host_workdir,
+            host_codex_dir=host_codex,
+            environment_id=env.env_id,
+            created_at_s=time.time(),
+            status="pulling",
+        )
+        self._tasks[task_id] = task
+        stain = env.color if env else None
+        spinner = _stain_color(env.color) if env else None
+        self._dashboard.upsert_task(task, stain=stain, spinner_color=spinner)
+        self._schedule_save()
+
+        config = DockerRunnerConfig(
+            task_id=task_id,
+            image=image,
+            host_codex_dir=host_codex,
+            host_workdir=host_workdir,
+            auto_remove=True,
+            pull_before_run=True,
+            settings_preflight_script=settings_preflight_script,
+            environment_preflight_script=environment_preflight_script,
+            env_vars=dict(env.env_vars) if env else {},
+            extra_mounts=list(env.extra_mounts) if env else [],
+            codex_extra_args=[],
+        )
+        bridge = TaskRunnerBridge(task_id=task_id, config=config, mode="preflight")
+        thread = QThread(self)
+        bridge.moveToThread(thread)
+        thread.started.connect(bridge.run)
+
+        bridge.state.connect(self._on_bridge_state, Qt.QueuedConnection)
+        bridge.log.connect(self._on_bridge_log, Qt.QueuedConnection)
+        bridge.done.connect(self._on_bridge_done, Qt.QueuedConnection)
+
+        bridge.done.connect(thread.quit, Qt.QueuedConnection)
+        bridge.done.connect(bridge.deleteLater, Qt.QueuedConnection)
+        thread.finished.connect(thread.deleteLater)
+
+        self._bridges[task_id] = bridge
+        self._threads[task_id] = thread
+        self._run_started_s[task_id] = time.time()
+
+        thread.start()
+        self._show_dashboard()
+        self._schedule_save()
+
+    def _on_settings_test_preflight(self, settings: dict) -> None:
+        settings_script: str | None = None
+        if bool(settings.get("preflight_enabled") or False):
+            candidate = str(settings.get("preflight_script") or "")
+            if candidate.strip():
+                settings_script = candidate
+
+        host_workdir_base = str(self._settings_data.get("host_workdir") or os.getcwd())
+        host_codex_base = str(self._settings_data.get("host_codex_dir") or os.path.expanduser("~/.codex"))
+
+        if settings_script is None:
+            has_env_preflights = any(
+                e.preflight_enabled and (e.preflight_script or "").strip() for e in self._environment_list()
+            )
+            if not has_env_preflights:
+                QMessageBox.information(self, "Nothing to test", "No preflight scripts are enabled.")
+                return
+
+        skipped: list[str] = []
+        for env in self._environment_list():
+            host_workdir = env.host_workdir or host_workdir_base
+            host_codex = env.host_codex_dir or host_codex_base
+            if not os.path.isdir(host_workdir):
+                skipped.append(f"{env.name or env.env_id} ({host_workdir})")
+                continue
+            env_script: str | None = None
+            if env.preflight_enabled and (env.preflight_script or "").strip():
+                env_script = env.preflight_script
+            self._start_preflight_task(
+                label=f"Preflight test (all): {env.name or env.env_id}",
+                env=env,
+                host_workdir=host_workdir,
+                host_codex=host_codex,
+                settings_preflight_script=settings_script,
+                environment_preflight_script=env_script,
+            )
+
+        if skipped:
+            QMessageBox.warning(
+                self,
+                "Skipped environments",
+                "Skipped environments with missing Workdir:\n" + "\n".join(skipped[:20]),
+            )
+
+    def _on_environment_test_preflight(self, env: object) -> None:
+        if not isinstance(env, Environment):
+            return
+
+        settings_preflight_script: str | None = None
+        if self._settings_data.get("preflight_enabled") and str(self._settings_data.get("preflight_script") or "").strip():
+            settings_preflight_script = str(self._settings_data.get("preflight_script") or "")
+
+        environment_preflight_script: str | None = None
+        if env.preflight_enabled and (env.preflight_script or "").strip():
+            environment_preflight_script = env.preflight_script
+
+        host_workdir_base = str(self._settings_data.get("host_workdir") or os.getcwd())
+        host_codex_base = str(self._settings_data.get("host_codex_dir") or os.path.expanduser("~/.codex"))
+        host_workdir = env.host_workdir or host_workdir_base
+        host_codex = env.host_codex_dir or host_codex_base
+
+        self._start_preflight_task(
+            label=f"Preflight test: {env.name or env.env_id}",
+            env=env,
+            host_workdir=host_workdir,
+            host_codex=host_codex,
+            settings_preflight_script=settings_preflight_script,
+            environment_preflight_script=environment_preflight_script,
+        )
 
     def _open_task_details(self, task_id: str) -> None:
         task = self._tasks.get(task_id)
