@@ -2376,8 +2376,9 @@ class MainWindow(QMainWindow):
         self._schedule_save()
 
     def _on_settings_test_preflight(self, settings: dict) -> None:
+        settings_enabled = bool(settings.get("preflight_enabled") or False)
         settings_script: str | None = None
-        if bool(settings.get("preflight_enabled") or False):
+        if settings_enabled:
             candidate = str(settings.get("preflight_script") or "")
             if candidate.strip():
                 settings_script = candidate
@@ -2390,19 +2391,27 @@ class MainWindow(QMainWindow):
                 e.preflight_enabled and (e.preflight_script or "").strip() for e in self._environment_list()
             )
             if not has_env_preflights:
+                if not settings_enabled:
+                    return
                 QMessageBox.information(self, "Nothing to test", "No preflight scripts are enabled.")
                 return
 
         skipped: list[str] = []
+        started = 0
         for env in self._environment_list():
+            env_script: str | None = None
+            candidate = str(env.preflight_script or "")
+            if env.preflight_enabled and candidate.strip():
+                env_script = candidate
+
+            if settings_script is None and env_script is None:
+                continue
+
             host_workdir = env.host_workdir or host_workdir_base
             host_codex = env.host_codex_dir or host_codex_base
             if not os.path.isdir(host_workdir):
                 skipped.append(f"{env.name or env.env_id} ({host_workdir})")
                 continue
-            env_script: str | None = None
-            if env.preflight_enabled and (env.preflight_script or "").strip():
-                env_script = env.preflight_script
             self._start_preflight_task(
                 label=f"Preflight test (all): {env.name or env.env_id}",
                 env=env,
@@ -2411,6 +2420,13 @@ class MainWindow(QMainWindow):
                 settings_preflight_script=settings_script,
                 environment_preflight_script=env_script,
             )
+            started += 1
+
+        if started == 0 and not skipped:
+            if not settings_enabled:
+                return
+            QMessageBox.information(self, "Nothing to test", "No preflight scripts are enabled.")
+            return
 
         if skipped:
             QMessageBox.warning(
