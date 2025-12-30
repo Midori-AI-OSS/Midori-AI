@@ -54,6 +54,10 @@ from PySide6.QtWidgets import QWidget
 from codex_local_conatinerd.docker_runner import DockerCodexWorker
 from codex_local_conatinerd.docker_runner import DockerPreflightWorker
 from codex_local_conatinerd.docker_runner import DockerRunnerConfig
+from codex_local_conatinerd.agent_cli import additional_config_mounts
+from codex_local_conatinerd.agent_cli import container_config_dir
+from codex_local_conatinerd.agent_cli import normalize_agent
+from codex_local_conatinerd.agent_cli import verify_cli_clause
 from codex_local_conatinerd.environments import ALLOWED_STAINS
 from codex_local_conatinerd.environments import Environment
 from codex_local_conatinerd.environments import delete_environment
@@ -423,6 +427,13 @@ class Task:
     finished_at: datetime | None = None
     logs: list[str] = field(default_factory=list)
 
+    def last_nonblank_log_line(self) -> str:
+        for line in reversed(self.logs):
+            text = str(line or "").strip()
+            if text:
+                return text
+        return ""
+
     def elapsed_seconds(self, now_s: float | None = None) -> float | None:
         created_s = float(self.created_at_s or 0.0)
         if created_s <= 0.0:
@@ -451,10 +462,19 @@ class Task:
         duration = self.elapsed_seconds()
         if self.exit_code is None:
             if self.is_active():
+                last_line = self.last_nonblank_log_line()
+                if last_line:
+                    return last_line
                 return f"elapsed {_format_duration(duration)}"
             return ""
         if self.exit_code == 0:
-            return f"ok • {_format_duration(duration)}"
+            last_line = self.last_nonblank_log_line()
+            dur = _format_duration(duration)
+            if last_line and dur != "—":
+                return f"{last_line} • {dur}"
+            if last_line:
+                return last_line
+            return f"ok • {dur}"
         return f"exit {self.exit_code} • {_format_duration(duration)}"
 
     def is_active(self) -> bool:
@@ -543,6 +563,7 @@ class TaskRow(QWidget):
         self.setFixedHeight(52)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self._task_id: str | None = None
+        self._last_task: Task | None = None
         self.setObjectName("TaskRow")
         self.setAttribute(Qt.WA_StyledBackground, True)
         self.setProperty("selected", False)
@@ -633,6 +654,7 @@ class TaskRow(QWidget):
         self._info.setFullText(text)
 
     def update_from_task(self, task: Task, spinner_color: QColor | None = None) -> None:
+        self._last_task = task
         self.set_task(task.prompt_one_line())
         self.set_info(task.info_one_line())
 
@@ -653,6 +675,9 @@ class TaskRow(QWidget):
             return
         self._glyph.set_mode("idle", color)
 
+    def last_task(self) -> Task | None:
+        return self._last_task
+
 
 class DashboardPage(QWidget):
     task_selected = Signal(str)
@@ -662,6 +687,7 @@ class DashboardPage(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._selected_task_id: str | None = None
+        self._filter_text_tokens: list[str] = []
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -671,6 +697,48 @@ class DashboardPage(QWidget):
         table_layout = QVBoxLayout(table)
         table_layout.setContentsMargins(12, 12, 12, 12)
         table_layout.setSpacing(10)
+
+        filters = QWidget()
+        filters_layout = QHBoxLayout(filters)
+        filters_layout.setContentsMargins(8, 0, 8, 0)
+        filters_layout.setSpacing(10)
+
+        self._filter_text = QLineEdit()
+        self._filter_text.setPlaceholderText("Filter tasks…")
+        self._filter_text.textChanged.connect(self._on_filter_changed)
+
+        self._filter_environment = QComboBox()
+        self._filter_environment.setFixedWidth(240)
+        self._filter_environment.addItem("All environments", "")
+        self._filter_environment.currentIndexChanged.connect(self._on_filter_changed)
+
+        self._filter_state = QComboBox()
+        self._filter_state.setFixedWidth(160)
+        self._filter_state.addItem("Any state", "any")
+        self._filter_state.addItem("Active", "active")
+        self._filter_state.addItem("Done", "done")
+        self._filter_state.addItem("Failed", "failed")
+        self._filter_state.currentIndexChanged.connect(self._on_filter_changed)
+
+        clear_filters = QToolButton()
+        clear_filters.setIcon(self.style().standardIcon(QStyle.SP_DialogResetButton))
+        clear_filters.setToolButtonStyle(Qt.ToolButtonIconOnly)
+        clear_filters.setToolTip("Clear filters")
+        clear_filters.setAccessibleName("Clear filters")
+        clear_filters.clicked.connect(self._clear_filters)
+
+        self._btn_clean_old = QToolButton()
+        self._btn_clean_old.setIcon(self.style().standardIcon(QStyle.SP_TrashIcon))
+        self._btn_clean_old.setToolTip("Clean finished tasks")
+        self._btn_clean_old.setAccessibleName("Clean finished tasks")
+        self._btn_clean_old.setToolButtonStyle(Qt.ToolButtonIconOnly)
+        self._btn_clean_old.clicked.connect(self.clean_old_requested.emit)
+
+        filters_layout.addWidget(self._filter_text, 1)
+        filters_layout.addWidget(self._filter_environment)
+        filters_layout.addWidget(self._filter_state)
+        filters_layout.addWidget(clear_filters, 0, Qt.AlignRight)
+        filters_layout.addWidget(self._btn_clean_old, 0, Qt.AlignRight)
 
         columns = QWidget()
         columns_layout = QHBoxLayout(columns)
@@ -684,16 +752,10 @@ class DashboardPage(QWidget):
         c3.setStyleSheet("color: rgba(237, 239, 245, 150); font-weight: 650;")
         c1.setMinimumWidth(260)
         c2.setMinimumWidth(180)
-        self._btn_clean_old = QToolButton()
-        self._btn_clean_old.setIcon(self.style().standardIcon(QStyle.SP_TrashIcon))
-        self._btn_clean_old.setText("Clean old")
-        self._btn_clean_old.setToolTip("Clean old tasks")
-        self._btn_clean_old.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
-        self._btn_clean_old.clicked.connect(self.clean_old_requested.emit)
         columns_layout.addWidget(c1, 5)
         columns_layout.addWidget(c2, 0)
         columns_layout.addWidget(c3, 4)
-        columns_layout.addWidget(self._btn_clean_old, 0, Qt.AlignRight)
+        columns_layout.addSpacing(self._btn_clean_old.sizeHint().width())
 
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
@@ -709,6 +771,7 @@ class DashboardPage(QWidget):
         self._list_layout.addStretch(1)
         self._scroll.setWidget(self._list)
 
+        table_layout.addWidget(filters)
         table_layout.addWidget(columns)
         table_layout.addWidget(self._scroll, 1)
         layout.addWidget(table, 1)
@@ -755,6 +818,77 @@ class DashboardPage(QWidget):
 
         row.set_selected(self._selected_task_id == task.task_id)
         row.update_from_task(task, spinner_color=spinner_color)
+        row.setVisible(self._row_visible_for_task(task))
+
+    def set_environment_filter_options(self, envs: list[tuple[str, str]]) -> None:
+        current = str(self._filter_environment.currentData() or "")
+        self._filter_environment.blockSignals(True)
+        try:
+            self._filter_environment.clear()
+            self._filter_environment.addItem("All environments", "")
+            for env_id, label in envs:
+                self._filter_environment.addItem(label or env_id, env_id)
+            idx = self._filter_environment.findData(current)
+            if idx < 0:
+                idx = 0
+            self._filter_environment.setCurrentIndex(idx)
+        finally:
+            self._filter_environment.blockSignals(False)
+        self._apply_filters()
+
+    def _clear_filters(self) -> None:
+        self._filter_text.setText("")
+        self._filter_environment.setCurrentIndex(0)
+        self._filter_state.setCurrentIndex(0)
+
+    def _on_filter_changed(self, _value: object = None) -> None:
+        raw = (self._filter_text.text() or "").strip().lower()
+        self._filter_text_tokens = [t for t in raw.split() if t]
+        self._apply_filters()
+
+    def _task_matches_text(self, task: Task) -> bool:
+        if not self._filter_text_tokens:
+            return True
+        haystack = " ".join(
+            [
+                str(task.task_id or ""),
+                str(task.environment_id or ""),
+                str(task.status or ""),
+                task.prompt_one_line(),
+                task.info_one_line(),
+            ]
+        ).lower()
+        return all(token in haystack for token in self._filter_text_tokens)
+
+    @staticmethod
+    def _task_matches_state(task: Task, state: str) -> bool:
+        state = str(state or "any")
+        if state == "any":
+            return True
+        if state == "active":
+            return task.is_active()
+        status = (task.status or "").lower()
+        if state == "done":
+            return task.is_done() or (status == "exited" and task.exit_code == 0)
+        if state == "failed":
+            if task.is_failed():
+                return True
+            return task.exit_code is not None and task.exit_code != 0
+        return True
+
+    def _row_visible_for_task(self, task: Task) -> bool:
+        env_filter = str(self._filter_environment.currentData() or "")
+        if env_filter and str(task.environment_id or "") != env_filter:
+            return False
+        state_filter = str(self._filter_state.currentData() or "any")
+        if not self._task_matches_state(task, state_filter):
+            return False
+        return self._task_matches_text(task)
+
+    def _apply_filters(self) -> None:
+        for row in self._rows.values():
+            task = row.last_task()
+            row.setVisible(True if task is None else self._row_visible_for_task(task))
 
     def _on_row_clicked(self) -> None:
         row = self.sender()
@@ -1014,7 +1148,7 @@ class NewTaskPage(QWidget):
         prompt_title = QLabel("Prompt")
         prompt_title.setStyleSheet("font-size: 14px; font-weight: 650;")
         self._prompt = QPlainTextEdit()
-        self._prompt.setPlaceholderText("Describe what you want Codex to do…")
+        self._prompt.setPlaceholderText("Describe what you want the agent to do…")
         self._prompt.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self._prompt.setTabChangesFocus(True)
 
@@ -1031,7 +1165,7 @@ class NewTaskPage(QWidget):
 
         self._command = QLineEdit("--sandbox danger-full-access")
         self._command.setPlaceholderText(
-            "Args for Agent CLI (e.g. --sandbox danger-full-access), or a full container command (e.g. bash)"
+            "Args for the Agent CLI (e.g. --sandbox danger-full-access or --add-dir …), or a full container command (e.g. bash)"
         )
 
         interactive_grid = QGridLayout()
@@ -1342,7 +1476,7 @@ class EnvironmentsPage(QWidget):
             "#!/usr/bin/env bash\n"
             "set -euo pipefail\n"
             "\n"
-            "# Runs inside the container before `codex exec`.\n"
+            "# Runs inside the container before the agent command.\n"
             "# Runs after Settings preflight (if enabled).\n"
         )
         self._preflight_script.setTabChangesFocus(True)
@@ -1607,13 +1741,6 @@ class SettingsPage(QWidget):
         self._use.addItem("Codex", "codex")
         self._use.addItem("Claude", "claude")
         self._use.addItem("GitHub Copilot", "copilot")
-        model = self._use.model()
-        if hasattr(model, "item"):
-            try:
-                model.item(1).setEnabled(False)
-                model.item(2).setEnabled(False)
-            except Exception:
-                pass
 
         self._shell = QComboBox()
         for label, value in [
@@ -1631,13 +1758,25 @@ class SettingsPage(QWidget):
         browse_codex.setFixedWidth(100)
         browse_codex.clicked.connect(self._pick_codex_dir)
 
+        self._host_claude_dir = QLineEdit()
+        self._host_claude_dir.setPlaceholderText(os.path.expanduser("~/.claude"))
+        browse_claude = QPushButton("Browse…")
+        browse_claude.setFixedWidth(100)
+        browse_claude.clicked.connect(self._pick_claude_dir)
+
+        self._host_copilot_dir = QLineEdit()
+        self._host_copilot_dir.setPlaceholderText(os.path.expanduser("~/.copilot"))
+        browse_copilot = QPushButton("Browse…")
+        browse_copilot.setFixedWidth(100)
+        browse_copilot.clicked.connect(self._pick_copilot_dir)
+
         self._preflight_enabled = QCheckBox("Enable settings preflight bash (runs on all envs, before env preflight)")
         self._preflight_script = QPlainTextEdit()
         self._preflight_script.setPlaceholderText(
             "#!/usr/bin/env bash\n"
             "set -euo pipefail\n"
             "\n"
-            "# Runs inside the container before `codex exec`.\n"
+            "# Runs inside the container before the agent command.\n"
             "# Runs on every environment, before environment preflight (if enabled).\n"
             "# This script is mounted read-only and deleted from the host after the task finishes.\n"
         )
@@ -1649,10 +1788,28 @@ class SettingsPage(QWidget):
         grid.addWidget(self._use, 0, 1)
         grid.addWidget(QLabel("Shell"), 0, 2)
         grid.addWidget(self._shell, 0, 3)
-        grid.addWidget(QLabel("Host Config folder"), 1, 0)
+        codex_label = QLabel("Codex Config folder")
+        claude_label = QLabel("Claude Config folder")
+        copilot_label = QLabel("Copilot Config folder")
+
+        grid.addWidget(codex_label, 1, 0)
         grid.addWidget(self._host_codex_dir, 1, 1, 1, 2)
         grid.addWidget(browse_codex, 1, 3)
-        grid.addWidget(self._preflight_enabled, 2, 0, 1, 4)
+        grid.addWidget(claude_label, 2, 0)
+        grid.addWidget(self._host_claude_dir, 2, 1, 1, 2)
+        grid.addWidget(browse_claude, 2, 3)
+        grid.addWidget(copilot_label, 3, 0)
+        grid.addWidget(self._host_copilot_dir, 3, 1, 1, 2)
+        grid.addWidget(browse_copilot, 3, 3)
+        grid.addWidget(self._preflight_enabled, 4, 0, 1, 4)
+
+        self._agent_config_widgets: dict[str, tuple[QWidget, ...]] = {
+            "codex": (codex_label, self._host_codex_dir, browse_codex),
+            "claude": (claude_label, self._host_claude_dir, browse_claude),
+            "copilot": (copilot_label, self._host_copilot_dir, browse_copilot),
+        }
+        self._use.currentIndexChanged.connect(self._sync_agent_config_widgets)
+        self._sync_agent_config_widgets()
 
         buttons = QHBoxLayout()
         buttons.setSpacing(10)
@@ -1675,10 +1832,9 @@ class SettingsPage(QWidget):
         layout.addWidget(card, 1)
 
     def set_settings(self, settings: dict) -> None:
-        use_value = str(settings.get("use") or "codex").strip().lower()
-        if use_value != "codex":
-            use_value = "codex"
+        use_value = normalize_agent(str(settings.get("use") or "codex"))
         self._set_combo_value(self._use, use_value, fallback="codex")
+        self._sync_agent_config_widgets()
 
         shell_value = str(settings.get("shell") or "bash").strip().lower()
         self._set_combo_value(self._shell, shell_value, fallback="bash")
@@ -1687,6 +1843,12 @@ class SettingsPage(QWidget):
         if not host_codex_dir:
             host_codex_dir = os.path.expanduser("~/.codex")
         self._host_codex_dir.setText(host_codex_dir)
+
+        host_claude_dir = os.path.expanduser(str(settings.get("host_claude_dir") or "").strip())
+        self._host_claude_dir.setText(host_claude_dir)
+
+        host_copilot_dir = os.path.expanduser(str(settings.get("host_copilot_dir") or "").strip())
+        self._host_copilot_dir.setText(host_copilot_dir)
 
         enabled = bool(settings.get("preflight_enabled") or False)
         self._preflight_enabled.setChecked(enabled)
@@ -1698,6 +1860,8 @@ class SettingsPage(QWidget):
             "use": str(self._use.currentData() or "codex"),
             "shell": str(self._shell.currentData() or "bash"),
             "host_codex_dir": os.path.expanduser(str(self._host_codex_dir.text() or "").strip()),
+            "host_claude_dir": os.path.expanduser(str(self._host_claude_dir.text() or "").strip()),
+            "host_copilot_dir": os.path.expanduser(str(self._host_copilot_dir.text() or "").strip()),
             "preflight_enabled": bool(self._preflight_enabled.isChecked()),
             "preflight_script": str(self._preflight_script.toPlainText() or ""),
         }
@@ -1711,11 +1875,36 @@ class SettingsPage(QWidget):
         if path:
             self._host_codex_dir.setText(path)
 
+    def _pick_claude_dir(self) -> None:
+        path = QFileDialog.getExistingDirectory(
+            self,
+            "Select Host Claude Config folder",
+            self._host_claude_dir.text() or os.path.expanduser("~/.claude"),
+        )
+        if path:
+            self._host_claude_dir.setText(path)
+
+    def _pick_copilot_dir(self) -> None:
+        path = QFileDialog.getExistingDirectory(
+            self,
+            "Select Host Copilot Config folder",
+            self._host_copilot_dir.text() or os.path.expanduser("~/.copilot"),
+        )
+        if path:
+            self._host_copilot_dir.setText(path)
+
     def _on_save(self) -> None:
         self.saved.emit(self.get_settings())
 
     def _on_test_preflight(self) -> None:
         self.test_preflight_requested.emit(self.get_settings())
+
+    def _sync_agent_config_widgets(self) -> None:
+        use_value = normalize_agent(str(self._use.currentData() or "codex"))
+        for agent, widgets in self._agent_config_widgets.items():
+            visible = agent == use_value
+            for widget in widgets:
+                widget.setVisible(visible)
 
     @staticmethod
     def _set_combo_value(combo: QComboBox, value: str, fallback: str) -> None:
@@ -1742,9 +1931,13 @@ class MainWindow(QMainWindow):
             "preflight_script": "",
             "host_workdir": os.environ.get("CODEX_HOST_WORKDIR", os.getcwd()),
             "host_codex_dir": os.environ.get("CODEX_HOST_CODEX_DIR", os.path.expanduser("~/.codex")),
+            "host_claude_dir": "",
+            "host_copilot_dir": "",
             "active_environment_id": "default",
             "interactive_terminal_id": "",
             "interactive_command": "--sandbox danger-full-access",
+            "interactive_command_claude": "--add-dir /home/midori-ai/workspace",
+            "interactive_command_copilot": "--add-dir /home/midori-ai/workspace",
             "window_w": 1280,
             "window_h": 720,
         }
@@ -1754,6 +1947,7 @@ class MainWindow(QMainWindow):
         self._threads: dict[str, QThread] = {}
         self._bridges: dict[str, TaskRunnerBridge] = {}
         self._run_started_s: dict[str, float] = {}
+        self._dashboard_log_refresh_s: dict[str, float] = {}
         self._state_path = default_state_path()
         self._save_timer = QTimer(self)
         self._save_timer.setSingleShot(True)
@@ -1801,19 +1995,11 @@ class MainWindow(QMainWindow):
         self._btn_settings.setIcon(self.style().standardIcon(QStyle.SP_FileDialogDetailedView))
         self._btn_settings.clicked.connect(self._show_settings)
 
-        self._env_picker_label = QLabel("Environment")
-        self._env_picker_label.setStyleSheet("color: rgba(237, 239, 245, 170); font-weight: 650;")
-        self._env_picker = QComboBox()
-        self._env_picker.setFixedWidth(260)
-        self._env_picker.currentIndexChanged.connect(self._on_env_picker_changed)
-
         top_layout.addWidget(self._btn_home)
         top_layout.addWidget(self._btn_new)
         top_layout.addWidget(self._btn_envs)
         top_layout.addWidget(self._btn_settings)
         top_layout.addStretch(1)
-        top_layout.addWidget(self._env_picker_label, 0, Qt.AlignRight)
-        top_layout.addWidget(self._env_picker, 0, Qt.AlignRight)
 
         outer.addWidget(top)
 
@@ -1920,10 +2106,7 @@ class MainWindow(QMainWindow):
     def _apply_settings(self, settings: dict) -> None:
         merged = dict(self._settings_data)
         merged.update(settings or {})
-        use_value = str(merged.get("use") or "codex").lower()
-        if use_value != "codex":
-            use_value = "codex"
-        merged["use"] = use_value
+        merged["use"] = normalize_agent(str(merged.get("use") or "codex"))
 
         shell_value = str(merged.get("shell") or "bash").lower()
         if shell_value not in {"bash", "sh", "zsh", "fish", "tmux"}:
@@ -1935,11 +2118,88 @@ class MainWindow(QMainWindow):
             host_codex_dir = os.path.expanduser("~/.codex")
         merged["host_codex_dir"] = host_codex_dir
 
+        merged["host_claude_dir"] = os.path.expanduser(str(merged.get("host_claude_dir") or "").strip())
+        merged["host_copilot_dir"] = os.path.expanduser(str(merged.get("host_copilot_dir") or "").strip())
+
         merged["preflight_enabled"] = bool(merged.get("preflight_enabled") or False)
         merged["preflight_script"] = str(merged.get("preflight_script") or "")
+        merged["interactive_command"] = str(merged.get("interactive_command") or "--sandbox danger-full-access")
+        merged["interactive_command_claude"] = str(merged.get("interactive_command_claude") or "")
+        merged["interactive_command_copilot"] = str(merged.get("interactive_command_copilot") or "")
         self._settings_data = merged
         self._apply_settings_to_pages()
         self._schedule_save()
+
+    def _interactive_command_key(self, agent_cli: str) -> str:
+        agent_cli = normalize_agent(agent_cli)
+        if agent_cli == "claude":
+            return "interactive_command_claude"
+        if agent_cli == "copilot":
+            return "interactive_command_copilot"
+        return "interactive_command"
+
+    def _host_config_dir_key(self, agent_cli: str) -> str:
+        agent_cli = normalize_agent(agent_cli)
+        if agent_cli == "claude":
+            return "host_claude_dir"
+        if agent_cli == "copilot":
+            return "host_copilot_dir"
+        return "host_codex_dir"
+
+    def _default_interactive_command(self, agent_cli: str) -> str:
+        agent_cli = normalize_agent(agent_cli)
+        if agent_cli == "claude":
+            return "--add-dir /home/midori-ai/workspace"
+        if agent_cli == "copilot":
+            return "--add-dir /home/midori-ai/workspace"
+        return "--sandbox danger-full-access"
+
+    def _effective_host_config_dir(
+        self,
+        *,
+        agent_cli: str,
+        env: Environment | None,
+        settings: dict[str, object] | None = None,
+    ) -> str:
+        agent_cli = normalize_agent(agent_cli)
+        settings = settings or self._settings_data
+
+        config_dir = ""
+        if agent_cli == "claude":
+            config_dir = str(settings.get("host_claude_dir") or "")
+        elif agent_cli == "copilot":
+            config_dir = str(settings.get("host_copilot_dir") or "")
+        else:
+            config_dir = str(
+                settings.get("host_codex_dir")
+                or os.environ.get("CODEX_HOST_CODEX_DIR", os.path.expanduser("~/.codex"))
+            )
+        if env and env.host_codex_dir:
+            config_dir = env.host_codex_dir
+        return os.path.expanduser(str(config_dir or "").strip())
+
+    def _ensure_agent_config_dir(self, agent_cli: str, host_config_dir: str) -> bool:
+        agent_cli = normalize_agent(agent_cli)
+        host_config_dir = os.path.expanduser(str(host_config_dir or "").strip())
+        if agent_cli in {"claude", "copilot"} and not host_config_dir:
+            agent_label = "Claude" if agent_cli == "claude" else "Copilot"
+            QMessageBox.warning(
+                self,
+                "Missing config folder",
+                f"Set the {agent_label} Config folder in Settings (or override it per-environment).",
+            )
+            return False
+        if not host_config_dir:
+            return False
+        if os.path.exists(host_config_dir) and not os.path.isdir(host_config_dir):
+            QMessageBox.warning(self, "Invalid config folder", "Config folder path is not a directory.")
+            return False
+        try:
+            os.makedirs(host_config_dir, exist_ok=True)
+        except Exception as exc:
+            QMessageBox.warning(self, "Invalid config folder", str(exc))
+            return False
+        return True
 
     def _active_environment_id(self) -> str:
         return str(self._settings_data.get("active_environment_id") or "default")
@@ -1953,25 +2213,10 @@ class MainWindow(QMainWindow):
         stains = {e.env_id: e.color for e in envs}
 
         self._new_task.set_environment_stains(stains)
+        self._dashboard.set_environment_filter_options([(e.env_id, e.name or e.env_id) for e in envs])
 
         self._syncing_environment = True
         try:
-            self._env_picker.blockSignals(True)
-            try:
-                self._env_picker.clear()
-                for env in envs:
-                    self._env_picker.addItem(env.name or env.env_id, env.env_id)
-                idx = self._env_picker.findData(active_id)
-                if idx >= 0:
-                    self._env_picker.setCurrentIndex(idx)
-            finally:
-                self._env_picker.blockSignals(False)
-            active_stain = stains.get(str(self._env_picker.currentData() or ""))
-            if active_stain:
-                _apply_environment_combo_tint(self._env_picker, active_stain)
-            else:
-                self._env_picker.setStyleSheet("")
-
             self._new_task.set_environments([(e.env_id, e.name or e.env_id) for e in envs], active_id=active_id)
             self._new_task.set_environment_id(active_id)
         finally:
@@ -1980,27 +2225,21 @@ class MainWindow(QMainWindow):
     def _apply_active_environment_to_new_task(self) -> None:
         env = self._environments.get(self._active_environment_id())
         host_workdir = str(self._settings_data.get("host_workdir") or os.getcwd())
-        host_codex = str(self._settings_data.get("host_codex_dir") or os.path.expanduser("~/.codex"))
+        agent_cli = normalize_agent(str(self._settings_data.get("use") or "codex"))
+        host_codex = self._effective_host_config_dir(agent_cli=agent_cli, env=env)
         if env:
             if env.host_workdir:
                 host_workdir = env.host_workdir
-            if env.host_codex_dir:
-                host_codex = env.host_codex_dir
         self._new_task.set_defaults(host_workdir=host_workdir, host_codex=host_codex)
+        interactive_key = self._interactive_command_key(agent_cli)
+        interactive_command = str(self._settings_data.get(interactive_key) or "").strip()
+        if not interactive_command:
+            interactive_command = self._default_interactive_command(agent_cli)
         self._new_task.set_interactive_defaults(
             terminal_id=str(self._settings_data.get("interactive_terminal_id") or ""),
-            command=str(self._settings_data.get("interactive_command") or "--sandbox danger-full-access"),
+            command=interactive_command,
         )
         self._populate_environment_pickers()
-
-    def _on_env_picker_changed(self, index: int) -> None:
-        if self._syncing_environment:
-            return
-        env_id = str(self._env_picker.currentData() or "")
-        if env_id and env_id in self._environments:
-            self._settings_data["active_environment_id"] = env_id
-            self._apply_active_environment_to_new_task()
-            self._schedule_save()
 
     def _on_new_task_env_changed(self, env_id: str) -> None:
         if self._syncing_environment:
@@ -2078,6 +2317,7 @@ class MainWindow(QMainWindow):
             self._threads.pop(task_id, None)
             self._bridges.pop(task_id, None)
             self._run_started_s.pop(task_id, None)
+            self._dashboard_log_refresh_s.pop(task_id, None)
         self._schedule_save()
 
     def _start_task_from_ui(self, prompt: str, host_workdir: str, host_codex: str, env_id: str) -> None:
@@ -2090,8 +2330,8 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Invalid Workdir", "Host Workdir does not exist.")
             return
 
+        agent_cli = normalize_agent(str(self._settings_data.get("use") or "codex"))
         self._settings_data["host_workdir"] = host_workdir
-        self._settings_data["host_codex_dir"] = host_codex
 
         task_id = uuid4().hex[:10]
         env_id = str(env_id or "").strip() or self._active_environment_id()
@@ -2100,6 +2340,12 @@ class MainWindow(QMainWindow):
             return
         self._settings_data["active_environment_id"] = env_id
         env = self._environments.get(env_id)
+        host_codex = os.path.expanduser(str(host_codex or "").strip())
+        if not host_codex:
+            host_codex = self._effective_host_config_dir(agent_cli=agent_cli, env=env)
+        if not self._ensure_agent_config_dir(agent_cli, host_codex):
+            return
+        self._settings_data[self._host_config_dir_key(agent_cli)] = host_codex
 
         image = PIXELARCH_EMERALD_IMAGE
 
@@ -2140,6 +2386,7 @@ class MainWindow(QMainWindow):
             image=image,
             host_codex_dir=host_codex,
             host_workdir=host_workdir,
+            agent_cli=agent_cli,
             auto_remove=True,
             pull_before_run=True,
             settings_preflight_script=settings_preflight_script,
@@ -2206,6 +2453,12 @@ class MainWindow(QMainWindow):
             return
         env = self._environments.get(env_id)
 
+        agent_cli = normalize_agent(str(self._settings_data.get("use") or "codex"))
+        if not host_codex:
+            host_codex = self._effective_host_config_dir(agent_cli=agent_cli, env=env)
+        if not self._ensure_agent_config_dir(agent_cli, host_codex):
+            return
+
         agent_cli_args: list[str] = []
         if env and env.agent_cli_args.strip():
             try:
@@ -2215,7 +2468,6 @@ class MainWindow(QMainWindow):
                 return
 
         command = str(command or "").strip() or "bash"
-        agent_cli = str(self._settings_data.get("use") or "codex").strip() or "codex"
         try:
             if command.startswith("-"):
                 cmd_parts = [agent_cli, *shlex.split(command)]
@@ -2227,19 +2479,56 @@ class MainWindow(QMainWindow):
         if not cmd_parts:
             cmd_parts = ["bash"]
 
+        def _move_positional_to_end(parts: list[str], value: str) -> None:
+            value = str(value or "")
+            if not value:
+                return
+            for idx in range(len(parts) - 1, 0, -1):
+                if parts[idx] != value:
+                    continue
+                prev = parts[idx - 1]
+                if prev != "--" and prev.startswith("-"):
+                    continue
+                parts.pop(idx)
+                break
+            parts.append(value)
+
+        def _move_flag_value_to_end(parts: list[str], flags: set[str]) -> None:
+            for idx in range(len(parts) - 2, -1, -1):
+                if parts[idx] in flags:
+                    flag = parts.pop(idx)
+                    value = parts.pop(idx)
+                    parts.extend([flag, value])
+                    return
+
         if cmd_parts[0] == "codex":
             if len(cmd_parts) >= 2 and cmd_parts[1] == "exec":
                 cmd_parts.pop(1)
-            if prompt and "--skip-git-repo-check" not in cmd_parts:
-                if not os.path.exists(os.path.join(host_workdir, ".git")):
-                    cmd_parts.append("--skip-git-repo-check")
             if agent_cli_args:
                 cmd_parts.extend(agent_cli_args)
-            if prompt and prompt not in cmd_parts:
-                cmd_parts.append(prompt)
+            if prompt:
+                _move_positional_to_end(cmd_parts, prompt)
+        elif cmd_parts[0] == "claude":
+            if agent_cli_args:
+                cmd_parts.extend(agent_cli_args)
+            if "--add-dir" not in cmd_parts:
+                cmd_parts[1:1] = ["--add-dir", "/home/midori-ai/workspace"]
+            if prompt:
+                _move_positional_to_end(cmd_parts, prompt)
+        elif cmd_parts[0] == "copilot":
+            if agent_cli_args:
+                cmd_parts.extend(agent_cli_args)
+            if "--add-dir" not in cmd_parts:
+                cmd_parts[1:1] = ["--add-dir", "/home/midori-ai/workspace"]
+            if prompt:
+                has_interactive = "-i" in cmd_parts or "--interactive" in cmd_parts
+                has_prompt = "-p" in cmd_parts or "--prompt" in cmd_parts
+                if has_prompt:
+                    _move_flag_value_to_end(cmd_parts, {"-p", "--prompt"})
+                elif not has_interactive:
+                    cmd_parts.extend(["-i", prompt])
 
         image = PIXELARCH_EMERALD_IMAGE
-        os.makedirs(host_codex, exist_ok=True)
 
         settings_preflight_script: str | None = None
         if self._settings_data.get("preflight_enabled") and str(self._settings_data.get("preflight_script") or "").strip():
@@ -2251,7 +2540,8 @@ class MainWindow(QMainWindow):
 
         task_token = f"interactive-{uuid4().hex[:8]}"
         container_name = f"codex-gui-it-{uuid4().hex[:10]}"
-        container_codex_dir = "/home/midori-ai/.codex"
+        container_agent_dir = container_config_dir(agent_cli)
+        config_extra_mounts = additional_config_mounts(agent_cli, host_codex)
         container_workdir = "/home/midori-ai/workspace"
 
         settings_tmp_path = ""
@@ -2321,11 +2611,16 @@ class MainWindow(QMainWindow):
                 if not m:
                     continue
                 extra_mount_args.extend(["-v", m])
+            for mount in config_extra_mounts:
+                m = str(mount).strip()
+                if not m:
+                    continue
+                extra_mount_args.extend(["-v", m])
 
             target_cmd = " ".join(shlex.quote(part) for part in cmd_parts)
             verify_clause = ""
-            if cmd_parts[0] == "codex":
-                verify_clause = 'command -v codex >/dev/null 2>&1 || { echo "codex not found in PATH=$PATH"; exit 127; }; '
+            if cmd_parts[0] in {"codex", "claude", "copilot"}:
+                verify_clause = verify_cli_clause(cmd_parts[0])
 
             container_script = "set -euo pipefail; " f"{preflight_clause}{verify_clause}{target_cmd}"
 
@@ -2336,7 +2631,7 @@ class MainWindow(QMainWindow):
                 "--name",
                 container_name,
                 "-v",
-                f"{host_codex}:{container_codex_dir}",
+                f"{host_codex}:{container_agent_dir}",
                 "-v",
                 f"{host_workdir}:{container_workdir}",
                 *extra_mount_args,
@@ -2366,10 +2661,10 @@ class MainWindow(QMainWindow):
             )
 
             self._settings_data["host_workdir"] = host_workdir
-            self._settings_data["host_codex_dir"] = host_codex
+            self._settings_data[self._host_config_dir_key(agent_cli)] = host_codex
             self._settings_data["active_environment_id"] = env_id
             self._settings_data["interactive_terminal_id"] = str(terminal_id or "")
-            self._settings_data["interactive_command"] = command
+            self._settings_data[self._interactive_command_key(agent_cli)] = command
             self._apply_active_environment_to_new_task()
             self._schedule_save()
 
@@ -2388,6 +2683,7 @@ class MainWindow(QMainWindow):
         *,
         label: str,
         env: Environment,
+        agent_cli: str | None,
         host_workdir: str,
         host_codex: str,
         settings_preflight_script: str | None,
@@ -2403,6 +2699,13 @@ class MainWindow(QMainWindow):
 
         if not (settings_preflight_script or "").strip() and not (environment_preflight_script or "").strip():
             QMessageBox.information(self, "Nothing to test", "No preflight scripts are enabled.")
+            return
+
+        agent_cli = normalize_agent(str(agent_cli or self._settings_data.get("use") or "codex"))
+        host_codex = os.path.expanduser(str(host_codex or "").strip())
+        if not host_codex:
+            host_codex = self._effective_host_config_dir(agent_cli=agent_cli, env=env)
+        if not self._ensure_agent_config_dir(agent_cli, host_codex):
             return
 
         task_id = uuid4().hex[:10]
@@ -2429,6 +2732,7 @@ class MainWindow(QMainWindow):
             image=image,
             host_codex_dir=host_codex,
             host_workdir=host_workdir,
+            agent_cli=agent_cli,
             auto_remove=True,
             pull_before_run=True,
             settings_preflight_script=settings_preflight_script,
@@ -2467,7 +2771,8 @@ class MainWindow(QMainWindow):
                 settings_script = candidate
 
         host_workdir_base = str(self._settings_data.get("host_workdir") or os.getcwd())
-        host_codex_base = str(self._settings_data.get("host_codex_dir") or os.path.expanduser("~/.codex"))
+        agent_cli = normalize_agent(str(settings.get("use") or self._settings_data.get("use") or "codex"))
+        host_codex_base = self._effective_host_config_dir(agent_cli=agent_cli, env=None, settings=settings)
 
         if settings_script is None:
             has_env_preflights = any(
@@ -2498,6 +2803,7 @@ class MainWindow(QMainWindow):
             self._start_preflight_task(
                 label=f"Preflight test (all): {env.name or env.env_id}",
                 env=env,
+                agent_cli=agent_cli,
                 host_workdir=host_workdir,
                 host_codex=host_codex,
                 settings_preflight_script=settings_script,
@@ -2531,13 +2837,15 @@ class MainWindow(QMainWindow):
             environment_preflight_script = env.preflight_script
 
         host_workdir_base = str(self._settings_data.get("host_workdir") or os.getcwd())
-        host_codex_base = str(self._settings_data.get("host_codex_dir") or os.path.expanduser("~/.codex"))
+        agent_cli = normalize_agent(str(self._settings_data.get("use") or "codex"))
+        host_codex_base = self._effective_host_config_dir(agent_cli=agent_cli, env=None)
         host_workdir = env.host_workdir or host_workdir_base
         host_codex = env.host_codex_dir or host_codex_base
 
         self._start_preflight_task(
             label=f"Preflight test: {env.name or env.env_id}",
             env=env,
+            agent_cli=agent_cli,
             host_workdir=host_workdir,
             host_codex=host_codex,
             settings_preflight_script=settings_preflight_script,
@@ -2586,6 +2894,7 @@ class MainWindow(QMainWindow):
         self._threads.pop(task_id, None)
         self._bridges.pop(task_id, None)
         self._run_started_s.pop(task_id, None)
+        self._dashboard_log_refresh_s.pop(task_id, None)
         self._schedule_save()
 
         if self._details.isVisible() and self._details.current_task_id() == task_id:
@@ -2639,6 +2948,15 @@ class MainWindow(QMainWindow):
             task.logs = task.logs[-5000:]
         self._details.append_log(task_id, cleaned)
         self._schedule_save()
+        if cleaned and self._dashboard.isVisible() and task.is_active():
+            now_s = time.time()
+            last_s = float(self._dashboard_log_refresh_s.get(task_id) or 0.0)
+            if now_s - last_s >= 0.25:
+                self._dashboard_log_refresh_s[task_id] = now_s
+                env = self._environments.get(task.environment_id)
+                stain = env.color if env else None
+                spinner = _stain_color(env.color) if env else None
+                self._dashboard.upsert_task(task, stain=stain, spinner_color=spinner)
         if "docker pull" in cleaned and (task.status or "").lower() != "pulling":
             task.status = "pulling"
             env = self._environments.get(task.environment_id)
@@ -2730,20 +3048,27 @@ class MainWindow(QMainWindow):
         settings = payload.get("settings")
         if isinstance(settings, dict):
             self._settings_data.update(settings)
+        self._settings_data["use"] = normalize_agent(str(self._settings_data.get("use") or "codex"))
+        self._settings_data.setdefault("host_claude_dir", "")
+        self._settings_data.setdefault("host_copilot_dir", "")
+        self._settings_data.setdefault("interactive_command_claude", "--add-dir /home/midori-ai/workspace")
+        self._settings_data.setdefault("interactive_command_copilot", "--add-dir /home/midori-ai/workspace")
         host_codex_dir = os.path.normpath(os.path.expanduser(str(self._settings_data.get("host_codex_dir") or "").strip()))
         if host_codex_dir == os.path.expanduser("~/.midoriai"):
             self._settings_data["host_codex_dir"] = os.path.expanduser("~/.codex")
-        interactive_command = str(self._settings_data.get("interactive_command") or "").strip()
-        if interactive_command:
+        for key in ("interactive_command", "interactive_command_claude", "interactive_command_copilot"):
+            raw = str(self._settings_data.get(key) or "").strip()
+            if not raw:
+                continue
             try:
-                cmd_parts = shlex.split(interactive_command)
+                cmd_parts = shlex.split(raw)
             except ValueError:
                 cmd_parts = []
-            if cmd_parts and cmd_parts[0] == "codex":
-                cmd_parts = cmd_parts[1:]
-                if cmd_parts and cmd_parts[0] == "exec":
-                    cmd_parts = cmd_parts[1:]
-                self._settings_data["interactive_command"] = " ".join(shlex.quote(part) for part in cmd_parts)
+            if cmd_parts and cmd_parts[0] in {"codex", "claude", "copilot"}:
+                head = cmd_parts.pop(0)
+                if head == "codex" and cmd_parts and cmd_parts[0] == "exec":
+                    cmd_parts.pop(0)
+                self._settings_data[key] = " ".join(shlex.quote(part) for part in cmd_parts)
         items = payload.get("tasks") or []
         loaded: list[Task] = []
         for item in items:

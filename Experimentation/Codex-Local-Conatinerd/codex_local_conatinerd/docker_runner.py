@@ -15,6 +15,11 @@ from dataclasses import field
 from threading import Event
 
 from codex_local_conatinerd.prompt_sanitizer import sanitize_prompt
+from codex_local_conatinerd.agent_cli import additional_config_mounts
+from codex_local_conatinerd.agent_cli import build_noninteractive_cmd
+from codex_local_conatinerd.agent_cli import container_config_dir
+from codex_local_conatinerd.agent_cli import normalize_agent
+from codex_local_conatinerd.agent_cli import verify_cli_clause
 
 
 @dataclass(frozen=True)
@@ -23,6 +28,7 @@ class DockerRunnerConfig:
     image: str
     host_codex_dir: str
     host_workdir: str
+    agent_cli: str = "codex"
     container_codex_dir: str = "/home/midori-ai/.codex"
     container_workdir: str = "/home/midori-ai/workspace"
     auto_remove: bool = True
@@ -112,6 +118,9 @@ class DockerPreflightWorker:
         preflight_tmp_paths: list[str] = []
         try:
             os.makedirs(self._config.host_codex_dir, exist_ok=True)
+            agent_cli = normalize_agent(self._config.agent_cli)
+            config_container_dir = container_config_dir(agent_cli)
+            config_extra_mounts = additional_config_mounts(agent_cli, self._config.host_codex_dir)
             container_name = f"codex-preflight-{uuid.uuid4().hex[:10]}"
             task_token = self._config.task_id or "task"
             settings_container_path = self._config.container_settings_preflight_path.replace(
@@ -214,6 +223,11 @@ class DockerPreflightWorker:
                 if not m:
                     continue
                 extra_mount_args.extend(["-v", m])
+            for mount in config_extra_mounts:
+                m = str(mount).strip()
+                if not m:
+                    continue
+                extra_mount_args.extend(["-v", m])
 
             args = [
                 "run",
@@ -222,7 +236,7 @@ class DockerPreflightWorker:
                 "--name",
                 container_name,
                 "-v",
-                f"{self._config.host_codex_dir}:{self._config.container_codex_dir}",
+                f"{self._config.host_codex_dir}:{config_container_dir}",
                 "-v",
                 f"{self._config.host_workdir}:{self._config.container_workdir}",
                 *extra_mount_args,
@@ -350,6 +364,9 @@ class DockerCodexWorker:
         preflight_tmp_paths: list[str] = []
         try:
             os.makedirs(self._config.host_codex_dir, exist_ok=True)
+            agent_cli = normalize_agent(self._config.agent_cli)
+            config_container_dir = container_config_dir(agent_cli)
+            config_extra_mounts = additional_config_mounts(agent_cli, self._config.host_codex_dir)
             container_name = f"codex-gui-{uuid.uuid4().hex[:10]}"
             task_token = self._config.task_id or "task"
             settings_container_path = self._config.container_settings_preflight_path.replace(
@@ -403,20 +420,17 @@ class DockerCodexWorker:
                 _pull_image(self._config.image)
                 self._on_log("[host] pull complete")
 
-            codex_args = [
-                "codex",
-                "exec",
-                "--sandbox",
-                "danger-full-access",
-            ]
-            if not _is_git_repo_root(self._config.host_workdir):
-                codex_args.append("--skip-git-repo-check")
+            if agent_cli == "codex" and not _is_git_repo_root(self._config.host_workdir):
                 self._on_log("[host] .git missing in workdir; adding --skip-git-repo-check")
-            if self._config.agent_cli_args:
-                codex_args.extend(self._config.agent_cli_args)
-            codex_args.append(self._prompt)
 
-            codex_cmd = " ".join(shlex.quote(part) for part in codex_args)
+            agent_args = build_noninteractive_cmd(
+                agent=agent_cli,
+                prompt=self._prompt,
+                host_workdir=self._config.host_workdir,
+                container_workdir=self._config.container_workdir,
+                agent_cli_args=list(self._config.agent_cli_args or []),
+            )
+            agent_cmd = " ".join(shlex.quote(part) for part in agent_args)
             preflight_clause = ""
             preflight_mounts: list[str] = []
             if settings_preflight_tmp_path is not None:
@@ -466,6 +480,11 @@ class DockerCodexWorker:
                 if not m:
                     continue
                 extra_mount_args.extend(["-v", m])
+            for mount in config_extra_mounts:
+                m = str(mount).strip()
+                if not m:
+                    continue
+                extra_mount_args.extend(["-v", m])
             args = [
                 "run",
                 "-d",
@@ -473,7 +492,7 @@ class DockerCodexWorker:
                 "--name",
                 container_name,
                 "-v",
-                f"{self._config.host_codex_dir}:{self._config.container_codex_dir}",
+                f"{self._config.host_codex_dir}:{config_container_dir}",
                 "-v",
                 f"{self._config.host_workdir}:{self._config.container_workdir}",
                 *extra_mount_args,
@@ -486,10 +505,8 @@ class DockerCodexWorker:
                 "-lc",
                 "set -euo pipefail; "
                 f"{preflight_clause}"
-                "command -v codex >/dev/null 2>&1 || { "
-                "echo \"codex not found in PATH=$PATH\"; exit 127; "
-                "}; "
-                f"exec {codex_cmd}",
+                f"{verify_cli_clause(agent_cli)}"
+                f"exec {agent_cmd}",
             ]
             self._container_id = _run_docker(args, timeout_s=60.0)
             try:
