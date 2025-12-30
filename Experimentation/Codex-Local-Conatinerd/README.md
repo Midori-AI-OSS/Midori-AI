@@ -2,15 +2,17 @@ Run the GUI:
 
 `uv run main.py`
 
+UI styling lives in `codex_local_conatinerd/style.py` (Qt stylesheet) and `codex_local_conatinerd/widgets.py` (custom-painted widgets). The default look uses square corners (no rounded borders).
+
 It starts a Docker container using `lunamidori5/pixelarch:emerald` and runs:
 
 `codex exec --sandbox danger-full-access <your prompt>`
 
 Interactive mode:
 
-- Click `New task (interactive)` to launch a real TTY session in your installed terminal emulator (Linux/macOS).
-- It runs the container with `docker run -it …` and (by default) starts `codex --sandbox danger-full-access` (no `exec` and no prompt), so you can use agent TUIs.
-- You can change the “Container command” field to run something else (e.g. `bash`, `claude`, `gh …`) as long as it exists inside the image.
+- Click `New task`, then use `Run Interactive` to launch a real TTY session in your installed terminal emulator (Linux/macOS).
+- It runs the container with `docker run -it …` and (by default) starts `codex --sandbox danger-full-access` (no `exec`), so you can use agent TUIs.
+- “Container command args” accepts flags for the configured Agent CLI (starting with `-`), or a full container command like `bash`.
 
 If you see `executable file not found in $PATH` for `codex`, the GUI runs `codex` inside the container (not on the host). Make sure the image has Codex installed, or that it’s available in the container’s login shell PATH.
 

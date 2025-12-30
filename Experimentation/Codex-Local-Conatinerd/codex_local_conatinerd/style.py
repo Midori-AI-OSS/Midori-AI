@@ -18,6 +18,20 @@ def app_stylesheet() -> str:
         selection-background-color: rgba(56, 189, 248, 120);
     }
 
+    QLineEdit::placeholder, QPlainTextEdit::placeholder {
+        color: rgba(237, 239, 245, 120);
+    }
+
+    QLineEdit:hover, QPlainTextEdit:hover {
+        border: 1px solid rgba(255, 255, 255, 32);
+        background-color: rgba(18, 20, 28, 205);
+    }
+
+    QLineEdit:focus, QPlainTextEdit:focus {
+        border: 1px solid rgba(56, 189, 248, 95);
+        background-color: rgba(18, 20, 28, 215);
+    }
+
     QComboBox {
         background-color: rgba(18, 20, 28, 190);
         border: 1px solid rgba(255, 255, 255, 22);
@@ -28,6 +42,10 @@ def app_stylesheet() -> str:
 
     QComboBox:hover {
         border: 1px solid rgba(255, 255, 255, 30);
+    }
+
+    QComboBox:focus {
+        border: 1px solid rgba(56, 189, 248, 95);
     }
 
     QComboBox:disabled {
@@ -42,6 +60,8 @@ def app_stylesheet() -> str:
         width: 28px;
         border-left: 1px solid rgba(255, 255, 255, 14);
         background-color: rgba(18, 20, 28, 120);
+        border-top-right-radius: 0px;
+        border-bottom-right-radius: 0px;
     }
 
     QComboBox QAbstractItemView {
@@ -75,6 +95,10 @@ def app_stylesheet() -> str:
         background-color: rgba(56, 189, 248, 140);
     }
 
+    QPushButton:focus {
+        border: 1px solid rgba(56, 189, 248, 105);
+    }
+
     QPushButton:disabled {
         background-color: rgba(100, 116, 139, 90);
         color: rgba(237, 239, 245, 130);
@@ -99,6 +123,10 @@ def app_stylesheet() -> str:
         border: 1px solid rgba(56, 189, 248, 100);
     }
 
+    QToolButton:focus {
+        border: 1px solid rgba(56, 189, 248, 105);
+    }
+
     QToolButton:disabled {
         background-color: rgba(18, 20, 28, 90);
         color: rgba(237, 239, 245, 130);
@@ -108,6 +136,7 @@ def app_stylesheet() -> str:
     QToolButton#RowTrash {
         background-color: rgba(0, 0, 0, 0);
         border: 1px solid rgba(255, 255, 255, 14);
+        border-radius: 0px;
         padding: 6px;
         font-weight: 600;
     }
@@ -169,11 +198,14 @@ def app_stylesheet() -> str:
         border: 1px solid rgba(255, 255, 255, 14);
         background: rgba(18, 20, 28, 55);
         margin-top: -1px;
+        border-radius: 0px;
     }
 
     QTabBar::tab {
         background-color: rgba(18, 20, 28, 135);
         border: 1px solid rgba(255, 255, 255, 18);
+        border-top-left-radius: 0px;
+        border-top-right-radius: 0px;
         padding: 8px 12px;
         margin-right: 6px;
         font-weight: 650;
@@ -268,5 +300,21 @@ def app_stylesheet() -> str:
             stop: 0 rgba(255, 255, 255, 14),
             stop: 1 rgba(18, 20, 28, 65)
         );
+    }
+
+    QWidget#TaskRow[selected="true"] {
+        border-top: 1px solid rgba(56, 189, 248, 75);
+        border-right: 1px solid rgba(56, 189, 248, 75);
+        border-bottom: 1px solid rgba(56, 189, 248, 75);
+        background-color: qlineargradient(
+            x1: 0, y1: 0, x2: 1, y2: 1,
+            stop: 0 rgba(56, 189, 248, 16),
+            stop: 1 rgba(18, 20, 28, 75)
+        );
+    }
+
+    QPlainTextEdit#LogsView {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+        font-size: 12px;
     }
     """
