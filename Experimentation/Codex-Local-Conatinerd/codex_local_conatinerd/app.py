@@ -721,6 +721,7 @@ class DashboardPage(QWidget):
         self._filter_state.currentIndexChanged.connect(self._on_filter_changed)
 
         clear_filters = QToolButton()
+        clear_filters.setObjectName("RowTrash")
         clear_filters.setIcon(self.style().standardIcon(QStyle.SP_DialogResetButton))
         clear_filters.setToolButtonStyle(Qt.ToolButtonIconOnly)
         clear_filters.setToolTip("Clear filters")
@@ -728,6 +729,7 @@ class DashboardPage(QWidget):
         clear_filters.clicked.connect(self._clear_filters)
 
         self._btn_clean_old = QToolButton()
+        self._btn_clean_old.setObjectName("RowTrash")
         self._btn_clean_old.setIcon(self.style().standardIcon(QStyle.SP_TrashIcon))
         self._btn_clean_old.setToolTip("Clean finished tasks")
         self._btn_clean_old.setAccessibleName("Clean finished tasks")
