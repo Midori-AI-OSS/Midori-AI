@@ -105,6 +105,23 @@ def app_stylesheet() -> str:
         border: 1px solid rgba(255, 255, 255, 14);
     }
 
+    QToolButton#RowTrash {
+        background-color: rgba(0, 0, 0, 0);
+        border: 1px solid rgba(255, 255, 255, 14);
+        padding: 6px;
+        font-weight: 600;
+    }
+
+    QToolButton#RowTrash:hover {
+        background-color: rgba(255, 255, 255, 12);
+        border: 1px solid rgba(255, 255, 255, 26);
+    }
+
+    QToolButton#RowTrash:pressed {
+        background-color: rgba(56, 189, 248, 60);
+        border: 1px solid rgba(56, 189, 248, 90);
+    }
+
     QCheckBox {
         spacing: 10px;
     }

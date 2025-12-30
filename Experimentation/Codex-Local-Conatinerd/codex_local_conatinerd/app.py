@@ -6,6 +6,8 @@ import math
 import shutil
 import shlex
 import tempfile
+import subprocess
+import threading
 
 from pathlib import Path
 from uuid import uuid4
@@ -17,9 +19,11 @@ from dataclasses import field
 from PySide6.QtCore import QObject
 from PySide6.QtCore import QPointF
 from PySide6.QtCore import Qt
+from PySide6.QtCore import QMetaObject
 from PySide6.QtCore import QThread
 from PySide6.QtCore import QTimer
 from PySide6.QtCore import Signal
+from PySide6.QtCore import Slot
 from PySide6.QtGui import QColor
 from PySide6.QtGui import QFontMetrics
 from PySide6.QtGui import QIcon
@@ -151,6 +155,60 @@ def _stain_color(stain: str) -> QColor:
     if key == "amber":
         return QColor(245, 158, 11, 220)
     return QColor(148, 163, 184, 220)
+
+
+def _blend_rgb(a: QColor, b: QColor, t: float) -> QColor:
+    t = float(min(max(t, 0.0), 1.0))
+    r = int(round(a.red() + (b.red() - a.red()) * t))
+    g = int(round(a.green() + (b.green() - a.green()) * t))
+    bb = int(round(a.blue() + (b.blue() - a.blue()) * t))
+    return QColor(r, g, bb)
+
+
+def _apply_environment_combo_tint(combo: QComboBox, stain: str) -> None:
+    env = _stain_color(stain)
+    base = QColor(18, 20, 28)
+    tinted = _blend_rgb(base, QColor(env.red(), env.green(), env.blue()), 0.75)
+    combo.setStyleSheet(
+        "\n".join(
+            [
+                "QComboBox {",
+                f"  background-color: {_rgba(QColor(tinted.red(), tinted.green(), tinted.blue(), 190))};",
+                "}",
+                "QComboBox::drop-down {",
+                f"  background-color: {_rgba(QColor(tinted.red(), tinted.green(), tinted.blue(), 135))};",
+                "}",
+                "QComboBox QAbstractItemView {",
+                f"  background-color: {_rgba(QColor(tinted.red(), tinted.green(), tinted.blue(), 240))};",
+                f"  selection-background-color: {_rgba(QColor(env.red(), env.green(), env.blue(), 95))};",
+                "}",
+            ]
+        )
+    )
+
+
+class _EnvironmentTintOverlay(QWidget):
+    def __init__(self, parent: QWidget | None = None, alpha: int = 13) -> None:
+        super().__init__(parent)
+        self._alpha = int(min(max(alpha, 0), 255))
+        self._color = QColor(0, 0, 0, 0)
+        self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        self.setAttribute(Qt.WA_NoSystemBackground, True)
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self.setAutoFillBackground(False)
+
+    def set_tint_color(self, color: QColor | None) -> None:
+        if color is None:
+            self._color = QColor(0, 0, 0, 0)
+        else:
+            self._color = QColor(color.red(), color.green(), color.blue(), self._alpha)
+        self.update()
+
+    def paintEvent(self, event) -> None:
+        if self._color.alpha() <= 0:
+            return
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), self._color)
 
 
 @dataclass
@@ -468,6 +526,7 @@ class TaskRunnerBridge(QObject):
     def container_id(self) -> str | None:
         return self._worker.container_id
 
+    @Slot()
     def request_stop(self) -> None:
         self._worker.request_stop()
 
@@ -477,6 +536,7 @@ class TaskRunnerBridge(QObject):
 
 class TaskRow(QWidget):
     clicked = Signal()
+    discard_requested = Signal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -515,9 +575,19 @@ class TaskRow(QWidget):
         self._info.setTextInteractionFlags(Qt.NoTextInteraction)
         self._info.setAttribute(Qt.WA_TransparentForMouseEvents, True)
 
+        self._btn_discard = QToolButton()
+        self._btn_discard.setObjectName("RowTrash")
+        self._btn_discard.setIcon(self.style().standardIcon(QStyle.SP_TrashIcon))
+        self._btn_discard.setToolButtonStyle(Qt.ToolButtonIconOnly)
+        self._btn_discard.setToolTip("Discard task")
+        self._btn_discard.setCursor(Qt.PointingHandCursor)
+        self._btn_discard.setIconSize(self._btn_discard.iconSize().expandedTo(self._glyph.size()))
+        self._btn_discard.clicked.connect(self._on_discard_clicked)
+
         layout.addWidget(self._task, 5)
         layout.addWidget(state_wrap, 0)
         layout.addWidget(self._info, 4)
+        layout.addWidget(self._btn_discard, 0, Qt.AlignRight)
 
         self.setCursor(Qt.PointingHandCursor)
         self.set_stain("slate")
@@ -528,6 +598,10 @@ class TaskRow(QWidget):
 
     def set_task_id(self, task_id: str) -> None:
         self._task_id = task_id
+
+    def _on_discard_clicked(self) -> None:
+        if self._task_id:
+            self.discard_requested.emit(self._task_id)
 
     def set_stain(self, stain: str) -> None:
         if (self.property("stain") or "") == stain:
@@ -573,6 +647,7 @@ class TaskRow(QWidget):
 class DashboardPage(QWidget):
     task_selected = Signal(str)
     clean_old_requested = Signal()
+    task_discard_requested = Signal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -649,6 +724,7 @@ class DashboardPage(QWidget):
             row.set_task_id(task.task_id)
             row.set_stain(stain or self._pick_new_row_stain())
             row.clicked.connect(self._on_row_clicked)
+            row.discard_requested.connect(self.task_discard_requested.emit)
             self._rows[task.task_id] = row
             self._list_layout.insertWidget(0, row)
         elif stain:
@@ -796,6 +872,9 @@ class TaskDetailsPage(QWidget):
 
         self._last_task: Task | None = None
 
+    def current_task_id(self) -> str | None:
+        return self._current_task_id
+
     def show_task(self, task: Task) -> None:
         self._current_task_id = task.task_id
         self._last_task = task
@@ -860,6 +939,7 @@ class NewTaskPage(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self._env_stains: dict[str, str] = {}
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -935,6 +1015,14 @@ class NewTaskPage(QWidget):
 
         layout.addWidget(card, 1)
 
+        self._tint_overlay = _EnvironmentTintOverlay(self, alpha=13)
+        self._tint_overlay.raise_()
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._tint_overlay.setGeometry(self.rect())
+        self._tint_overlay.raise_()
+
     def _pick_workdir(self) -> None:
         path = QFileDialog.getExistingDirectory(self, "Select host Workdir", self._host_workdir.text())
         if path:
@@ -958,7 +1046,23 @@ class NewTaskPage(QWidget):
         self.requested_run.emit(prompt, host_workdir, host_codex, env_id)
 
     def _on_environment_changed(self, index: int) -> None:
+        self._apply_environment_tints()
         self.environment_changed.emit(str(self._environment.currentData() or ""))
+
+    def _apply_environment_tints(self) -> None:
+        env_id = str(self._environment.currentData() or "")
+        stain = (self._env_stains.get(env_id) or "").strip().lower() if env_id else ""
+        if not stain:
+            self._environment.setStyleSheet("")
+            self._tint_overlay.set_tint_color(None)
+            return
+
+        _apply_environment_combo_tint(self._environment, stain)
+        self._tint_overlay.set_tint_color(_stain_color(stain))
+
+    def set_environment_stains(self, stains: dict[str, str]) -> None:
+        self._env_stains = {str(k): str(v) for k, v in (stains or {}).items()}
+        self._apply_environment_tints()
 
     def set_environments(self, envs: list[tuple[str, str]], active_id: str) -> None:
         current = str(self._environment.currentData() or "")
@@ -973,11 +1077,13 @@ class NewTaskPage(QWidget):
                 self._environment.setCurrentIndex(idx)
         finally:
             self._environment.blockSignals(False)
+        self._apply_environment_tints()
 
     def set_environment_id(self, env_id: str) -> None:
         idx = self._environment.findData(env_id)
         if idx >= 0:
             self._environment.setCurrentIndex(idx)
+        self._apply_environment_tints()
 
     def set_defaults(self, host_workdir: str, host_codex: str) -> None:
         if host_workdir:
@@ -1002,6 +1108,7 @@ class NewInteractiveTaskPage(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self._env_stains: dict[str, str] = {}
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -1088,6 +1195,14 @@ class NewInteractiveTaskPage(QWidget):
 
         layout.addWidget(card, 1)
 
+        self._tint_overlay = _EnvironmentTintOverlay(self, alpha=13)
+        self._tint_overlay.raise_()
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._tint_overlay.setGeometry(self.rect())
+        self._tint_overlay.raise_()
+
     def _refresh_terminals(self) -> None:
         current = str(self._terminal.currentData() or "")
         options = detect_terminal_options()
@@ -1136,7 +1251,23 @@ class NewInteractiveTaskPage(QWidget):
         self.requested_launch.emit(command, host_workdir, host_codex, env_id, terminal_id)
 
     def _on_environment_changed(self, index: int) -> None:
+        self._apply_environment_tints()
         self.environment_changed.emit(str(self._environment.currentData() or ""))
+
+    def _apply_environment_tints(self) -> None:
+        env_id = str(self._environment.currentData() or "")
+        stain = (self._env_stains.get(env_id) or "").strip().lower() if env_id else ""
+        if not stain:
+            self._environment.setStyleSheet("")
+            self._tint_overlay.set_tint_color(None)
+            return
+
+        _apply_environment_combo_tint(self._environment, stain)
+        self._tint_overlay.set_tint_color(_stain_color(stain))
+
+    def set_environment_stains(self, stains: dict[str, str]) -> None:
+        self._env_stains = {str(k): str(v) for k, v in (stains or {}).items()}
+        self._apply_environment_tints()
 
     def set_environments(self, envs: list[tuple[str, str]], active_id: str) -> None:
         current = str(self._environment.currentData() or "")
@@ -1151,11 +1282,13 @@ class NewInteractiveTaskPage(QWidget):
                 self._environment.setCurrentIndex(idx)
         finally:
             self._environment.blockSignals(False)
+        self._apply_environment_tints()
 
     def set_environment_id(self, env_id: str) -> None:
         idx = self._environment.findData(env_id)
         if idx >= 0:
             self._environment.setCurrentIndex(idx)
+        self._apply_environment_tints()
 
     def set_defaults(self, host_workdir: str, host_codex: str) -> None:
         if host_workdir:
@@ -1756,6 +1889,7 @@ class MainWindow(QMainWindow):
         self._dashboard = DashboardPage()
         self._dashboard.task_selected.connect(self._open_task_details)
         self._dashboard.clean_old_requested.connect(self._clean_old_tasks)
+        self._dashboard.task_discard_requested.connect(self._discard_task_from_ui)
         self._new_task = NewTaskPage()
         self._new_task.requested_run.connect(self._start_task_from_ui)
         self._new_task.environment_changed.connect(self._on_new_task_env_changed)
@@ -1880,6 +2014,10 @@ class MainWindow(QMainWindow):
     def _populate_environment_pickers(self) -> None:
         active_id = self._active_environment_id()
         envs = self._environment_list()
+        stains = {e.env_id: e.color for e in envs}
+
+        self._new_task.set_environment_stains(stains)
+        self._new_task_interactive.set_environment_stains(stains)
 
         self._syncing_environment = True
         try:
@@ -1893,6 +2031,11 @@ class MainWindow(QMainWindow):
                     self._env_picker.setCurrentIndex(idx)
             finally:
                 self._env_picker.blockSignals(False)
+            active_stain = stains.get(str(self._env_picker.currentData() or ""))
+            if active_stain:
+                _apply_environment_combo_tint(self._env_picker, active_stain)
+            else:
+                self._env_picker.setStyleSheet("")
 
             self._new_task.set_environments([(e.env_id, e.name or e.env_id) for e in envs], active_id=active_id)
             self._new_task.set_environment_id(active_id)
@@ -2467,6 +2610,69 @@ class MainWindow(QMainWindow):
             return
         self._details.show_task(task)
         self._show_task_details()
+
+    def _discard_task_from_ui(self, task_id: str) -> None:
+        task_id = str(task_id or "").strip()
+        task = self._tasks.get(task_id)
+        if task is None:
+            return
+
+        prompt = task.prompt_one_line()
+        message = (
+            f"Discard task {task_id}?\n\n"
+            f"{prompt}\n\n"
+            "This removes it from the list and will attempt to stop/remove any running container."
+        )
+        if QMessageBox.question(self, "Discard task?", message) != QMessageBox.StandardButton.Yes:
+            return
+
+        bridge = self._bridges.get(task_id)
+        thread = self._threads.get(task_id)
+        container_id = task.container_id or (bridge.container_id if bridge is not None else None)
+
+        if bridge is not None:
+            try:
+                QMetaObject.invokeMethod(bridge, "request_stop", Qt.QueuedConnection)
+            except Exception:
+                pass
+        if thread is not None:
+            try:
+                thread.quit()
+            except Exception:
+                pass
+
+        self._dashboard.remove_tasks({task_id})
+        self._tasks.pop(task_id, None)
+        self._threads.pop(task_id, None)
+        self._bridges.pop(task_id, None)
+        self._run_started_s.pop(task_id, None)
+        self._schedule_save()
+
+        if self._details.isVisible() and self._details.current_task_id() == task_id:
+            self._show_dashboard()
+
+        if container_id:
+            threading.Thread(
+                target=self._force_remove_container,
+                args=(container_id,),
+                daemon=True,
+            ).start()
+
+    @staticmethod
+    def _force_remove_container(container_id: str) -> None:
+        container_id = str(container_id or "").strip()
+        if not container_id:
+            return
+        try:
+            subprocess.run(
+                ["docker", "rm", "-f", container_id],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=25.0,
+            )
+        except Exception:
+            pass
 
     def _on_bridge_state(self, state: dict) -> None:
         bridge = self.sender()
