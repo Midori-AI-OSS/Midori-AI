@@ -1,2 +1,0 @@
-"""Codex Local Containerd GUI."""
-
