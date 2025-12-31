@@ -1,6 +1,7 @@
 import json
 import os
 import tempfile
+import time
 
 from datetime import datetime
 from typing import Any
@@ -8,7 +9,7 @@ from typing import Any
 from codex_local_conatinerd.prompt_sanitizer import sanitize_prompt
 
 
-STATE_VERSION = 1
+STATE_VERSION = 3
 
 
 def default_state_path() -> str:
@@ -36,18 +37,29 @@ def _dt_from_str(value: str | None) -> datetime | None:
 
 def load_state(path: str) -> dict[str, Any]:
     if not os.path.exists(path):
-        return {"version": STATE_VERSION, "tasks": [], "settings": {}}
+        return {"version": STATE_VERSION, "tasks": [], "settings": {}, "environments": []}
     with open(path, "r", encoding="utf-8") as f:
         payload = json.load(f)
     if not isinstance(payload, dict):
-        return {"version": STATE_VERSION, "tasks": [], "settings": {}}
+        return {"version": STATE_VERSION, "tasks": [], "settings": {}, "environments": []}
+    version = payload.get("version")
+    if isinstance(version, int) and version != STATE_VERSION:
+        backup_path = f"{path}.bak-{time.time_ns()}"
+        try:
+            os.replace(path, backup_path)
+        except OSError:
+            pass
+        return {"version": STATE_VERSION, "tasks": [], "settings": {}, "environments": []}
     payload.setdefault("version", STATE_VERSION)
     payload.setdefault("tasks", [])
     payload.setdefault("settings", {})
+    payload.setdefault("environments", [])
     if not isinstance(payload["tasks"], list):
         payload["tasks"] = []
     if not isinstance(payload["settings"], dict):
         payload["settings"] = {}
+    if not isinstance(payload["environments"], list):
+        payload["environments"] = []
     return payload
 
 
@@ -84,6 +96,12 @@ def serialize_task(task) -> dict[str, Any]:
         "container_id": task.container_id,
         "started_at": _dt_to_str(task.started_at),
         "finished_at": _dt_to_str(task.finished_at),
+        "gh_management_mode": getattr(task, "gh_management_mode", ""),
+        "gh_use_host_cli": bool(getattr(task, "gh_use_host_cli", True)),
+        "gh_repo_root": getattr(task, "gh_repo_root", ""),
+        "gh_base_branch": getattr(task, "gh_base_branch", ""),
+        "gh_branch": getattr(task, "gh_branch", ""),
+        "gh_pr_url": getattr(task, "gh_pr_url", ""),
         "logs": list(task.logs[-2000:]),
     }
 
@@ -103,5 +121,11 @@ def deserialize_task(task_cls, data: dict[str, Any]):
         container_id=data.get("container_id"),
         started_at=_dt_from_str(data.get("started_at")),
         finished_at=_dt_from_str(data.get("finished_at")),
+        gh_management_mode=str(data.get("gh_management_mode") or ""),
+        gh_use_host_cli=bool(data.get("gh_use_host_cli") if "gh_use_host_cli" in data else True),
+        gh_repo_root=str(data.get("gh_repo_root") or ""),
+        gh_base_branch=str(data.get("gh_base_branch") or ""),
+        gh_branch=str(data.get("gh_branch") or ""),
+        gh_pr_url=str(data.get("gh_pr_url") or ""),
         logs=list(data.get("logs") or []),
     )

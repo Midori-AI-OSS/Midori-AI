@@ -60,11 +60,17 @@ from codex_local_conatinerd.agent_cli import normalize_agent
 from codex_local_conatinerd.agent_cli import verify_cli_clause
 from codex_local_conatinerd.environments import ALLOWED_STAINS
 from codex_local_conatinerd.environments import Environment
+from codex_local_conatinerd.environments import GH_MANAGEMENT_GITHUB
+from codex_local_conatinerd.environments import GH_MANAGEMENT_LOCAL
+from codex_local_conatinerd.environments import GH_MANAGEMENT_NONE
 from codex_local_conatinerd.environments import delete_environment
 from codex_local_conatinerd.environments import load_environments
+from codex_local_conatinerd.environments import managed_repo_checkout_path
+from codex_local_conatinerd.environments import normalize_gh_management_mode
 from codex_local_conatinerd.environments import parse_env_vars_text
 from codex_local_conatinerd.environments import parse_mounts_text
 from codex_local_conatinerd.environments import save_environment
+from codex_local_conatinerd.environments import serialize_environment
 from codex_local_conatinerd.persistence import default_state_path
 from codex_local_conatinerd.persistence import deserialize_task
 from codex_local_conatinerd.persistence import load_state
@@ -79,6 +85,15 @@ from codex_local_conatinerd.terminal_apps import launch_in_terminal
 from codex_local_conatinerd.widgets import GlassCard
 from codex_local_conatinerd.widgets import LogHighlighter
 from codex_local_conatinerd.widgets import StatusGlyph
+from codex_local_conatinerd.gh_management import GhManagementError
+from codex_local_conatinerd.gh_management import commit_push_and_pr
+from codex_local_conatinerd.gh_management import ensure_github_clone
+from codex_local_conatinerd.gh_management import git_list_branches
+from codex_local_conatinerd.gh_management import git_list_remote_heads
+from codex_local_conatinerd.gh_management import is_gh_available
+from codex_local_conatinerd.gh_management import is_git_repo
+from codex_local_conatinerd.gh_management import plan_repo_task
+from codex_local_conatinerd.gh_management import prepare_branch_for_task
 
 
 PIXELARCH_EMERALD_IMAGE = "lunamidori5/pixelarch:emerald"
@@ -426,6 +441,12 @@ class Task:
     started_at: datetime | None = None
     finished_at: datetime | None = None
     logs: list[str] = field(default_factory=list)
+    gh_management_mode: str = GH_MANAGEMENT_NONE
+    gh_use_host_cli: bool = True
+    gh_repo_root: str = ""
+    gh_base_branch: str = ""
+    gh_branch: str = ""
+    gh_pr_url: str = ""
 
     def last_nonblank_log_line(self) -> str:
         for line in reversed(self.logs):
@@ -1107,6 +1128,8 @@ class NewTaskPage(QWidget):
         super().__init__(parent)
         self._env_stains: dict[str, str] = {}
         self._host_codex_dir = os.path.expanduser("~/.codex")
+        self._workspace_ready = False
+        self._workspace_error = ""
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -1183,15 +1206,23 @@ class NewTaskPage(QWidget):
         cfg_grid = QGridLayout()
         cfg_grid.setHorizontalSpacing(10)
         cfg_grid.setVerticalSpacing(10)
-        self._host_workdir = QLineEdit(os.getcwd())
+        self._workspace = QLabel("—")
+        self._workspace.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self._workspace_hint = QLabel("")
+        self._workspace_hint.setStyleSheet("color: rgba(237, 239, 245, 160);")
+        self._workspace_hint.setWordWrap(True)
 
-        self._browse_workdir = QPushButton("Browse…")
-        self._browse_workdir.clicked.connect(self._pick_workdir)
-        self._browse_workdir.setFixedWidth(100)
+        cfg_grid.addWidget(QLabel("Workspace"), 0, 0)
+        cfg_grid.addWidget(self._workspace, 0, 1, 1, 2)
+        cfg_grid.addWidget(self._workspace_hint, 1, 1, 1, 2)
 
-        cfg_grid.addWidget(QLabel("Host Workdir"), 0, 0)
-        cfg_grid.addWidget(self._host_workdir, 0, 1)
-        cfg_grid.addWidget(self._browse_workdir, 0, 2)
+        self._base_branch_label = QLabel("Base branch")
+        self._base_branch = QComboBox()
+        self._base_branch.setToolTip("Base branch for the per-task branch (only shown for repo environments).")
+        self.set_repo_branches([])
+        cfg_grid.addWidget(self._base_branch_label, 2, 0)
+        cfg_grid.addWidget(self._base_branch, 2, 1, 1, 2)
+        self.set_repo_controls_visible(False)
 
         buttons = QHBoxLayout()
         buttons.setSpacing(10)
@@ -1200,6 +1231,8 @@ class NewTaskPage(QWidget):
         self._run_interactive.clicked.connect(self._on_launch)
         self._run_agent = QPushButton("Run Agent")
         self._run_agent.clicked.connect(self._on_run)
+        self._run_interactive.setEnabled(False)
+        self._run_agent.setEnabled(False)
         buttons.addWidget(self._run_interactive)
         buttons.addWidget(self._run_agent)
 
@@ -1219,11 +1252,6 @@ class NewTaskPage(QWidget):
         super().resizeEvent(event)
         self._tint_overlay.setGeometry(self.rect())
         self._tint_overlay.raise_()
-
-    def _pick_workdir(self) -> None:
-        path = QFileDialog.getExistingDirectory(self, "Select host Workdir", self._host_workdir.text())
-        if path:
-            self._host_workdir.setText(path)
 
     def _refresh_terminals(self) -> None:
         current = str(self._terminal.currentData() or "")
@@ -1251,15 +1279,19 @@ class NewTaskPage(QWidget):
             return
         prompt = sanitize_prompt(prompt)
 
-        host_codex = os.path.expanduser(str(self._host_codex_dir or "").strip())
-        host_workdir = os.path.expanduser((self._host_workdir.text() or "").strip())
-
-        if not os.path.isdir(host_workdir):
-            QMessageBox.warning(self, "Invalid Workdir", "Host Workdir does not exist.")
+        if not self._workspace_ready:
+            QMessageBox.warning(
+                self,
+                "Workspace not configured",
+                self._workspace_error or "Pick an environment with a local folder or GitHub repo configured.",
+            )
             return
 
+        host_codex = os.path.expanduser(str(self._host_codex_dir or "").strip())
+
         env_id = str(self._environment.currentData() or "")
-        self.requested_run.emit(prompt, host_workdir, host_codex, env_id)
+        base_branch = str(self._base_branch.currentData() or "")
+        self.requested_run.emit(prompt, host_codex, env_id, base_branch)
 
     def _on_launch(self) -> None:
         prompt = sanitize_prompt((self._prompt.toPlainText() or "").strip())
@@ -1267,12 +1299,15 @@ class NewTaskPage(QWidget):
         if not command:
             command = "bash"
 
-        host_codex = os.path.expanduser(str(self._host_codex_dir or "").strip())
-        host_workdir = os.path.expanduser((self._host_workdir.text() or "").strip())
-
-        if not os.path.isdir(host_workdir):
-            QMessageBox.warning(self, "Invalid Workdir", "Host Workdir does not exist.")
+        if not self._workspace_ready:
+            QMessageBox.warning(
+                self,
+                "Workspace not configured",
+                self._workspace_error or "Pick an environment with a local folder or GitHub repo configured.",
+            )
             return
+
+        host_codex = os.path.expanduser(str(self._host_codex_dir or "").strip())
 
         terminal_id = str(self._terminal.currentData() or "").strip()
         if not terminal_id:
@@ -1284,7 +1319,8 @@ class NewTaskPage(QWidget):
             return
 
         env_id = str(self._environment.currentData() or "")
-        self.requested_launch.emit(prompt, command, host_workdir, host_codex, env_id, terminal_id)
+        base_branch = str(self._base_branch.currentData() or "")
+        self.requested_launch.emit(prompt, command, host_codex, env_id, terminal_id, base_branch)
 
     def _on_environment_changed(self, index: int) -> None:
         self._apply_environment_tints()
@@ -1326,11 +1362,46 @@ class NewTaskPage(QWidget):
             self._environment.setCurrentIndex(idx)
         self._apply_environment_tints()
 
-    def set_defaults(self, host_workdir: str, host_codex: str) -> None:
-        if host_workdir:
-            self._host_workdir.setText(host_workdir)
+    def set_defaults(self, host_codex: str) -> None:
         if host_codex:
             self._host_codex_dir = host_codex
+
+    def set_workspace_status(self, *, path: str, ready: bool, message: str) -> None:
+        self._workspace.setText(str(path or "—"))
+        self._workspace_ready = bool(ready)
+        self._workspace_error = str(message or "")
+
+        hint = "" if self._workspace_ready else (self._workspace_error or "Workspace not configured.")
+        self._workspace_hint.setText(hint)
+        self._workspace_hint.setVisible(bool(hint))
+
+        self._run_agent.setEnabled(self._workspace_ready)
+        self._run_interactive.setEnabled(self._workspace_ready)
+
+    def set_repo_controls_visible(self, visible: bool) -> None:
+        visible = bool(visible)
+        self._base_branch_label.setVisible(visible)
+        self._base_branch.setVisible(visible)
+
+    def set_repo_branches(self, branches: list[str], selected: str | None = None) -> None:
+        wanted = str(selected or "").strip()
+        self._base_branch.blockSignals(True)
+        try:
+            self._base_branch.clear()
+            self._base_branch.addItem("Auto", "")
+            for name in branches or []:
+                b = str(name or "").strip()
+                if not b:
+                    continue
+                self._base_branch.addItem(b, b)
+            if wanted:
+                idx = self._base_branch.findData(wanted)
+                if idx >= 0:
+                    self._base_branch.setCurrentIndex(idx)
+                    return
+            self._base_branch.setCurrentIndex(0)
+        finally:
+            self._base_branch.blockSignals(False)
 
     def set_interactive_defaults(self, terminal_id: str, command: str) -> None:
         if command:
@@ -1340,11 +1411,6 @@ class NewTaskPage(QWidget):
             idx = self._terminal.findData(terminal_id)
             if idx >= 0:
                 self._terminal.setCurrentIndex(idx)
-
-    def get_defaults(self) -> tuple[str, str]:
-        host_workdir = os.path.expanduser((self._host_workdir.text() or "").strip())
-        host_codex = os.path.expanduser(str(self._host_codex_dir or "").strip())
-        return host_workdir, host_codex
 
     def reset_for_new_run(self) -> None:
         self._prompt.setPlainText("")
@@ -1373,7 +1439,7 @@ class EnvironmentsPage(QWidget):
 
         title = QLabel("Environments")
         title.setStyleSheet("font-size: 18px; font-weight: 750;")
-        subtitle = QLabel("Saved locally in ~/.midoriai/codex-container-gui/")
+        subtitle = QLabel("Saved locally in ~/.midoriai/codex-container-gui/state.json")
         subtitle.setStyleSheet("color: rgba(237, 239, 245, 160);")
 
         back = QToolButton()
@@ -1429,29 +1495,25 @@ class EnvironmentsPage(QWidget):
 
         general_tab = QWidget()
         general_layout = QVBoxLayout(general_tab)
-        general_layout.setContentsMargins(0, 0, 0, 0)
+        general_layout.setContentsMargins(0, 16, 0, 12)
         general_layout.setSpacing(10)
 
         grid = QGridLayout()
         grid.setHorizontalSpacing(10)
         grid.setVerticalSpacing(10)
+        grid.setContentsMargins(0, 0, 0, 0)
 
         self._name = QLineEdit()
         self._color = QComboBox()
         for stain in ALLOWED_STAINS:
             self._color.addItem(stain.title(), stain)
 
-        self._host_workdir = QLineEdit()
         self._host_codex_dir = QLineEdit()
         self._agent_cli_args = QLineEdit()
         self._agent_cli_args.setPlaceholderText("--model … (optional)")
         self._agent_cli_args.setToolTip(
             "Extra CLI flags appended to the agent command inside the container."
         )
-
-        browse_workdir = QPushButton("Browse…")
-        browse_workdir.setFixedWidth(100)
-        browse_workdir.clicked.connect(self._pick_workdir)
 
         browse_codex = QPushButton("Browse…")
         browse_codex.setFixedWidth(100)
@@ -1461,16 +1523,43 @@ class EnvironmentsPage(QWidget):
         grid.addWidget(self._name, 0, 1, 1, 2)
         grid.addWidget(QLabel("Color"), 1, 0)
         grid.addWidget(self._color, 1, 1, 1, 2)
-        grid.addWidget(QLabel("Default Host Workdir"), 2, 0)
-        grid.addWidget(self._host_workdir, 2, 1)
-        grid.addWidget(browse_workdir, 2, 2)
-        grid.addWidget(QLabel("Default Host Config folder"), 3, 0)
-        grid.addWidget(self._host_codex_dir, 3, 1)
-        grid.addWidget(browse_codex, 3, 2)
-        grid.addWidget(QLabel("Agent CLI Flags"), 4, 0)
-        grid.addWidget(self._agent_cli_args, 4, 1, 1, 2)
+        grid.addWidget(QLabel("Default Host Config folder"), 2, 0)
+        grid.addWidget(self._host_codex_dir, 2, 1)
+        grid.addWidget(browse_codex, 2, 2)
+        grid.addWidget(QLabel("Agent CLI Flags"), 3, 0)
+        grid.addWidget(self._agent_cli_args, 3, 1, 1, 2)
+
+        self._gh_management_mode = QComboBox(general_tab)
+        self._gh_management_mode.addItem("Use Settings workdir", GH_MANAGEMENT_NONE)
+        self._gh_management_mode.addItem("Lock to local folder", GH_MANAGEMENT_LOCAL)
+        self._gh_management_mode.addItem("Lock to GitHub repo (clone)", GH_MANAGEMENT_GITHUB)
+        self._gh_management_mode.currentIndexChanged.connect(self._sync_gh_management_controls)
+
+        self._gh_management_target = QLineEdit(general_tab)
+        self._gh_management_target.setPlaceholderText("owner/repo, https://github.com/owner/repo, or /path/to/folder")
+        self._gh_management_target.textChanged.connect(self._sync_gh_management_controls)
+
+        self._gh_management_browse = QPushButton("Browse…", general_tab)
+        self._gh_management_browse.setFixedWidth(100)
+        self._gh_management_browse.clicked.connect(self._pick_gh_management_folder)
+
+        self._gh_use_host_cli = QCheckBox("Use host `gh` for clone/PR (if installed)", general_tab)
+        self._gh_use_host_cli.setToolTip("When disabled, cloning uses `git` and PR creation is skipped.")
+        self._gh_use_host_cli.setVisible(False)
+
+        self._gh_management_hint = QLabel(
+            "Creates a per-task branch (midoriaiagents/<task_id>) and can push + open a PR via `gh`.\n"
+            "Once saved, the target is locked; create a new environment to change it.",
+            general_tab,
+        )
+        self._gh_management_hint.setStyleSheet("color: rgba(237, 239, 245, 150);")
+        self._gh_management_mode.setVisible(False)
+        self._gh_management_target.setVisible(False)
+        self._gh_management_browse.setVisible(False)
+        self._gh_management_hint.setVisible(False)
 
         general_layout.addLayout(grid)
+        general_layout.addStretch(1)
 
         self._preflight_enabled = QCheckBox("Enable environment preflight bash (runs after Settings preflight)")
         self._preflight_script = QPlainTextEdit()
@@ -1488,6 +1577,7 @@ class EnvironmentsPage(QWidget):
         preflight_tab = QWidget()
         preflight_layout = QVBoxLayout(preflight_tab)
         preflight_layout.setSpacing(10)
+        preflight_layout.setContentsMargins(0, 16, 0, 12)
         preflight_layout.addWidget(self._preflight_enabled)
         preflight_layout.addWidget(QLabel("Preflight script"))
         preflight_layout.addWidget(self._preflight_script, 1)
@@ -1498,6 +1588,7 @@ class EnvironmentsPage(QWidget):
         env_vars_tab = QWidget()
         env_vars_layout = QVBoxLayout(env_vars_tab)
         env_vars_layout.setSpacing(10)
+        env_vars_layout.setContentsMargins(0, 16, 0, 12)
         env_vars_layout.addWidget(QLabel("Container env vars"))
         env_vars_layout.addWidget(self._env_vars, 1)
 
@@ -1507,6 +1598,7 @@ class EnvironmentsPage(QWidget):
         mounts_tab = QWidget()
         mounts_layout = QVBoxLayout(mounts_tab)
         mounts_layout.setSpacing(10)
+        mounts_layout.setContentsMargins(0, 16, 0, 12)
         mounts_layout.addWidget(QLabel("Extra bind mounts"))
         mounts_layout.addWidget(self._mounts, 1)
 
@@ -1546,22 +1638,30 @@ class EnvironmentsPage(QWidget):
         self._current_env_id = env_id if env else None
         if not env:
             self._name.setText("")
-            self._host_workdir.setText("")
             self._host_codex_dir.setText("")
             self._agent_cli_args.setText("")
+            self._gh_management_mode.setCurrentIndex(0)
+            self._gh_management_target.setText("")
+            self._gh_use_host_cli.setChecked(bool(is_gh_available()))
             self._preflight_enabled.setChecked(False)
             self._preflight_script.setPlainText("")
             self._env_vars.setPlainText("")
             self._mounts.setPlainText("")
+            self._sync_gh_management_controls()
             return
 
         self._name.setText(env.name)
         idx = self._color.findData(env.color)
         if idx >= 0:
             self._color.setCurrentIndex(idx)
-        self._host_workdir.setText(env.host_workdir)
         self._host_codex_dir.setText(env.host_codex_dir)
         self._agent_cli_args.setText(env.agent_cli_args)
+        idx = self._gh_management_mode.findData(normalize_gh_management_mode(env.gh_management_mode))
+        if idx >= 0:
+            self._gh_management_mode.setCurrentIndex(idx)
+        self._gh_management_target.setText(str(env.gh_management_target or ""))
+        self._gh_use_host_cli.setChecked(bool(getattr(env, "gh_use_host_cli", True)))
+        self._sync_gh_management_controls(env=env)
         self._preflight_enabled.setChecked(bool(env.preflight_enabled))
         self._preflight_script.setEnabled(bool(env.preflight_enabled))
         self._preflight_script.setPlainText(env.preflight_script or "")
@@ -1572,15 +1672,63 @@ class EnvironmentsPage(QWidget):
     def _on_env_selected(self, index: int) -> None:
         self._load_selected()
 
-    def _pick_workdir(self) -> None:
-        path = QFileDialog.getExistingDirectory(self, "Select default host Workdir", self._host_workdir.text())
-        if path:
-            self._host_workdir.setText(path)
-
     def _pick_codex_dir(self) -> None:
         path = QFileDialog.getExistingDirectory(self, "Select default host Config folder", self._host_codex_dir.text())
         if path:
             self._host_codex_dir.setText(path)
+
+    def _pick_gh_management_folder(self) -> None:
+        path = QFileDialog.getExistingDirectory(
+            self,
+            "Select locked Workdir folder",
+            self._gh_management_target.text() or os.getcwd(),
+        )
+        if path:
+            self._gh_management_target.setText(path)
+
+    def _sync_gh_management_controls(self, *_: object, env: Environment | None = None) -> None:
+        if env is None:
+            env = self._environments.get(str(self._current_env_id or ""))
+
+        gh_available = bool(is_gh_available())
+        mode = normalize_gh_management_mode(str(self._gh_management_mode.currentData() or GH_MANAGEMENT_NONE))
+        locked = env is not None
+        if locked and env is not None:
+            desired_mode = normalize_gh_management_mode(env.gh_management_mode)
+            if desired_mode != mode:
+                idx = self._gh_management_mode.findData(desired_mode)
+                if idx >= 0:
+                    self._gh_management_mode.blockSignals(True)
+                    try:
+                        self._gh_management_mode.setCurrentIndex(idx)
+                    finally:
+                        self._gh_management_mode.blockSignals(False)
+                mode = desired_mode
+            desired_target = str(env.gh_management_target or "")
+            if (self._gh_management_target.text() or "") != desired_target:
+                self._gh_management_target.blockSignals(True)
+                try:
+                    self._gh_management_target.setText(desired_target)
+                finally:
+                    self._gh_management_target.blockSignals(False)
+            desired_gh = bool(getattr(env, "gh_use_host_cli", True))
+            if bool(self._gh_use_host_cli.isChecked()) != desired_gh:
+                self._gh_use_host_cli.blockSignals(True)
+                try:
+                    self._gh_use_host_cli.setChecked(desired_gh)
+                finally:
+                    self._gh_use_host_cli.blockSignals(False)
+
+        self._gh_management_mode.setEnabled(not locked)
+        self._gh_management_target.setEnabled(not locked)
+        self._gh_use_host_cli.setVisible(False)
+        self._gh_use_host_cli.setEnabled(not locked and gh_available)
+        if not gh_available:
+            self._gh_use_host_cli.setChecked(False)
+
+        wants_browse = mode == GH_MANAGEMENT_LOCAL
+        self._gh_management_browse.setVisible(False)
+        self._gh_management_browse.setEnabled(wants_browse and not locked)
 
     def _on_new(self) -> None:
         name, ok = QInputDialog.getText(self, "New environment", "Name")
@@ -1594,17 +1742,55 @@ class EnvironmentsPage(QWidget):
         if base and base.color in ALLOWED_STAINS:
             idx = ALLOWED_STAINS.index(base.color)
             color = ALLOWED_STAINS[(idx + 1) % len(ALLOWED_STAINS)]
+
+        workspace_labels = ["Lock to local folder", "Lock to GitHub repo (clone)"]
+        selected_label, ok = QInputDialog.getItem(
+            self,
+            "Workspace",
+            "Workspace type",
+            workspace_labels,
+            0,
+            False,
+        )
+        if not ok:
+            return
+
+        gh_management_mode = GH_MANAGEMENT_LOCAL
+        gh_management_target = ""
+        if selected_label == "Lock to GitHub repo (clone)":
+            repo, ok = QInputDialog.getText(self, "GitHub repo", "Repo (owner/repo or URL)")
+            if not ok:
+                return
+            repo = (repo or "").strip()
+            if not repo:
+                QMessageBox.warning(self, "Missing repo", "Enter a GitHub repo like owner/repo (or a URL).")
+                return
+            gh_management_mode = GH_MANAGEMENT_GITHUB
+            gh_management_target = repo
+        else:
+            folder = QFileDialog.getExistingDirectory(self, "Select workspace folder", os.getcwd())
+            if not folder:
+                return
+            gh_management_target = folder
+
+        gh_use_host_cli = bool(getattr(base, "gh_use_host_cli", True)) if base else True
+        if not is_gh_available():
+            gh_use_host_cli = False
         env = Environment(
             env_id=env_id,
             name=name,
             color=color,
-            host_workdir=base.host_workdir if base else "",
+            host_workdir="",
             host_codex_dir=base.host_codex_dir if base else "",
             agent_cli_args=base.agent_cli_args if base else "",
             preflight_enabled=base.preflight_enabled if base else False,
             preflight_script=base.preflight_script if base else "",
             env_vars=dict(base.env_vars) if base else {},
             extra_mounts=list(base.extra_mounts) if base else [],
+            gh_management_mode=gh_management_mode,
+            gh_management_target=gh_management_target,
+            gh_management_locked=True,
+            gh_use_host_cli=gh_use_host_cli,
         )
         save_environment(env)
         self.updated.emit(env_id)
@@ -1635,9 +1821,15 @@ class EnvironmentsPage(QWidget):
             QMessageBox.warning(self, "Missing name", "Enter an environment name first.")
             return
 
-        host_workdir = os.path.expanduser((self._host_workdir.text() or "").strip())
+        existing = self._environments.get(env_id)
         host_codex_dir = os.path.expanduser((self._host_codex_dir.text() or "").strip())
         agent_cli_args = (self._agent_cli_args.text() or "").strip()
+
+        gh_mode = normalize_gh_management_mode(existing.gh_management_mode if existing else GH_MANAGEMENT_NONE)
+        gh_target = str(existing.gh_management_target or "").strip() if existing else ""
+        gh_locked = True
+        gh_use_host_cli = bool(getattr(existing, "gh_use_host_cli", True)) if existing else False
+
         env_vars, errors = parse_env_vars_text(self._env_vars.toPlainText() or "")
         if errors:
             QMessageBox.warning(self, "Invalid env vars", "Fix env vars:\n" + "\n".join(errors[:12]))
@@ -1648,13 +1840,17 @@ class EnvironmentsPage(QWidget):
             env_id=env_id,
             name=name,
             color=str(self._color.currentData() or "slate"),
-            host_workdir=host_workdir,
+            host_workdir="",
             host_codex_dir=host_codex_dir,
             agent_cli_args=agent_cli_args,
             preflight_enabled=bool(self._preflight_enabled.isChecked()),
             preflight_script=str(self._preflight_script.toPlainText() or ""),
             env_vars=env_vars,
             extra_mounts=mounts,
+            gh_management_mode=gh_mode,
+            gh_management_target=gh_target,
+            gh_management_locked=gh_locked,
+            gh_use_host_cli=gh_use_host_cli,
         )
         save_environment(env)
         self.updated.emit(env_id)
@@ -1667,9 +1863,15 @@ class EnvironmentsPage(QWidget):
         if not env_id:
             return None
 
-        host_workdir = os.path.expanduser((self._host_workdir.text() or "").strip())
+        existing = self._environments.get(env_id)
         host_codex_dir = os.path.expanduser((self._host_codex_dir.text() or "").strip())
         agent_cli_args = (self._agent_cli_args.text() or "").strip()
+
+        gh_mode = normalize_gh_management_mode(existing.gh_management_mode if existing else GH_MANAGEMENT_NONE)
+        gh_target = str(existing.gh_management_target or "").strip() if existing else ""
+        gh_locked = True
+        gh_use_host_cli = bool(getattr(existing, "gh_use_host_cli", True)) if existing else False
+
         env_vars, errors = parse_env_vars_text(self._env_vars.toPlainText() or "")
         if errors:
             QMessageBox.warning(self, "Invalid env vars", "Fix env vars:\n" + "\n".join(errors[:12]))
@@ -1681,13 +1883,17 @@ class EnvironmentsPage(QWidget):
             env_id=env_id,
             name=name,
             color=str(self._color.currentData() or "slate"),
-            host_workdir=host_workdir,
+            host_workdir="",
             host_codex_dir=host_codex_dir,
             agent_cli_args=agent_cli_args,
             preflight_enabled=bool(self._preflight_enabled.isChecked()),
             preflight_script=str(self._preflight_script.toPlainText() or ""),
             env_vars=env_vars,
             extra_mounts=mounts,
+            gh_management_mode=gh_mode,
+            gh_management_target=gh_target,
+            gh_management_locked=gh_locked,
+            gh_use_host_cli=gh_use_host_cli,
         )
 
     def _on_test_preflight(self) -> None:
@@ -1920,6 +2126,9 @@ class SettingsPage(QWidget):
 
 
 class MainWindow(QMainWindow):
+    host_log = Signal(str, str)
+    host_pr_url = Signal(str, str)
+
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle(APP_TITLE)
@@ -1955,6 +2164,9 @@ class MainWindow(QMainWindow):
         self._save_timer.setSingleShot(True)
         self._save_timer.setInterval(450)
         self._save_timer.timeout.connect(self._save_state)
+
+        self.host_log.connect(self._on_host_log, Qt.QueuedConnection)
+        self.host_pr_url.connect(self._on_host_pr_url, Qt.QueuedConnection)
 
         self._dashboard_ticker = QTimer(self)
         self._dashboard_ticker.setInterval(1000)
@@ -2209,6 +2421,65 @@ class MainWindow(QMainWindow):
     def _environment_list(self) -> list[Environment]:
         return sorted(self._environments.values(), key=lambda e: (e.name or e.env_id).lower())
 
+    def _environment_effective_workdir(self, env: Environment | None, fallback: str) -> str:
+        fallback = os.path.expanduser(str(fallback or "").strip()) or os.getcwd()
+        if env is None:
+            return fallback
+        gh_mode = normalize_gh_management_mode(str(env.gh_management_mode or GH_MANAGEMENT_NONE))
+        if gh_mode == GH_MANAGEMENT_LOCAL:
+            return os.path.expanduser(str(env.gh_management_target or "").strip())
+        if gh_mode == GH_MANAGEMENT_GITHUB:
+            workdir = managed_repo_checkout_path(env.env_id, data_dir=os.path.dirname(self._state_path))
+            try:
+                os.makedirs(workdir, exist_ok=True)
+            except Exception:
+                pass
+            return workdir
+        return fallback
+
+    def _new_task_workspace(self, env: Environment | None) -> tuple[str, bool, str]:
+        if env is None:
+            return "—", False, "Pick an environment first."
+
+        gh_mode = normalize_gh_management_mode(str(env.gh_management_mode or GH_MANAGEMENT_NONE))
+        if gh_mode == GH_MANAGEMENT_LOCAL:
+            path = os.path.expanduser(str(env.gh_management_target or "").strip())
+            if not path:
+                return "—", False, "Set Workspace to a local folder in Environments."
+            if not os.path.isdir(path):
+                return path, False, f"Local folder does not exist: {path}"
+            return path, True, ""
+
+        if gh_mode == GH_MANAGEMENT_GITHUB:
+            path = managed_repo_checkout_path(env.env_id, data_dir=os.path.dirname(self._state_path))
+            target = str(env.gh_management_target or "").strip()
+            if not target:
+                return path, False, "Set Workspace to a GitHub repo in Environments."
+            return path, True, ""
+
+        return "—", False, "Set Workspace to a local folder or GitHub repo in Environments."
+
+    def _sync_new_task_repo_controls(self, env: Environment | None) -> None:
+        workdir, ready, _ = self._new_task_workspace(env)
+        if not ready:
+            self._new_task.set_repo_controls_visible(False)
+            self._new_task.set_repo_branches([])
+            return
+
+        gh_mode = normalize_gh_management_mode(str(env.gh_management_mode or GH_MANAGEMENT_NONE)) if env else GH_MANAGEMENT_NONE
+        has_repo = bool(gh_mode == GH_MANAGEMENT_GITHUB)
+        if gh_mode == GH_MANAGEMENT_NONE or not has_repo:
+            self._new_task.set_repo_controls_visible(False)
+            self._new_task.set_repo_branches([])
+            return
+
+        branches: list[str] = []
+        if gh_mode == GH_MANAGEMENT_GITHUB and env:
+            branches = git_list_remote_heads(str(env.gh_management_target or ""))
+
+        self._new_task.set_repo_controls_visible(True)
+        self._new_task.set_repo_branches(branches)
+
     def _populate_environment_pickers(self) -> None:
         active_id = self._active_environment_id()
         envs = self._environment_list()
@@ -2226,13 +2497,12 @@ class MainWindow(QMainWindow):
 
     def _apply_active_environment_to_new_task(self) -> None:
         env = self._environments.get(self._active_environment_id())
-        host_workdir = str(self._settings_data.get("host_workdir") or os.getcwd())
         agent_cli = normalize_agent(str(self._settings_data.get("use") or "codex"))
         host_codex = self._effective_host_config_dir(agent_cli=agent_cli, env=env)
-        if env:
-            if env.host_workdir:
-                host_workdir = env.host_workdir
-        self._new_task.set_defaults(host_workdir=host_workdir, host_codex=host_codex)
+        workdir, ready, message = self._new_task_workspace(env)
+        self._new_task.set_defaults(host_codex=host_codex)
+        self._new_task.set_workspace_status(path=workdir, ready=ready, message=message)
+        self._sync_new_task_repo_controls(env)
         interactive_key = self._interactive_command_key(agent_cli)
         interactive_command = str(self._settings_data.get(interactive_key) or "").strip()
         if not interactive_command:
@@ -2279,13 +2549,27 @@ class MainWindow(QMainWindow):
                 env_id="default",
                 name="Default",
                 color="emerald",
-                host_workdir=active_workdir,
+                host_workdir="",
                 host_codex_dir=active_codex,
                 preflight_enabled=False,
                 preflight_script="",
+                gh_management_mode=GH_MANAGEMENT_LOCAL,
+                gh_management_target=os.path.expanduser(active_workdir),
+                gh_management_locked=True,
+                gh_use_host_cli=bool(is_gh_available()),
             )
             save_environment(env)
             envs = load_environments()
+
+        for env in envs.values():
+            gh_mode = normalize_gh_management_mode(str(env.gh_management_mode or GH_MANAGEMENT_NONE))
+            if gh_mode != GH_MANAGEMENT_NONE:
+                continue
+            legacy_workdir = os.path.expanduser(str(env.host_workdir or "").strip())
+            if legacy_workdir:
+                env.gh_management_mode = GH_MANAGEMENT_LOCAL
+                env.gh_management_target = legacy_workdir
+                env.gh_management_locked = True
 
         self._environments = dict(envs)
         active_id = self._active_environment_id()
@@ -2304,6 +2588,7 @@ class MainWindow(QMainWindow):
             self._envs_page.set_environments(self._environments, selected)
         self._apply_active_environment_to_new_task()
         self._refresh_task_rows()
+        self._schedule_save()
 
     def _clean_old_tasks(self) -> None:
         to_remove: set[str] = set()
@@ -2322,18 +2607,19 @@ class MainWindow(QMainWindow):
             self._dashboard_log_refresh_s.pop(task_id, None)
         self._schedule_save()
 
-    def _start_task_from_ui(self, prompt: str, host_workdir: str, host_codex: str, env_id: str) -> None:
+    def _start_task_from_ui(
+        self,
+        prompt: str,
+        host_codex: str,
+        env_id: str,
+        base_branch: str,
+    ) -> None:
         if shutil.which("docker") is None:
             QMessageBox.critical(self, "Docker not found", "Could not find `docker` in PATH.")
             return
         prompt = sanitize_prompt((prompt or "").strip())
 
-        if not os.path.isdir(host_workdir):
-            QMessageBox.warning(self, "Invalid Workdir", "Host Workdir does not exist.")
-            return
-
         agent_cli = normalize_agent(str(self._settings_data.get("use") or "codex"))
-        self._settings_data["host_workdir"] = host_workdir
 
         task_id = uuid4().hex[:10]
         env_id = str(env_id or "").strip() or self._active_environment_id()
@@ -2342,6 +2628,22 @@ class MainWindow(QMainWindow):
             return
         self._settings_data["active_environment_id"] = env_id
         env = self._environments.get(env_id)
+
+        gh_mode = normalize_gh_management_mode(str(env.gh_management_mode or GH_MANAGEMENT_NONE)) if env else GH_MANAGEMENT_NONE
+        effective_workdir, ready, message = self._new_task_workspace(env)
+        if not ready:
+            QMessageBox.warning(self, "Workspace not configured", message)
+            return
+        if gh_mode == GH_MANAGEMENT_GITHUB:
+            try:
+                os.makedirs(effective_workdir, exist_ok=True)
+            except Exception:
+                pass
+        elif not os.path.isdir(effective_workdir):
+            QMessageBox.warning(self, "Invalid Workdir", "Host Workdir does not exist.")
+            return
+
+        self._settings_data["host_workdir"] = effective_workdir
         host_codex = os.path.expanduser(str(host_codex or "").strip())
         if not host_codex:
             host_codex = self._effective_host_config_dir(agent_cli=agent_cli, env=env)
@@ -2371,11 +2673,12 @@ class MainWindow(QMainWindow):
             task_id=task_id,
             prompt=prompt,
             image=image,
-            host_workdir=host_workdir,
+            host_workdir=effective_workdir,
             host_codex_dir=host_codex,
             environment_id=env_id,
             created_at_s=time.time(),
-            status="pulling",
+            status="starting",
+            gh_management_mode=gh_mode,
         )
         self._tasks[task_id] = task
         stain = env.color if env else None
@@ -2383,11 +2686,66 @@ class MainWindow(QMainWindow):
         self._dashboard.upsert_task(task, stain=stain, spinner_color=spinner)
         self._schedule_save()
 
+        use_host_gh = bool(getattr(env, "gh_use_host_cli", True)) if env else True
+        use_host_gh = bool(use_host_gh and is_gh_available())
+        task.gh_use_host_cli = use_host_gh
+
+        if gh_mode == GH_MANAGEMENT_GITHUB and env:
+            self._on_task_log(task_id, f"[gh] cloning {env.gh_management_target} -> {effective_workdir}")
+            try:
+                ensure_github_clone(
+                    str(env.gh_management_target or ""),
+                    effective_workdir,
+                    prefer_gh=use_host_gh,
+                    recreate_if_needed=True,
+                )
+            except GhManagementError as exc:
+                task.status = "failed"
+                task.error = str(exc)
+                task.exit_code = 1
+                task.finished_at = datetime.now(tz=timezone.utc)
+                self._dashboard.upsert_task(task, stain=stain, spinner_color=spinner)
+                self._details.update_task(task)
+                self._schedule_save()
+                QMessageBox.warning(self, "Failed to clone repo", str(exc))
+                return
+
+        desired_base = str(base_branch or "").strip()
+        if gh_mode == GH_MANAGEMENT_GITHUB and is_git_repo(effective_workdir):
+            plan = plan_repo_task(effective_workdir, task_id=task_id, base_branch=desired_base or None)
+            if plan is not None:
+                self._on_task_log(task_id, f"[gh] creating branch {plan.branch} (base {plan.base_branch})")
+                try:
+                    base_branch, branch = prepare_branch_for_task(
+                        plan.repo_root,
+                        branch=plan.branch,
+                        base_branch=plan.base_branch,
+                    )
+                except GhManagementError as exc:
+                    task.status = "failed"
+                    task.error = str(exc)
+                    task.exit_code = 1
+                    task.finished_at = datetime.now(tz=timezone.utc)
+                    self._dashboard.upsert_task(task, stain=stain, spinner_color=spinner)
+                    self._details.update_task(task)
+                    self._schedule_save()
+                    QMessageBox.warning(self, "Failed to create branch", str(exc))
+                    return
+                task.gh_repo_root = plan.repo_root
+                task.gh_base_branch = base_branch
+                task.gh_branch = branch
+                self._schedule_save()
+        elif gh_mode == GH_MANAGEMENT_GITHUB:
+            self._on_task_log(task_id, "[gh] not a git repo; skipping branch/PR")
+
+        task.status = "pulling"
+        self._dashboard.upsert_task(task, stain=stain, spinner_color=spinner)
+
         config = DockerRunnerConfig(
             task_id=task_id,
             image=image,
             host_codex_dir=host_codex,
-            host_workdir=host_workdir,
+            host_workdir=effective_workdir,
             agent_cli=agent_cli,
             auto_remove=True,
             pull_before_run=True,
@@ -2423,21 +2781,17 @@ class MainWindow(QMainWindow):
         self,
         prompt: str,
         command: str,
-        host_workdir: str,
         host_codex: str,
         env_id: str,
         terminal_id: str,
+        base_branch: str,
     ) -> None:
         if shutil.which("docker") is None:
             QMessageBox.critical(self, "Docker not found", "Could not find `docker` in PATH.")
             return
 
         prompt = sanitize_prompt((prompt or "").strip())
-        host_workdir = os.path.expanduser((host_workdir or "").strip())
         host_codex = os.path.expanduser((host_codex or "").strip())
-        if not os.path.isdir(host_workdir):
-            QMessageBox.warning(self, "Invalid Workdir", "Host Workdir does not exist.")
-            return
 
         options = {opt.terminal_id: opt for opt in detect_terminal_options()}
         opt = options.get(str(terminal_id or "").strip())
@@ -2454,6 +2808,42 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Unknown environment", "Pick an environment first.")
             return
         env = self._environments.get(env_id)
+        gh_mode = normalize_gh_management_mode(str(env.gh_management_mode or GH_MANAGEMENT_NONE)) if env else GH_MANAGEMENT_NONE
+        host_workdir, ready, message = self._new_task_workspace(env)
+        if not ready:
+            QMessageBox.warning(self, "Workspace not configured", message)
+            return
+        if gh_mode == GH_MANAGEMENT_GITHUB and env:
+            try:
+                os.makedirs(host_workdir, exist_ok=True)
+            except Exception:
+                pass
+            use_host_gh = bool(getattr(env, "gh_use_host_cli", True)) and bool(is_gh_available())
+            try:
+                ensure_github_clone(
+                    str(env.gh_management_target or ""),
+                    host_workdir,
+                    prefer_gh=use_host_gh,
+                    recreate_if_needed=True,
+                )
+            except GhManagementError as exc:
+                QMessageBox.warning(self, "Failed to clone repo", str(exc))
+                return
+        elif not os.path.isdir(host_workdir):
+            QMessageBox.warning(self, "Invalid Workdir", "Host Workdir does not exist.")
+            return
+
+        desired_base = str(base_branch or "").strip()
+        if gh_mode == GH_MANAGEMENT_GITHUB and desired_base and is_git_repo(host_workdir):
+            proc = subprocess.run(
+                ["git", "-C", host_workdir, "checkout", desired_base],
+                capture_output=True,
+                text=True,
+            )
+            if proc.returncode != 0:
+                msg = (proc.stderr or proc.stdout or "").strip() or f"git checkout {desired_base} failed"
+                QMessageBox.warning(self, "Failed to checkout base branch", msg)
+                return
 
         agent_cli = normalize_agent(str(self._settings_data.get("use") or "codex"))
         if not host_codex:
@@ -2797,7 +3187,7 @@ class MainWindow(QMainWindow):
             if settings_script is None and env_script is None:
                 continue
 
-            host_workdir = env.host_workdir or host_workdir_base
+            host_workdir = self._environment_effective_workdir(env, fallback=host_workdir_base)
             host_codex = env.host_codex_dir or host_codex_base
             if not os.path.isdir(host_workdir):
                 skipped.append(f"{env.name or env.env_id} ({host_workdir})")
@@ -2841,7 +3231,7 @@ class MainWindow(QMainWindow):
         host_workdir_base = str(self._settings_data.get("host_workdir") or os.getcwd())
         agent_cli = normalize_agent(str(self._settings_data.get("use") or "codex"))
         host_codex_base = self._effective_host_config_dir(agent_cli=agent_cli, env=None)
-        host_workdir = env.host_workdir or host_workdir_base
+        host_workdir = self._environment_effective_workdir(env, fallback=host_workdir_base)
         host_codex = env.host_codex_dir or host_codex_base
 
         self._start_preflight_task(
@@ -2940,6 +3330,23 @@ class MainWindow(QMainWindow):
         if isinstance(bridge, TaskRunnerBridge):
             self._on_task_done(bridge.task_id, exit_code, error)
 
+    @Slot(str, str)
+    def _on_host_log(self, task_id: str, line: str) -> None:
+        self._on_task_log(task_id, line)
+
+    @Slot(str, str)
+    def _on_host_pr_url(self, task_id: str, pr_url: str) -> None:
+        task = self._tasks.get(task_id)
+        if task is None:
+            return
+        task.gh_pr_url = str(pr_url or "").strip()
+        env = self._environments.get(task.environment_id)
+        stain = env.color if env else None
+        spinner = _stain_color(env.color) if env else None
+        self._dashboard.upsert_task(task, stain=stain, spinner_color=spinner)
+        self._details.update_task(task)
+        self._schedule_save()
+
     def _on_task_log(self, task_id: str, line: str) -> None:
         task = self._tasks.get(task_id)
         if task is None:
@@ -3027,6 +3434,72 @@ class MainWindow(QMainWindow):
         self._details.update_task(task)
         self._schedule_save()
 
+        if (
+            normalize_gh_management_mode(task.gh_management_mode) != GH_MANAGEMENT_NONE
+            and task.gh_repo_root
+            and task.gh_branch
+        ):
+            repo_root = str(task.gh_repo_root or "").strip()
+            branch = str(task.gh_branch or "").strip()
+            base_branch = str(task.gh_base_branch or "").strip() or "main"
+            prompt_text = str(task.prompt or "")
+            task_token = str(task.task_id or task_id)
+            threading.Thread(
+                target=self._finalize_gh_management_worker,
+                args=(task_id, repo_root, branch, base_branch, prompt_text, task_token, bool(task.gh_use_host_cli)),
+                daemon=True,
+            ).start()
+
+    def _finalize_gh_management_worker(
+        self,
+        task_id: str,
+        repo_root: str,
+        branch: str,
+        base_branch: str,
+        prompt_text: str,
+        task_token: str,
+        use_gh: bool,
+    ) -> None:
+        if not repo_root or not branch:
+            return
+
+        prompt_line = (prompt_text or "").strip().splitlines()[0] if prompt_text else ""
+        title = f"codex: {prompt_line or task_id}"
+        if len(title) > 72:
+            title = title[:69].rstrip() + "..."
+        body = (
+            f"Automated by {APP_TITLE}.\n\n"
+            f"Task: {task_token}\n\n"
+            "Prompt:\n"
+            f"{(prompt_text or '').strip()}\n"
+        )
+
+        self.host_log.emit(task_id, f"[gh] preparing PR from {branch} -> {base_branch}")
+        try:
+            pr_url = commit_push_and_pr(
+                repo_root,
+                branch=branch,
+                base_branch=base_branch,
+                title=title,
+                body=body,
+                use_gh=bool(use_gh),
+            )
+        except GhManagementError as exc:
+            self.host_log.emit(task_id, f"[gh] failed: {exc}")
+            return
+        except Exception as exc:
+            self.host_log.emit(task_id, f"[gh] failed: {exc}")
+            return
+
+        if pr_url is None:
+            self.host_log.emit(task_id, "[gh] no changes to commit; skipping PR")
+            return
+        if pr_url == "":
+            self.host_log.emit(task_id, "[gh] pushed branch; PR creation skipped (gh disabled or missing)")
+            return
+        self.host_pr_url.emit(task_id, pr_url)
+        self.host_log.emit(task_id, f"[gh] PR: {pr_url}")
+
     def closeEvent(self, event) -> None:
         try:
             self._save_state()
@@ -3039,7 +3512,8 @@ class MainWindow(QMainWindow):
 
     def _save_state(self) -> None:
         tasks = sorted(self._tasks.values(), key=lambda t: t.created_at_s)
-        payload = {"tasks": [serialize_task(t) for t in tasks], "settings": dict(self._settings_data)}
+        environments = [serialize_environment(env) for env in self._environment_list()]
+        payload = {"tasks": [serialize_task(t) for t in tasks], "settings": dict(self._settings_data), "environments": environments}
         save_state(self._state_path, payload)
 
     def _load_state(self) -> None:
