@@ -35,3 +35,6 @@
 [submodule "Endless-Idler"]
 	path = Endless-Idler
 	url = https://github.com/Midori-AI-OSS/Stained-Glass-Odyssey-Idle.git
+[submodule "Agent-Runner"]
+	path = Agent-Runner
+	url = https://github.com/Midori-AI-OSS/Agents-Runner
