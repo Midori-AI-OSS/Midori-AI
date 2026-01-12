@@ -51,6 +51,7 @@ The repository supports several contributor modes to clarify expectations and be
 Refer to your mode's cheat sheet for quick reminders and update it as needed.
 
 - **Task Master Mode** (`.codex/modes/TASKMASTER.md`): For creating, organizing, and maintaining actionable tasks in the root `.codex/tasks/` folder. Task Masters define and prioritize work for Coders and ensure tasks are ready for implementation.
+- **Manager Mode** (`.codex/modes/MANAGER.md`): For planning, coordination, and maintaining contributor guidance across the monorepo. Managers steward `AGENTS.md`, mode docs, and process alignment with Task Masters and stakeholders.
 - **Coder Mode** (`.codex/modes/CODER.md`): For implementing, refactoring, and reviewing code. Focuses on high-quality, maintainable, and well-documented contributions. Coders regularly review the `.codex/tasks/` folder for new or assigned work.
 - **Reviewer Mode** (`.codex/modes/REVIEWER.md`): For auditing repository documentation and filing `TMT`-prefixed tasks when updates are needed.
 - **Auditor Mode** (`.codex/modes/AUDITOR.md`): For performing comprehensive reviews and audits. Emphasizes thoroughness, completeness, and catching anything others may have missed.
