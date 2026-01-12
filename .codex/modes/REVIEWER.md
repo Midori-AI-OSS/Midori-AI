@@ -12,7 +12,7 @@ Reviewers audit documentation, planning notes, `.feedback/` folders, and process
 - Trace documentation references end-to-end: confirm links, filenames, scripts, and referenced processes exist and still match implementation notes or code locations.
 - Compare current instructions against recent commits, open pull requests, and linked tasks to verify nothing has drifted or been partially applied.
 - Flag any process gaps, risky directions, or missing warnings that could lead to regressions, bugs, or broken workflows.
-- When reviewing a service, scan its `AGENTS.md`, mode docs, and `.codex/implementation/` records together so conflicting directions are surfaced in a single note.
+- When reviewing a service, scan its `AGENTS.md`, mode docs, and relevant code/docstrings together so conflicting directions are surfaced in a single note.
 - For every discrepancy, generate a `TMT-<hash>-<description>.md` task file in the appropriate category inside `.codex/tasks/taskmaster/` using `openssl rand -hex 4` for the prefix.
 - Maintain `.codex/notes/reviewer-mode-cheat-sheet.md` with preferences, gotchas, or historical decisions gathered during audits.
 - When a document references external assets (screenshots, recordings, diagrams), verify they exist and still accurately reflect the workflow.

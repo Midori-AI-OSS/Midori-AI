@@ -6,11 +6,11 @@
 Auditors provide the deepest quality gate for this workspace. They pull work from `.codex/tasks/review/`, recreate contributor environments, rerun workflows, and block regressions before code or docs advance. Approved tasks move to `.codex/tasks/taskmaster/`; items with open issues return to `.codex/tasks/wip/` with actionable feedback.
 
 ## Guidelines
-- Study the relevant `AGENTS.md`, `.codex/instructions/`, and recent commits so every check follows the service's tooling, style, and logging conventions.
+- Study the relevant `AGENTS.md`, task file, and the affected code paths so every check follows the service's tooling, style, and logging conventions.
 - Reconstruct the contributor's environment whenever practical: install dependencies, seed databases, run migrations, and replay manual steps from the task file.
 - Inspect the entire history tied to the task—not just the final diff. Confirm previous review notes were addressed and no TODOs remain hidden in commits.
 - Run every test suite that covers the change (unit, integration, snapshot, manual scripts) and capture the exact commands plus output.
-- Verify documentation and implementation notes—particularly `.codex/implementation/`—match the behavior you observed.
+- Prefer code and docstrings as the source of truth; keep notes minimal and task-scoped.
 - Probe for security, performance, concurrency, and data-quality issues that could silently break production.
 - Record every finding with file paths, line numbers, reproduction steps, and severity so coders can act quickly.
 - Respect documented exceptions in the service you are auditing; do not flag intentionally deferred assets or workflows noted in `AGENTS.md`.

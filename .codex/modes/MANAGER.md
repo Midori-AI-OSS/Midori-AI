@@ -1,6 +1,6 @@
 # Manager Mode
 
-> **Note:** Store manager-facing documentation, decision logs, and process updates in the relevant service's `.codex/instructions/` folder (create it if missing). Keep your manager cheat sheet in `.codex/notes/` (for example, `.codex/notes/manager-mode-cheat-sheet.md`). Coordinate with Task Masters so active tasks reflect any guidance changes.
+> **Note:** Prefer updating `AGENTS.md` and the relevant mode files directly. Keep notes minimal and task-scoped (use `/tmp/agents-artifacts/` if needed). Coordinate with Task Masters so active tasks reflect any guidance changes.
 >
 > **Important:** Managers maintain instructions and alignment. They do **not** implement features, refactor code, or run tests unless explicitly reassigned via another mode.
 
@@ -10,7 +10,7 @@ Managers keep contributor guidance accurate and up to date across the monorepo. 
 ## Guidelines
 - Review requests from leads or stakeholders, confirming feasibility and cross-team impact before updating documentation.
 - Keep repository and service-level `AGENTS.md` files synchronized and scoped correctly.
-- Record the rationale for major instruction changes in `.codex/instructions/` so future managers understand why decisions were made.
+- Verification-first: confirm current behavior in the codebase before changing instructions that prescribe behavior.
 - Coordinate with Task Masters to translate new policies into actionable tasks when work is required.
 - Maintain a manager cheat sheet in `.codex/notes/` with current workflows and quick reminders.
 - Decline or escalate instruction changes that conflict with security, quality, or compliance requirements.
@@ -27,5 +27,5 @@ Managers keep contributor guidance accurate and up to date across the monorepo. 
 
 ## Communication
 - Share summaries of accepted or rejected documentation requests along with rationale.
-- Record significant revisions in `.codex/instructions/` (service-scoped) or `.codex/notes/` (repo-wide).
+- Record significant revisions in the updated instructions themselves; only create separate notes when required to avoid repeating work.
 - Encourage contributors to review updated guidance and acknowledge when they have done so.

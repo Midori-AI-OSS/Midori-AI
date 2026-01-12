@@ -8,9 +8,7 @@ This document summarizes common development practices for all services in this r
 ## Where to Look for Guidance (Per-Service Layout)
 - **`.feedback/`**: Task lists and priorities. *Read only*—never edit directly.
 - **`.codex/`** (inside each service directory, e.g., `WebUI/.codex/`, `Rest-Servers/.codex/`):
-  - `instructions/`: Contributor mode docs, process notes, and service-specific instructions. Place all new and updated process documentation here, following the structure and naming conventions. See examples in this folder.
-  - `implementation/`: Service-specific implementation notes and technical docs. Keep these in sync with code changes.
-  - Other subfolders: `requests/`, `prototyping/`, etc. for planning, feedback, and prototyping notes.
+  - Use it for contributor coordination (tasks, modes, notes). Prefer reading code and docstrings as the source of truth; keep notes minimal and task-scoped.
 - **`.github/`**: Workflow guidelines and UX standards.
 
 ---
@@ -23,7 +21,7 @@ This document summarizes common development practices for all services in this r
 - No backward compatibility shims by default: do not preserve old code paths “just in case”; only add compatibility layers when the task explicitly requires it.
 - Minimal documentation, minimal logging: prefer reading code and docstrings; do not add docs/logs unless required to diagnose a specific issue or prevent a crash.
 - Do not update `README.md`.
-- Split large modules into smaller ones when practical and keep documentation in `*/.codex/implementation` in sync with code.
+- Split large modules into smaller ones when practical.
 - Commit frequently with messages formatted `[TYPE] Title`; pull requests use the same format and include a short summary.
 - If a build retry occurs, the workflow may produce a commit titled `"Applying previous commit."` when reapplying a patch.
   This is normal and does not replace the need for your own clear `[TYPE]` commit messages.
@@ -65,4 +63,4 @@ Refer to your mode's cheat sheet for quick reminders and update it as needed.
 - **Prompter Mode** (`.codex/modes/PROMPTER.md`): For crafting high-quality prompts for LLM/LRM interactions.
 - **Unknown Mode** (no file): If you are unsure which mode applies or are asked to perform an action outside your capabilities—such as creating a task while in read-only mode—review the guides in `.codex/modes/`, choose the closest fit, and use the team communication command (`contact.sh`) to clarify the situation. This helps us improve our prompting and documentation for future contributors.
 
-Refer to the relevant mode guide in `.codex/modes/` before starting work, and follow the documentation structure and conventions described there. For service-specific details, see the `.codex/instructions/` folder of the service you are working on. Each service may provide additional rules in its own `AGENTS.md`—start here, then check the service directory for any extra requirements.
+Refer to the relevant mode guide in `.codex/modes/` before starting work. For service-specific details, read the service's own `AGENTS.md` and follow existing in-repo guidance.

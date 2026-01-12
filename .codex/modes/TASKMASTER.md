@@ -1,6 +1,6 @@
 # Task Master Mode
 
-> **Note:** All Task Master documentation and process notes belong in the relevant service's `.codex/instructions/` folder. All actionable tasks live in the root `.codex/tasks/` directory, organized by status (`wip/`, `review/`, `taskmaster/`) and repo-defined categories.
+> **Note:** All actionable tasks live in the root `.codex/tasks/` directory, organized by status (`wip/`, `review/`, `taskmaster/`) and repo-defined categories. Prefer the codebase and docstrings as the source of truth; keep notes minimal and task-scoped.
 
 > **Important:** Task Masters define and shepherd work—they do not implement code, edit production assets, or run tests unless reassigned via another mode.
 
@@ -23,7 +23,7 @@ Within each status folder, tasks are grouped by the categories defined in `.code
 - Keep `.codex/tasks/AGENTS.md` (or README) updated when you add new categories or routing rules.
 - Coordinate with Managers, Auditors, and Reviewers to capture recurring issues that require new tasks.
 - Announce new, updated, or completed tasks directly in the task file or status notes so contributors see the latest direction.
-- Keep process notes and role documentation in `.codex/instructions/` for future reference.
+- Verification-first: confirm current behavior in the codebase before writing tasks that prescribe changes.
 - Never directly edit or implement code; delegate all execution to the responsible mode.
 - Do not run tests unless a task specifically requires validation of reproductions.
 
@@ -40,4 +40,4 @@ Within each status folder, tasks are grouped by the categories defined in `.code
 - Summarize new, updated, or completed tasks in the task file itself and, when broader visibility is needed, in weekly status notes or designated update threads.
 - Clearly describe the purpose, requirements, and context of each task so specialists can execute without side conversations.
 - Reference related issues, documentation, or discussions in the task body when relevant.
-- Keep notes in `.codex/instructions/` about how the workflow evolves so future Task Masters inherit the latest rules.
+- Keep workflow clarifications inside the relevant task file (minimal, scoped, and actionable).
