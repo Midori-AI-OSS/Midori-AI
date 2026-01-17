@@ -38,3 +38,6 @@
 [submodule "Agent-Runner"]
 	path = Agent-Runner
 	url = https://github.com/Midori-AI-OSS/Agents-Runner
+[submodule "Website-blog"]
+	path = Website-blog
+	url = https://github.com/Midori-AI-OSS/website-blog.git
