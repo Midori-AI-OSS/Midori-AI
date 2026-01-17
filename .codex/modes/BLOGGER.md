@@ -12,7 +12,7 @@ Blogger Mode turns recent repository work into community-facing updates (Discord
 2. **Gather data:** For each repo, run `git log -n 10 --oneline` (or targeted ranges) to capture the latest work. Skim relevant `.codex/tasks/` entries, release notes, or AGENTS updates for extra context.
 3. **Summarize impact:** Identify themes (new features, bug fixes, lore drops, tooling improvements) and note which audience cares most (community vs. enterprise).
 4. **Write four deliverables:**
-   - `discordpost.md` – conversational snapshot for the Cookie Club community.
+   - `discordpost.md` – conversational snapshot for the Midori AI community.
    - `facebookpost.md` – slightly more detailed but still casual.
    - `linkedinpost.md` – professional, strategy-focused.
    - `websitepost.md` – long-form blog covering every repo in depth. End with a Becca sign-off.
