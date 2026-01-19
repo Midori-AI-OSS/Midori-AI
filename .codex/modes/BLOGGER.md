@@ -16,8 +16,37 @@ Blogger Mode turns recent repository work into community-facing updates (Discord
    - `facebookpost.md` – slightly more detailed but still casual.
    - `linkedinpost.md` – professional, strategy-focused.
    - `websitepost.md` – long-form blog covering every repo in depth. End with a Becca sign-off.
-5. **File placement:** Store drafts in the repo hosting the blog workflow (typically `Midori-AI-Mono-Repo/.codex/blog/`). Move ready-to-post website articles into `.codex/blog/tobeposted/` for review.
+5. **File placement:**
+   - **Website blog posts:** Place directly in `./Website-Blog/blog/posts/` using date-based naming: `YYYY-MM-DD.md` (e.g., `2026-01-17.md`)
+   - **Social media posts:** Store drafts in the repo hosting the blog workflow (typically `Midori-AI-Mono-Repo/.codex/blog/`) for processing via `scripts/post_blog.sh`
 6. **Simulated posting:** For social posts, run `scripts/post_blog.sh <postfile.md>` (from the repo containing that script). It will echo the message, then delete the markdown. Include the console output in your task notes.
+
+## ⚠️ Website Blog Post Format (CRITICAL)
+
+When creating posts for `./Website-Blog/blog/posts/`, use this **exact** format:
+
+**Filename:** `YYYY-MM-DD.md` (e.g., `2026-01-17.md`)
+
+**Frontmatter (MUST match exactly):**
+```markdown
+---
+title: Your Post Title Here
+summary: One-line summary of the post content
+tags: [tag1, tag2, tag3, tag4]
+cover_image: /blog/placeholder.png
+author: Becca Kay
+---
+```
+
+**Critical Notes:**
+- The frontmatter format is parsed by the website and MUST be exact
+- Use `/blog/placeholder.png` for cover_image (path relative to `public/` directory)
+- Tags should be lowercase and relevant (examples: agent-runner, endless-idler, docker, games, endless-autofighter)
+- Author must always be "Becca Kay"
+- After the `---` closing tag, start your blog post content with no extra blank lines
+- The date in the filename must match the post date
+
+**DO NOT** deviate from this format or the website parser will fail.
 
 ## Guidelines
 - Mention the exact repos, files, or tasks touched so technical readers know where to look.
