@@ -30,7 +30,7 @@ When creating posts for `./Website-Blog/blog/posts/`, use this **exact** format:
 **Frontmatter (MUST match exactly):**
 ```markdown
 ---
-title: Your Post Title Here
+title: "Your Post Title Here"
 summary: One-line summary of the post content
 tags: [tag1, tag2, tag3, tag4]
 cover_image: /blog/placeholder.png
@@ -40,6 +40,7 @@ author: Becca Kay
 
 **Critical Notes:**
 - The frontmatter format is parsed by the website and MUST be exact
+- Lint the file before deplying to the folder...
 - Use `/blog/placeholder.png` for cover_image (path relative to `public/` directory)
 - Tags should be lowercase and relevant (examples: agent-runner, endless-idler, docker, games, endless-autofighter)
 - Author must always be "Becca Kay"
