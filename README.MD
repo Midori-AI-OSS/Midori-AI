@@ -24,6 +24,9 @@ This repository contains the following major projects and modules:
 - **Website**  
   Midori AI's main website ([https://io.midori-ai.xyz/](https://io.midori-ai.xyz/)) built with Hugo static site generator. Serves as the central hub for project information, documentation, and community resources.
 
+- **Website-Blog**  
+  Midori AI's blog platform ([https://blog.midori-ai.xyz/](https://blog.midori-ai.xyz/)) built with Next.js. Features technical updates, project deep-dives, and community content authored by Becca Kay.
+
 - **Obsidian-Notes**  
   Collaborative knowledge base using Obsidian for internal documentation, planning, and team coordination. Shared workspace for partners and contributors.
 
