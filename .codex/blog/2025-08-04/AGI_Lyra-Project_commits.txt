@@ -1,7 +1,0 @@
-Commits for AGI/Lyra-Project:
-abc123 2025-08-04 Improved FAISS integration for faster search
-xyz789 2025-08-04 Refactored agent workflow for better modularity
-
-Commits for Endless-Autofighter:
-def456 2025-08-04 Added new enemy plugin system
-uvw321 2025-08-04 Fixed stats calculation bug
