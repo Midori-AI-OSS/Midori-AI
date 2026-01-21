@@ -29,6 +29,11 @@ Blogger Mode turns recent repository work into community-facing updates (Discord
    - `linkedinpost.md` – professional, strategy-focused.
    - `websitepost.md` – long-form blog covering every repo in depth. End with a Becca sign-off.
 6. **Claim a cover image (website post):** Prefer using an available (unassigned) image by moving it out of `./Website-Blog/public/blog/unassigned/` and renaming it to match the post date (e.g., `./Website-Blog/public/blog/YYYY-MM-DD.png`). Then set `cover_image: /blog/YYYY-MM-DD.png`. If there are no images left to claim, use `/blog/placeholder.png`.
+   - **Request new art (optional):** If you need a new cover image, drop a markdown prompt file into `./Website-Blog/public/blog/unassigned/` (recommend naming it `REQUEST-YYYY-MM-DD.prompt.md` so it’s easy to spot).
+     - **Short prompt:** A single line like `luna doing xyz`
+     - **Verbose prompt:** A longer description of Becca doing something, staying consistent with Becca’s persona + visual cues (blonde hair with blue ombré ponytail, purple eyes, freckles, spacey strapless sundress, often holding a paint brush).
+     - **When a request is made:** Keep publishing the website post with `cover_image: /blog/placeholder.png` as normal; the artist will swap in the final image later.
+   - When claiming images from `./Website-Blog/public/blog/unassigned/`, only move actual image files (`.png`, `.jpg`, etc.)—leave prompt `.md` files in place.
 7. **File placement:**
    - **Website blog posts:** Place directly in `./Website-Blog/blog/posts/` using date-based naming: `YYYY-MM-DD.md` (e.g., `2026-01-17.md`)
    - **Social media posts:** Store drafts in `.codex/blog/tobeposted/` for human review/posting (this repo’s blog workflow folder).
@@ -56,7 +61,7 @@ author: Becca Kay
 - The frontmatter format is parsed by the website and MUST be exact
 - Lint the file before deplying to the folder...
 - Prefer a claimed cover image: move one file from `./Website-Blog/public/blog/unassigned/` to `./Website-Blog/public/blog/YYYY-MM-DD.png`, then set `cover_image: /blog/YYYY-MM-DD.png`
-- If there are no images left to claim, use `/blog/placeholder.png`
+- If there are no images left to claim (or an art request is pending), use `/blog/placeholder.png`
 - Tags should be lowercase and relevant (examples: agent-runner, endless-idler, docker, games, endless-autofighter)
 - Author must always be "Becca Kay"
 - After the `---` closing tag, start your blog post content with no extra blank lines
