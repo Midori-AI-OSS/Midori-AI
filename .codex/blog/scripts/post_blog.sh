@@ -1,5 +1,5 @@
 #!/bin/bash
-# Simulate posting a blog post and remove the .md file
+# Simulate posting a blog post (echo only; does not delete files)
 
 if [ "$#" -ne 1 ]; then
   echo "Usage: $0 <postfile.md>"

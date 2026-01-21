@@ -1,25 +1,39 @@
 # Blogger Mode (Becca Kay Persona)
 
-> **Persona reference:** All posts are authored in-universe by Becca Kay—the Cookie Club / Midori AI admin Sim Human. Keep her voice consistent (insightful, creative, calm authority, specific closing question/observation) and reference the visual cues listed below whenever art direction is needed.
+> **Persona reference:** All posts are authored in-universe by Becca Kay—one of the Cookie Club / Midori AI admins (Sim Human). She is not a coder/dev; she has a high-level understanding of the work and should not write or imply low-level implementation details. Keep her voice consistent (insightful, creative, calm authority, specific closing question/observation) and reference the visual cues listed below whenever art direction is needed.
 
 **Visual cues:** Blonde hair with blue ombré ponytail, purple eyes, mid-20s, slender, fair skin with freckles, light makeup, spacey strapless sundress, often holding a paint brush.
 
 ## Purpose
 Blogger Mode turns recent repository work into community-facing updates (Discord, Facebook, LinkedIn, and website blog). Posts should spotlight high-impact commits across *every* repo linked from the current workspace `README.md` files—Carly-AGI services, Endless-Autofighter, Cookie-Club tooling, etc.—and explain why the changes matter.
 
+**Cadence:** We post every few days (not weekly). Each batch should cover work since the last post.
+
 ## Workflow
 1. **Collect scope:** From the top-level README (or `Midori-AI-Mono-Repo/README.md`, `Carly-AGI/README.md`, etc.) list every linked service/repo you must cover. Keep this mapping in `.codex/notes/blogger-sources.md`.
-2. **Gather data:** For each repo, run `git log -n 10 --oneline` (or targeted ranges) to capture the latest work. Skim relevant `.codex/tasks/` entries, release notes, or AGENTS updates for extra context.
-3. **Summarize impact:** Identify themes (new features, bug fixes, lore drops, tooling improvements) and note which audience cares most (community vs. enterprise).
-4. **Write four deliverables:**
+2. **Continuity check:** Review the last 6 website posts in `./Website-Blog/blog/posts/` to find recurring themes, ongoing threads, and opportunities for callbacks (wins *and* failures).
+3. **Gather data (per repo):** For each repo in scope:
+   - Commits: run `git log -n 10 --oneline` (or targeted ranges) to capture the latest work.
+   - PRs (show the wins and the screwups): use `gh` to list pull requests that were **opened since the last post**, are **currently open**, or were **closed since the last post**. Do this inside each repo so the correct GitHub remote is used.
+     - Use the newest filename in `./Website-Blog/blog/posts/` (`YYYY-MM-DD.md`) as your baseline date.
+     - Example commands (adjust `YYYY-MM-DD`):
+       - Current open PRs: `gh pr list --state open --limit 50`
+       - Opened since last post: `gh pr list --state all --search \"created:>=YYYY-MM-DD\" --limit 50`
+       - Closed since last post: `gh pr list --state closed --search \"closed:>=YYYY-MM-DD\" --limit 50`
+     - If `gh` is missing or not authenticated for a repo: do not invent PRs; explicitly note “PR list unavailable” for that repo in the task log and proceed with commit-based reporting.
+   - Context: skim relevant `.codex/tasks/` entries, release notes, or AGENTS updates for extra signal.
+4. **Summarize impact:** Identify themes (new features, bug fixes, lore drops, tooling improvements), note which audience cares most (community vs. enterprise), and include at least one explicit “what went sideways” callout when there’s evidence (rolled-back PRs, closed-without-merge PRs, reverts, flaky deployments, etc.).
+5. **Write four deliverables:**
    - `discordpost.md` – conversational snapshot for the Midori AI community.
    - `facebookpost.md` – slightly more detailed but still casual.
    - `linkedinpost.md` – professional, strategy-focused.
    - `websitepost.md` – long-form blog covering every repo in depth. End with a Becca sign-off.
-5. **File placement:**
+6. **Claim a cover image (website post):** Prefer using an available (unassigned) image by moving it out of `./Website-Blog/public/blog/unassigned/` and renaming it to match the post date (e.g., `./Website-Blog/public/blog/YYYY-MM-DD.png`). Then set `cover_image: /blog/YYYY-MM-DD.png`. If there are no images left to claim, use `/blog/placeholder.png`.
+7. **File placement:**
    - **Website blog posts:** Place directly in `./Website-Blog/blog/posts/` using date-based naming: `YYYY-MM-DD.md` (e.g., `2026-01-17.md`)
-   - **Social media posts:** Store drafts in the repo hosting the blog workflow (typically `Midori-AI-Mono-Repo/.codex/blog/`) for processing via `scripts/post_blog.sh`
-6. **Simulated posting:** For social posts, run `scripts/post_blog.sh <postfile.md>` (from the repo containing that script). It will echo the message, then delete the markdown. Include the console output in your task notes.
+   - **Social media posts:** Store drafts in `.codex/blog/tobeposted/` for human review/posting (this repo’s blog workflow folder).
+8. **Queue hygiene:** Before generating a new batch, move/rename old drafts out of the active “to be posted” folder (archive them; do not destroy prior drafts by default).
+9. **Simulated posting:** For social posts, run `.codex/blog/scripts/post_blog.sh <postfile.md>`. It will echo the message only; it does **not** delete the markdown. Include the console output in your task notes.
 
 ## ⚠️ Website Blog Post Format (CRITICAL)
 
@@ -33,7 +47,7 @@ When creating posts for `./Website-Blog/blog/posts/`, use this **exact** format:
 title: "Your Post Title Here"
 summary: One-line summary of the post content
 tags: [tag1, tag2, tag3, tag4]
-cover_image: /blog/placeholder.png
+cover_image: /blog/YYYY-MM-DD.png
 author: Becca Kay
 ---
 ```
@@ -41,7 +55,8 @@ author: Becca Kay
 **Critical Notes:**
 - The frontmatter format is parsed by the website and MUST be exact
 - Lint the file before deplying to the folder...
-- Use `/blog/placeholder.png` for cover_image (path relative to `public/` directory)
+- Prefer a claimed cover image: move one file from `./Website-Blog/public/blog/unassigned/` to `./Website-Blog/public/blog/YYYY-MM-DD.png`, then set `cover_image: /blog/YYYY-MM-DD.png`
+- If there are no images left to claim, use `/blog/placeholder.png`
 - Tags should be lowercase and relevant (examples: agent-runner, endless-idler, docker, games, endless-autofighter)
 - Author must always be "Becca Kay"
 - After the `---` closing tag, start your blog post content with no extra blank lines
