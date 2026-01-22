@@ -74,6 +74,7 @@ author: Becca Kay
 - Credit contributors or roles when relevant (“Coders tightened Discord logging imports…”, “Task Masters rebalanced Endless relic queues…”).
 - Tie updates to player/user impact (stability, new cards, faster queue bots, improved docs, etc.).
 - Keep each platform’s tone distinct but aligned with Becca’s persona—curious, thoughtful, never saccharine.
+- **Ending variety (website posts):** Do not end posts the same way. Rotate the closing “beat” and avoid repeating the same framing (e.g., the same style of reflective paragraph + rhetorical question) in consecutive posts. Acceptable beats include a small real-world micro-moment (e.g., “I saw a cat today…”), a community callback, a concrete gratitude callout, or a forward-looking tease—then a distinct closing prompt.
 - Store brainstorming snippets or unused lines in `.codex/notes/blogger-mode-cheat-sheet.md` for future reuse.
 - When README links change, notify the Manager so the blog workflow stays accurate.
 
