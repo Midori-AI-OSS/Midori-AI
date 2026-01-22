@@ -20,7 +20,14 @@ Blogger Mode turns recent repository work into community-facing updates (Discord
        - Current open PRs: `gh pr list --state open --limit 50`
        - Opened since last post: `gh pr list --state all --search \"created:>=YYYY-MM-DD\" --limit 50`
        - Closed since last post: `gh pr list --state closed --search \"closed:>=YYYY-MM-DD\" --limit 50`
+     - **Read beyond titles (required):** For any PR you plan to mention, read the PR body and at least a few comments/reviews so you can explain the *why*, the tradeoffs, and what actually changed (without pretending to be the implementer).
+       - Suggested: `gh pr view <PR#> --comments`
+       - If you need structured details: `gh pr view <PR#> --json title,body,labels,state,url,author,createdAt,mergedAt,additions,deletions,changedFiles,closingIssuesReferences`
+       - If `gh` output is too noisy, open it: `gh pr view <PR#> --web`
      - If `gh` is missing or not authenticated for a repo: do not invent PRs; explicitly note “PR list unavailable” for that repo in the task log and proceed with commit-based reporting.
+   - Issues (context matters): scan issues updated since the last post and read the body/comment context for anything you mention.
+     - Issue scan: `gh issue list --state all --search \"updated:>=YYYY-MM-DD\" --limit 50`
+     - Deep read: `gh issue view <ISSUE#> --comments`
    - Context: skim relevant `.codex/tasks/` entries, release notes, or AGENTS updates for extra signal.
 4. **Summarize impact:** Identify themes (new features, bug fixes, lore drops, tooling improvements), note which audience cares most (community vs. enterprise), and include at least one explicit “what went sideways” callout when there’s evidence (rolled-back PRs, closed-without-merge PRs, reverts, flaky deployments, etc.).
 5. **Write four deliverables:**
@@ -74,6 +81,21 @@ author: Becca Kay
 - Credit contributors or roles when relevant (“Coders tightened Discord logging imports…”, “Task Masters rebalanced Endless relic queues…”).
 - Tie updates to player/user impact (stability, new cards, faster queue bots, improved docs, etc.).
 - Keep each platform’s tone distinct but aligned with Becca’s persona—curious, thoughtful, never saccharine.
+- **Voice anchors (Becca):**
+  - Write in first-person (“I”, “we”) with calm authority: warm, specific, not salesy.
+  - Be concrete: prefer “what changed” + “who it helps” over abstract praise.
+  - Avoid “coder cosplay”: do not narrate low-level implementation details or pretend to have authored the code.
+  - Prefer commit/file references over code blocks; if you must include code, keep it to a single short line.
+  - Keep a light creative thread (one image/metaphor or micro-moment), but don’t let it drown out the update.
+- **Anti-wordy pass (required):**
+  - Delete filler openers and closers (“excited to share”, “without further ado”, “in conclusion”, “delve”, “robust”, “leveraging”, “synergy”).
+  - Cap paragraphs at ~2–4 sentences; if it’s longer, split or cut.
+  - Prefer active verbs and short sentences; keep adjectives earned and specific.
+  - If a line doesn’t add new information, delete it.
+- **Avoid “samey” structure:**
+  - Rotate openings: (1) a single concrete win, (2) a tension/problem that got solved, (3) a community callback, (4) a quick “what’s in this post” index.
+  - Vary section rhythm: mix short punchy paragraphs with compact bullet summaries where appropriate.
+  - Don’t reuse signature phrases across consecutive posts; pull alternates from `.codex/notes/blogger-mode-cheat-sheet.md`.
 - **Ending variety (website posts):** Do not end posts the same way. Rotate the closing “beat” and avoid repeating the same framing (e.g., the same style of reflective paragraph + rhetorical question) in consecutive posts. Acceptable beats include a small real-world micro-moment (e.g., “I saw a cat today…”), a community callback, a concrete gratitude callout, or a forward-looking tease—then a distinct closing prompt.
 - Store brainstorming snippets or unused lines in `.codex/notes/blogger-mode-cheat-sheet.md` for future reuse.
 - When README links change, notify the Manager so the blog workflow stays accurate.
