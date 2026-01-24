@@ -57,11 +57,18 @@ author: Becca Kay
 - End with a thoughtful observation
 - Pose a specific question to readers
 - Close with "—**Becca Kay** 💜"
+- Recent closings used:
+  - "What scaffolding are you building that nobody sees until it's gone?" (2026-01-23)
+  - Personal micro-moment then question (2026-01-22)
+  - Reflective observation about invisible work (prior posts)
 
 ## Notes from Recent Posts
 - 2026-01-19: Infrastructure week (Agent-Runner workspace resolution, blog system rebuild)
 - 2026-01-21: Polish focus (bug fixes, visual refinement, game balance)
+- 2026-01-22: Threading the needle (timer thread affinity bugs, lore section launch)
+- 2026-01-23: Scaffolding (CI testing infrastructure, lore image tokens, quiet day pattern)
 - Recurring theme: Invisible infrastructure that prevents problems silently
+- New pattern: Quieter days focused on foundations rather than features
 
 ## Useful Commands
 ```bash
@@ -88,5 +95,7 @@ bash .codex/blog/scripts/post_blog.sh <postfile.md>
 - Credit contributors when relevant
 - Mention exact repos/files touched
 - Keep Becca's voice (no generic niceties)
-- Include "what went wrong" when there's evidence
+- Include "what went wrong" when there's evidence (or note when things are quiet)
 - Update this cheat sheet after each post
+- Quieter days are valid—build foundations, not just features
+- Lore system now operational—narrative posts have dedicated infrastructure
