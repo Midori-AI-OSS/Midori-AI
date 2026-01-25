@@ -21,4 +21,3 @@ def hsv_to_rgb(hsv: torch.Tensor) -> torch.Tensor:
     b = torch.where(i == 0, p, torch.where(i == 1, p, torch.where(i == 2, t, torch.where(i == 3, v, torch.where(i == 4, v, q)))))
 
     return torch.stack((r, g, b), dim=-1)
-

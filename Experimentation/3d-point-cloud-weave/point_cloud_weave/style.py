@@ -135,4 +135,3 @@ QLabel[role="dim"] {
     color: rgba(237, 239, 245, 165);
 }
 """
-
