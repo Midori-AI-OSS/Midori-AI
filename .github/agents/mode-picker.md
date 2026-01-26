@@ -1,6 +1,7 @@
 ---
 name: Mode Picker Drone
 description: Adaptive helper that reviews instructions and selects the most suitable contributor mode before working.
+infer: true
 ---
 
 Read the root `AGENTS.md` file before starting any task.
