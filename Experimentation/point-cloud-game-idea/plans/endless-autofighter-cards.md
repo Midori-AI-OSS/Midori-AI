@@ -1,0 +1,63 @@
+| file path | class name | id | name | stars | summarized_about (or full_about) | numeric_vars |
+|---|---|---|---|---|---|---|
+| backend/plugins/cards/a_micro_blade.py | MicroBlade | micro_blade | Micro Blade | 1 | Boosts atk; attacks have a chance to deal bonus elemental damage | effects.atk=0.03 |
+| backend/plugins/cards/adamantine_band.py | AdamantineBand | adamantine_band | Adamantine Band | 1 | Adds some HP; reduces lethal damage | effects.max_hp=0.04 |
+| backend/plugins/cards/arc_lightning.py | ArcLightning | arc_lightning | Arc Lightning | 3 | Greatly boosts atk; attacks chain damage to another random foe | effects.atk=2.55 |
+| backend/plugins/cards/arcane_repeater.py | ArcaneRepeater | arcane_repeater | Arcane Repeater | 4 | Greatly boosts atk; attacks have a chance to repeat at reduced power | effects.atk=5 |
+| backend/plugins/cards/balanced_diet.py | BalancedDiet | balanced_diet | Balanced Diet | 1 | Boosts hp and def; when healed, grants temporary def bonus | effects.defense=0.03, effects.max_hp=0.03 |
+| backend/plugins/cards/battle_meditation.py | BattleMeditation | battle_meditation | Battle Meditation | 1 | Boosts exp gain and vitality; grants ultimate charge if all allies start at full hp | effects.exp_multiplier=0.03, effects.vitality=0.03 |
+| backend/plugins/cards/bulwark_totem.py | BulwarkTotem | bulwark_totem | Bulwark Totem | 1 | Boosts def and hp slightly; when an ally would die, a healthy ally donates some hp to prevent death | ally_min_health_ratio=0.25, damage_share=0.05, effects.defense=0.02, effects.max_hp=0.02 |
+| backend/plugins/cards/calm_beads.py | CalmBeads | calm_beads | Calm Beads | 1 | Boosts effect resistance; resisting debuffs grants ultimate charge | effects.effect_resistance=0.03 |
+| backend/plugins/cards/coated_armor.py | CoatedArmor | coated_armor | Coated Armor | 1 | Boosts mitigation and defense; heals when mitigation triggers | effects.defense=0.03, effects.mitigation=0.03 |
+| backend/plugins/cards/critical_focus.py | CriticalFocus | critical_focus | Critical Focus | 2 | Boosts atk; grants Critical Boost to allies each turn | effects.atk=0.55 |
+| backend/plugins/cards/critical_overdrive.py | CriticalOverdrive | critical_overdrive | Critical Overdrive | 3 | Greatly boosts atk; while Critical Boost is active, allies gain crit rate and convert excess to crit damage | effects.atk=2.55 |
+| backend/plugins/cards/critical_transfer.py | CriticalTransfer | critical_transfer | Critical Transfer | 2 | Ultimates absorb all Critical Boost stacks and convert them to atk bonus |  |
+| backend/plugins/cards/dynamo_wristbands.py | DynamoWristbands | dynamo_wristbands | Dynamo Wristbands | 1 | Boosts atk; dealing Lightning damage grants temporary crit rate bonus | effects.atk=0.03 |
+| backend/plugins/cards/eclipse_theater_sigil.py | EclipseTheaterSigil | eclipse_theater_sigil | Eclipse Theater Sigil | 5 | Massively boosts hp and atk; alternates Light and Dark effects each turn | effects.atk=15.0, effects.max_hp=15.0 |
+| backend/plugins/cards/elemental_spark.py | ElementalSpark | elemental_spark | Elemental Spark | 2 | Boosts atk and effect hit rate; random ally gains debuff potency at battle start | effects.atk=0.55, effects.effect_hit_rate=0.55 |
+| backend/plugins/cards/enduring_charm.py | EnduringCharm | enduring_charm | Enduring Charm | 1 | Boosts vitality; when low on hp, grants additional vitality bonus | effects.vitality=0.03 |
+| backend/plugins/cards/enduring_will.py | EnduringWill | enduring_will | Enduring Will | 1 | Boosts mitigation and vitality; surviving battles grants mitigation bonus next battle | effects.mitigation=0.03, effects.vitality=0.03 |
+| backend/plugins/cards/energizing_tea.py | EnergizingTea | energizing_tea | Energizing Tea | 1 | Boosts regain; grants ultimate charge at battle start | effects.regain=0.03 |
+| backend/plugins/cards/equilibrium_prism.py | EquilibriumPrism | equilibrium_prism | Equilibrium Prism | 5 | Boosts atk and def; balances party HP each turn, builds tokens to trigger burst buffs and damage | effects.atk=15.0, effects.defense=15.0 |
+| backend/plugins/cards/expert_manual.py | ExpertManual | expert_manual | Expert Manual | 1 | Boosts exp gain; chance to grant bonus exp on kill once per battle | effects.exp_multiplier=0.03 |
+| backend/plugins/cards/farsight_scope.py | FarsightScope | farsight_scope | Farsight Scope | 1 | Boosts crit rate; attacks against low hp enemies gain bonus crit rate | effects.crit_rate=0.03 |
+| backend/plugins/cards/flux_convergence.py | FluxConvergence | flux_convergence | Flux Convergence | 3 | Greatly boosts effect hit rate; repeated debuffs unleash dark blasts that bolster the applier | effects.effect_hit_rate=2.55 |
+| backend/plugins/cards/flux_paradox_engine.py | FluxParadoxEngine | flux_paradox_engine | Flux Paradox Engine | 4 | Greatly boosts effect hit rate and resistance; alternates fire and ice stances that apply DoTs and buffs | effects.effect_hit_rate=2.4, effects.effect_resistance=2.4 |
+| backend/plugins/cards/fortified_plating.py | FortifiedPlating | fortified_plating | Fortified Plating | 1 | Boosts def slightly; reduces damage from first hit each turn | effects.defense=0.04 |
+| backend/plugins/cards/guardian_choir_circuit.py | GuardianChoirCircuit | guardian_choir_circuit | Guardian Choir Circuit | 3 | Boosts def and regain massively; first heal each turn redirects some healing as shield and mitigation to lowest-HP ally | effects.defense=2.0, effects.regain=1.5 |
+| backend/plugins/cards/guardian_shard.py | GuardianShard | guardian_shard | Guardian Shard | 1 | Boosts defense and mitigation; flawless victories add mitigation in the next fight | effects.defense=0.02, effects.mitigation=0.02 |
+| backend/plugins/cards/guardians_beacon.py | GuardiansBeacon | guardians_beacon | Guardian's Beacon | 2 | Boosts def; heals lowest-HP ally at turn end with bonus mitigation for Light allies | effects.defense=0.55 |
+| backend/plugins/cards/guiding_compass.py | GuidingCompass | guiding_compass | Guiding Compass | 1 | Boosts exp gain and effect hit rate; grants instant level up when acquired | effects.effect_hit_rate=0.03, effects.exp_multiplier=0.03 |
+| backend/plugins/cards/honed_point.py | HonedPoint | honed_point | Honed Point | 1 | Boosts atk; first hit on each enemy deals bonus damage | effects.atk=0.04 |
+| backend/plugins/cards/inspiring_banner.py | InspiringBanner | inspiring_banner | Inspiring Banner | 1 | Boosts atk and def slightly; battle start grants random ally atk bonus | effects.atk=0.02, effects.defense=0.02 |
+| backend/plugins/cards/iron_guard.py | IronGuard | iron_guard | Iron Guard | 2 | Boosts def; taking damage grants temporary def bonus to all allies | effects.defense=0.55 |
+| backend/plugins/cards/iron_resolve.py | IronResolve | iron_resolve | Iron Resolve | 4 | Boosts def and hp; revives fallen allies with a cooldown | effects.defense=5, effects.max_hp=5 |
+| backend/plugins/cards/iron_resurgence.py | IronResurgence | iron_resurgence | Iron Resurgence | 3 | Boosts def and hp; revives first fallen ally after cooldown | effects.defense=2.0, effects.max_hp=2.0 |
+| backend/plugins/cards/keen_goggles.py | KeenGoggles | keen_goggles | Keen Goggles | 1 | Boosts crit rate and effect hit rate; landing debuffs increases crit rate temporarily | effects.crit_rate=0.03, effects.effect_hit_rate=0.03 |
+| backend/plugins/cards/lightweight_boots.py | LightweightBoots | lightweight_boots | Lightweight Boots | 1 | Boosts dodge odds; dodges trigger healing | effects.dodge_odds=0.03 |
+| backend/plugins/cards/lucky_coin.py | LuckyCoin | lucky_coin | Lucky Coin | 1 | Boosts crit rate; critical hits have a chance to refund ultimate charge | effects.crit_rate=0.03 |
+| backend/plugins/cards/mindful_tassel.py | MindfulTassel | mindful_tassel | Mindful Tassel | 1 | Boosts effect hit rate; first debuff each battle gains potency | effects.effect_hit_rate=0.03 |
+| backend/plugins/cards/mystic_aegis.py | MysticAegis | mystic_aegis | Mystic Aegis | 2 | Boosts effect resistance; allies heal when resisting debuffs | effects.effect_resistance=0.55 |
+| backend/plugins/cards/oracle_prayer_charm.py | OraclePrayerCharm | oracle_prayer_charm | Oracle Prayer Charm | 1 | Boosts effect res and vitality; grants regeneration when allies drop low on hp | effects.effect_resistance=0.03, effects.vitality=0.03 |
+| backend/plugins/cards/overclock.py | Overclock | overclock | Overclock | 4 | Boosts atk and effect hit rate; grants speed boost to all allies at battle start | effects.atk=5, effects.effect_hit_rate=5 |
+| backend/plugins/cards/phantom_ally.py | PhantomAlly | phantom_ally | Phantom Ally | 5 | Massively boosts atk; summons permanent phantom copy of random ally | effects.atk=15.0 |
+| backend/plugins/cards/polished_shield.py | PolishedShield | polished_shield | Polished Shield | 1 | Boosts def; grants def bonus when resisting dots or debuffs | effects.defense=0.03 |
+| backend/plugins/cards/precision_sights.py | PrecisionSights | precision_sights | Precision Sights | 1 | Boosts crit damage; critical hits grant stacking crit damage bonus | effects.crit_damage=0.04 |
+| backend/plugins/cards/reality_split.py | RealitySplit | reality_split | Reality Split | 5 | Boosts atk; random ally gains crit rate and damage echo to all foes | effects.atk=15.0 |
+| backend/plugins/cards/reinforced_cloak.py | ReinforcedCloak | reinforced_cloak | Reinforced Cloak | 1 | Boosts def and effect resistance; chance to reduce long debuff duration | effects.defense=0.03, effects.effect_resistance=0.03 |
+| backend/plugins/cards/rejuvenating_tonic.py | RejuvenatingTonic | rejuvenating_tonic | Rejuvenating Tonic | 1 | Boosts regain; adds bonus healing when heal is used | effects.regain=0.04 |
+| backend/plugins/cards/sharpening_stone.py | SharpeningStone | sharpening_stone | Sharpening Stone | 1 | Boosts crit damage; landing crits grants temporary crit damage bonus | effects.crit_damage=0.03 |
+| backend/plugins/cards/spiked_shield.py | SpikedShield | spiked_shield | Spiked Shield | 1 | Boosts atk and def; blocking damage triggers retaliation | effects.atk=0.03, effects.defense=0.03 |
+| backend/plugins/cards/steady_grip.py | SteadyGrip | steady_grip | Steady Grip | 1 | Boosts atk; critical hits can become super crits for massive damage | effects.atk=0.05 |
+| backend/plugins/cards/steel_bangles.py | SteelBangles | steel_bangles | Steel Bangles | 1 | Boosts mitigation; attacks have chance to reduce target's damage | effects.mitigation=0.03 |
+| backend/plugins/cards/sturdy_boots.py | SturdyBoots | sturdy_boots | Sturdy Boots | 1 | Boosts dodge odds and defense | effects.defense=0.03, effects.dodge_odds=0.03 |
+| backend/plugins/cards/sturdy_vest.py | SturdyVest | sturdy_vest | Sturdy Vest | 1 | Boosts hp slightly; grants healing over time when hp is low | effects.max_hp=0.03 |
+| backend/plugins/cards/supercell_conductor.py | SupercellConductor | supercell_conductor | Supercell Conductor | 4 | Greatly boosts atk and effect hit rate; periodically grants fastest wind/lightning ally bonus action with mitigation shred | effects.atk=2.4, effects.effect_hit_rate=2.4 |
+| backend/plugins/cards/swift_bandanna.py | SwiftBandanna | swift_bandanna | Swift Bandanna | 1 | Boosts crit rate and dodge odds; dodging grants bonus crit rate | effects.crit_rate=0.03, effects.dodge_odds=0.03 |
+| backend/plugins/cards/swift_footwork.py | SwiftFootwork | swift_footwork | Swift Footwork | 2 | Boosts spd permanently; grants additional spd burst at battle start | effects.spd=0.2 |
+| backend/plugins/cards/tactical_kit.py | TacticalKit | tactical_kit | Tactical Kit | 1 | Boosts atk and hp slightly; once per battle, converts some hp to atk boost | effects.atk=0.02, effects.max_hp=0.02 |
+| backend/plugins/cards/tempest_pathfinder.py | TempestPathfinder | tempest_pathfinder | Tempest Pathfinder | 2 | Boosts dodge odds; allies gain dodge buff when someone crits | effects.dodge_odds=0.55 |
+| backend/plugins/cards/temporal_shield.py | TemporalShield | temporal_shield | Temporal Shield | 5 | Boosts def and hp massively; chance to grant near immunity each turn | effects.defense=30.0, effects.max_hp=30.0 |
+| backend/plugins/cards/thick_skin.py | ThickSkin | thick_skin | Thick Skin | 1 | Boosts bleed resistance; bleeding can fade faster when it takes hold | effects.bleed_resist=0.03 |
+| backend/plugins/cards/vital_core.py | VitalCore | vital_core | Vital Core | 1 | Boosts vitality and hp; grants additional vitality when low on health | effects.max_hp=0.03, effects.vitality=0.03 |
+| backend/plugins/cards/vital_surge.py | VitalSurge | vital_surge | Vital Surge | 2 | Boosts max hp; wounded allies gain atk | effects.max_hp=0.55 |
