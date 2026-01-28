@@ -1,10 +1,9 @@
-
 Run a blog pipeline for today’s website post (fact-first, Becca voice preserved)
 
 Vibe check (30 seconds)
 - Keep it light and fun, but don’t fake facts.
 - Becca stays Becca (admin/blogger voice, not coder voice).
-- Recent posts repeated themselves and sometimes slipped into “coder voice”.
+- Recent posts repeated themselves and sometimes slipped into `coder voice`.
 - We want Becca to stay Becca: admin/blogger perspective, truthful, specific, and not mean-spirited.
 
 Artifacts (required)
@@ -14,18 +13,19 @@ Artifacts (required)
 You must run this exact subagent loop until the post is ready:
 preblogger -> blogger -> auditor -> blogger (repeat auditor/blogger as needed)
 If unsure which subagent mode to use at any point, use `mode-picker`.
+For running main agent to sub agent, use your own copilot subagent tool, the sub agents you setup may use codex. (Only let the sub agents use codex, you should not)
 
 Helpers are welcome (keep them tidy)
 - When you need a helper agent for research/review work, use `codex exec` in read-only mode, write its final answer with `-o` into `/tmp/agents-artifacts/`, and redirect all other chatter to a log file.
 - Before running helpers, copy the relevant mode file(s) into `/tmp/agents-artifacts/` so helpers can read them even when launched with `-C` in another repo:
   - `cp .codex/modes/BLOGGER.md /tmp/agents-artifacts/BLOGGER.md`
 - Template:
-  - `codex exec -s read-only -o /tmp/agents-artifacts/<name>.md "<instructions>" > /tmp/agents-artifacts/subagent-run.log 2>&1`
+  - `codex exec -s read-only -o /tmp/agents-artifacts/<name>.md `<instructions>` > /tmp/agents-artifacts/subagent-run.log 2>&1`
   - (If you run multiple helpers, consider switching `>` to `>>` or using per-helper log files so you don’t overwrite earlier logs.)
 
 Guardrails (so we don’t accidentally lie)
 - Preblogger work is read-only: do not modify any repository working tree (no fetch/pull/checkout).
-- Do not create “process docs” or extra documentation files; only produce the required artifacts in `/tmp/agents-artifacts/`.
+- Do not create `process docs` or extra documentation files; only produce the required artifacts in `/tmp/agents-artifacts/`.
 - Do not write drafts or notes into the repo working tree. Keep all temporary writing in `/tmp/agents-artifacts/`.
 - The website post must include BOTH:
   - (1) Notable things Luna Midori did in the past few days (from requester notes)
@@ -43,11 +43,11 @@ Time window
 - Use the last 3 days of commits (today, yesterday, and the day before) to avoid timezone drift.
 
 Step 1: Preblogger (evidence gathering only)
-Goal: produce a clean “change brief” for the blogger with commit-hash citations and concise diff-based summaries.
+Goal: produce a clean `change brief` for the blogger with commit-hash citations and concise diff-based summaries.
 
 For EACH repo listed above:
 1) List commits from the last 3 days (do not fetch/pull/checkout):
-   - `git -C <repo_path> log --since="3 days ago" --date=short --pretty=format:"%H | %ad | %s"`
+   - `git -C <repo_path> log --since=`3 days ago` --date=short --pretty=format:`%H | %ad | %s``
 2) For each commit hash found, capture the diff without altering the working tree:
    - `git -C <repo_path> show --stat --patch <sha>`
 3) Build a structured brief for the blogger:
@@ -68,14 +68,15 @@ Rules
 - Follow `.codex/modes/BLOGGER.md` (website post rules and Becca voice) and use recent website posts in `./Website-Blog/blog/posts/` to keep continuity and avoid repeats.
 - You may use `codex exec` helper agents for the legwork (running `gh` commands, scanning issues/PRs, reading recent posts), but the final post must reflect Becca’s admin/blogger perspective and must stay truthful.
 - Tone: keep it light and fun (warm, human, a little playful) while staying honest and specific.
-- Date rule: do not hard-code “today’s date” in prompts. Resolve the post date at runtime (example: `date +%F`) and use it consistently for the website post filename and cover image path (per Blogger Mode).
+- Date rule: do not hard-code `today’s date` in prompts. Resolve the post date at runtime (example: `date +%F`) and use it consistently for the website post filename and cover image path (per Blogger Mode).
+- Remind the Blogger that they need to take on Becca's voice, make the post as Becca not as a agent making
 - Cover image: pick one and open the exact image file you plan to use before describing it.
 
 Optional helper patterns (examples)
 - Summarize the last ~5 website posts so you can avoid repeating yourself:
-  - `codex exec -s read-only -o /tmp/agents-artifacts/website-last-5-skim.md "Read the last ~5 files in Website-Blog/blog/posts/ and list: (1) 2–5 topics that were already explained recently, (2) 0–5 good callback candidates with their dates. Keep it concise." > /tmp/agents-artifacts/subagent-run.log 2>&1`
-- Per repo, summarize “what’s being worked on” from issues/PRs (theme-level, no numbers/titles in the final post):
-  - `codex exec -s read-only -C <repo_path> -o /tmp/agents-artifacts/<repo>-issues-prs.md "First read /tmp/agents-artifacts/BLOGGER.md. Then follow it: review issues + PRs for this repo, read anything you might mention, and summarize the themes for Becca in plain language. Do not invent facts." > /tmp/agents-artifacts/subagent-run.log 2>&1`
+  - `codex exec -s read-only -o /tmp/agents-artifacts/website-last-5-skim.md `Read the last ~5 files in Website-Blog/blog/posts/ and list: (1) 2–5 topics that were already explained recently, (2) 0–5 good callback candidates with their dates. Keep it concise.` > /tmp/agents-artifacts/subagent-run.log 2>&1`
+- Per repo, summarize `what’s being worked on` from issues/PRs (theme-level, no numbers/titles in the final post):
+  - `codex exec -s read-only -C <repo_path> -o /tmp/agents-artifacts/<repo>-issues-prs.md `First read /tmp/agents-artifacts/BLOGGER.md. Then follow it: review issues + PRs for this repo, read anything you might mention, and summarize the themes for Becca in plain language. Do not invent facts.` > /tmp/agents-artifacts/subagent-run.log 2>&1`
 
 Output
 - Write `websitepost.md` to `/tmp/agents-artifacts/websitepost-draft.md`
@@ -92,35 +93,35 @@ Rules
     - `python3 - <<'PY' > /tmp/agents-artifacts/auditor-similarity.txt
 import difflib, glob, os, subprocess
 
-draft = "/tmp/agents-artifacts/websitepost-draft.md"
-posts = subprocess.check_output(["bash","-lc","ls -1 Website-Blog/blog/posts/*.md 2>/dev/null | sort | tail -n 5"]).decode().strip().splitlines()
+draft = `/tmp/agents-artifacts/websitepost-draft.md`
+posts = subprocess.check_output([`bash`,`-lc`,`ls -1 Website-Blog/blog/posts/*.md 2>/dev/null | sort | tail -n 5`]).decode().strip().splitlines()
 
-with open(draft, "r", encoding="utf-8", errors="ignore") as f:
+with open(draft, `r`, encoding=`utf-8`, errors=`ignore`) as f:
     draft_text = f.read()
 
-print("draft:", draft)
-print("posts:", len(posts))
+print(`draft:`, draft)
+print(`posts:`, len(posts))
 print()
 
 flagged = []
 for p in posts:
     try:
-        with open(p, "r", encoding="utf-8", errors="ignore") as f:
+        with open(p, `r`, encoding=`utf-8`, errors=`ignore`) as f:
             post_text = f.read()
     except FileNotFoundError:
         continue
     ratio = difflib.SequenceMatcher(None, draft_text, post_text).ratio()
-    print(f"{ratio:.3f}  {p}")
+    print(f`{ratio:.3f}  {p}`)
     if ratio >= 0.5:
         flagged.append((ratio, p))
 
 print()
 if flagged:
-    print("FLAGGED (>= 0.5):")
+    print(`FLAGGED (>= 0.5):`)
     for ratio, p in sorted(flagged, reverse=True):
-        print(f"{ratio:.3f}  {p}")
+        print(f`{ratio:.3f}  {p}`)
 else:
-    print("No posts flagged (>= 0.5).")
+    print(`No posts flagged (>= 0.5).`)
 PY`
   - If any post is `>= 0.5`, you must open/read the flagged post(s) and the draft, then explicitly point out what’s being repeated and request a rewrite or a clear callback framing.
 - Auditor must read past website posts to learn Becca’s voice (and to catch repetition).
