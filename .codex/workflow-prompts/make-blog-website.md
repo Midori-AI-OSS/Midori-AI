@@ -11,20 +11,20 @@ Artifacts (required)
 - All subagents must write their outputs/drafts to `/tmp/agents-artifacts/` (do not put drafts in the repo).
 
 You must run this exact subagent loop until the post is ready:
-preblogger -> blogger -> auditor -> blogger (repeat auditor/blogger as needed)
+change-diff-gatherer -> blogger -> auditor -> blogger (repeat auditor/blogger as needed)
 If unsure which subagent mode to use at any point, use `mode-picker`.
 For running main agent to sub agent, use your own copilot subagent tool, the sub agents you setup may use codex. (Only let the sub agents use codex, you should not)
 
 Helpers are welcome (keep them tidy)
 - When you need a helper agent for research/review work, use `codex exec` in read-only mode, write its final answer with `-o` into `/tmp/agents-artifacts/`, and redirect all other chatter to a log file.
 - Before running helpers, copy the relevant mode file(s) into `/tmp/agents-artifacts/` so helpers can read them even when launched with `-C` in another repo:
-  - `cp .codex/modes/BLOGGER.md /tmp/agents-artifacts/BLOGGER.md`
+  - `cp .codex/modes/blog/BLOGGER.md /tmp/agents-artifacts/BLOGGER.md`
 - Template:
   - `codex exec -s read-only -o /tmp/agents-artifacts/<name>.md `<instructions>` > /tmp/agents-artifacts/subagent-run.log 2>&1`
   - (If you run multiple helpers, consider switching `>` to `>>` or using per-helper log files so you don’t overwrite earlier logs.)
 
 Guardrails (so we don’t accidentally lie)
-- Preblogger work is read-only: do not modify any repository working tree (no fetch/pull/checkout).
+- Change-Diff-Gatherer work is read-only: do not modify any repository working tree (no fetch/pull/checkout).
 - Do not create `process docs` or extra documentation files; only produce the required artifacts in `/tmp/agents-artifacts/`.
 - Do not write drafts or notes into the repo working tree. Keep all temporary writing in `/tmp/agents-artifacts/`.
 - The website post must include BOTH:
@@ -42,30 +42,34 @@ Repos available
 Time window
 - Use the last 3 days of commits (today, yesterday, and the day before) to avoid timezone drift.
 
-Step 1: Preblogger (evidence gathering only)
-Goal: produce a clean `change brief` for the blogger with commit-hash citations and concise diff-based summaries.
+Step 1: Change-Diff-Gatherer (evidence gathering only)
+Goal: produce a clean `change brief` for the blogger with concise diff-based summaries (no raw diffs; no commit IDs in the brief).
 
 For EACH repo listed above:
-1) List commits from the last 3 days (do not fetch/pull/checkout):
-   - `git -C <repo_path> log --since=`3 days ago` --date=short --pretty=format:`%H | %ad | %s``
-2) For each commit hash found, capture the diff without altering the working tree:
+1) Record the current branch:
+   - `git -C <repo_path> rev-parse --abbrev-ref HEAD`
+2) Collect commit hashes to process (do not fetch/pull/checkout):
+   - `git -C <repo_path> log --since="3 days ago" -n 50 --pretty=format:"%H"`
+3) For each commit hash found, capture metadata + diff without altering the working tree:
+   - `git -C <repo_path> show -s --date=short --format="%ad | %s" <sha>`
    - `git -C <repo_path> show --stat --patch <sha>`
-3) Build a structured brief for the blogger:
+4) Build a structured brief for the blogger:
    - Repo name
-   - Bullet list of commits (hash, date, subject)
-   - For each commit: 2–5 bullets describing what changed (from the diff)
+   - Branch name
+   - Bullet list of updates (date, subject; no commit IDs)
+   - For each update: 2–5 bullets describing what changed (from the diff; no commit IDs)
    - Highlight anything user-visible, stability-related, or workflow-related
-4) If there are zero commits in the last 3 days for a repo, explicitly say: `no recent commits.`
+5) If there are zero commits in the last 3 days for a repo, do not bring up that repo in the brief.
 
-Preblogger output format (single message, written to `/tmp/agents-artifacts/preblogger-brief.md`)
+Change-Diff-Gatherer output format (single message, written to `/tmp/agents-artifacts/change-diff-gatherer-brief.md`)
 - Section per repo
-- Each section includes commit hashes + diff-based summary (no speculation)
+- Each section includes diff-based summary (no speculation; no raw diffs; no commit IDs)
 
 Step 2: Blogger (write the website post)
-Goal: write a website post using the preblogger brief + requester notes, following Blogger Mode exactly.
+Goal: write a website post using the Change-Diff-Gatherer brief + requester notes, following Blogger Mode exactly.
 
 Rules
-- Follow `.codex/modes/BLOGGER.md` (website post rules and Becca voice) and use recent website posts in `./Website-Blog/blog/posts/` to keep continuity and avoid repeats.
+- Follow `.codex/modes/blog/BLOGGER.md` (website post rules and Becca voice) and use recent website posts in `./Website-Blog/blog/posts/` to keep continuity and avoid repeats.
 - You may use `codex exec` helper agents for the legwork (running `gh` commands, scanning issues/PRs, reading recent posts), but the final post must reflect Becca’s admin/blogger perspective and must stay truthful.
 - Tone: keep it light and fun (warm, human, a little playful) while staying honest and specific.
 - Date rule: do not hard-code `today’s date` in prompts. Resolve the post date at runtime (example: `date +%F`) and use it consistently for the website post filename and cover image path (per Blogger Mode).
