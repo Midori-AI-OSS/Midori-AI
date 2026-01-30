@@ -51,6 +51,8 @@ class Game:
         self.run_time_s = 0.0
         self._hp_ramp_started_at_s: float | None = None
 
+        self._foe_shape_scale = float(CONFIG.render.foe_shape_scale)
+
         self.spawn_timer = 0.0
         self.spawn_rate = float(CONFIG.spawning.start_spawn_rate_s)
         self.spawn_speedup_per_kill = float(CONFIG.spawning.spawn_speedup_per_kill)
@@ -75,11 +77,42 @@ class Game:
         self.manager.initialize_sim(weave_image_path, player_anchor=(self.player_pos[0], self.player_pos[1], 0.0))
         self.reset()
 
+    def apply_config(self, *, rescale_existing_foes: bool = True) -> None:
+        self.difficulty = float(CONFIG.difficulty)
+
+        new_max_hp = float(CONFIG.player.start_hp)
+        if abs(new_max_hp - float(self.player_max_hp)) > 1e-6:
+            if not self.is_game_over and abs(float(self.player_hp) - float(self.player_max_hp)) < 1e-6:
+                self.player_hp = float(new_max_hp)
+            self.player_max_hp = float(new_max_hp)
+
+        self.spawn_speedup_per_kill = float(CONFIG.spawning.spawn_speedup_per_kill)
+        self.hp_ramp_per_s = float(CONFIG.foe.hp_ramp_per_s)
+
+        self.fire_rate = float(max(0.02, float(CONFIG.projectile.fire_rate_s)))
+        self.foe_attack_interval_s = float(max(0.05, float(CONFIG.foe.attack_interval_s)))
+        self.foe_attack_damage = float(max(0.0, float(CONFIG.foe.attack_damage)))
+        self._attack_ndc_y = float(CONFIG.foe.attack_zone_ndc_y)
+
+        desired_spawn_rate = float(max(0.05, float(CONFIG.spawning.start_spawn_rate_s)))
+        if abs(desired_spawn_rate - float(self.spawn_rate)) > 1e-6:
+            self.spawn_rate = float(desired_spawn_rate)
+            self.spawn_timer = float(min(max(0.0, float(self.spawn_timer)), float(self.spawn_rate)))
+
+        new_scale = float(max(1e-6, float(CONFIG.render.foe_shape_scale)))
+        if abs(new_scale - float(self._foe_shape_scale)) > 1e-6:
+            if rescale_existing_foes and self.foes:
+                ratio = float(new_scale / float(self._foe_shape_scale))
+                for foe in self.foes:
+                    foe.local_shape = foe.local_shape * ratio
+            self._foe_shape_scale = float(new_scale)
+
     def set_view(self, *, camera, aspect: float) -> None:
         self._camera = camera
         self._aspect = float(aspect)
 
     def reset(self) -> None:
+        self.apply_config(rescale_existing_foes=False)
         for foe in self.foes:
             self._hide_foe(foe)
             self.manager.free_foe(foe.pool_idx)
@@ -220,13 +253,18 @@ class Game:
     def _update_foes(self, dt: float) -> None:
         speed = float(CONFIG.foe.move_speed)
         dead_indices: list[int] = []
+        standoff = float(CONFIG.player.radius) + float(CONFIG.foe.standoff_margin)
 
         for i, foe in enumerate(self.foes):
             if not foe.attacking:
                 dx = float(self.player_pos[0]) - float(foe.pos[0])
                 dy = float(self.player_pos[1]) - float(foe.pos[1])
                 dist = math.sqrt(dx * dx + dy * dy)
-                if dist > 1e-6:
+                stop_dist = max(float(foe.radius) * 1.25, standoff + float(foe.radius))
+                if dist <= stop_dist:
+                    foe.attacking = True
+                    foe.attack_timer = 0.0
+                elif dist > 1e-6:
                     foe.pos[0] += (dx / dist) * speed * float(dt)
                     foe.pos[1] += (dy / dist) * speed * float(dt)
 

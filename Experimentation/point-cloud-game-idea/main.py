@@ -8,6 +8,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QSurfaceFormat
+from point_cloud_game.style import app_stylesheet
 from point_cloud_game.ui import GameWindow
 
 def main():
@@ -26,6 +27,7 @@ def main():
     QSurfaceFormat.setDefaultFormat(fmt)
 
     app = QApplication(sys.argv)
+    app.setStyleSheet(app_stylesheet())
     
     # Dark Mode Palette
     # (Optional, styling handles most)

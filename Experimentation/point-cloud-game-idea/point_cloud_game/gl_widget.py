@@ -16,6 +16,7 @@ from PySide6.QtGui import QMouseEvent
 from PySide6.QtGui import QWheelEvent
 from PySide6.QtOpenGLWidgets import QOpenGLWidget
 
+from config import CONFIG
 from point_cloud_game.camera import TopDownCamera
 from point_cloud_game.profile import ProfilerController
 from point_cloud_game.sim import WeaveSim
@@ -106,13 +107,28 @@ class WeaveGLWidget(QOpenGLWidget):
 
         self._last_frame = time.perf_counter()
 
+        self._scene_visible = True
+
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._tick)
         self._timer.start(0)
 
+        self.apply_config()
+
+    def set_scene_visible(self, visible: bool) -> None:
+        self._scene_visible = bool(visible)
+        if self.sim is not None:
+            self.sim.paused = not self._scene_visible
+
     def reset_sim(self) -> None:
         seed = int(torch.randint(0, 2**31 - 1, (1,), device="cpu").item())
         self.sim.reset_state(seed=seed)
+
+    def apply_config(self) -> None:
+        self.render.point_size = float(CONFIG.render.point_size)
+        self.render.softness = float(CONFIG.render.softness)
+        self.render.depth_fade = float(CONFIG.render.depth_fade)
+        self.render.exposure = float(CONFIG.render.exposure)
 
     def screenshot(self, out_path: Path) -> None:
         out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -169,6 +185,13 @@ class WeaveGLWidget(QOpenGLWidget):
         height = max(1, self.height())
         aspect = width / height
 
+        fbo = ctx.detect_framebuffer()
+        fbo.use()
+        ctx.viewport = (0, 0, width, height)
+        if not self._scene_visible:
+            fbo.clear(0.0, 0.0, 0.0, 1.0)
+            return
+
         view = self.camera.view_matrix()
         proj = self.camera.proj_matrix(aspect)
 
@@ -181,9 +204,6 @@ class WeaveGLWidget(QOpenGLWidget):
         prog_points["u_depth_fade"].value = float(self.render.depth_fade)
         prog_points["u_exposure"].value = float(self.render.exposure)
 
-        fbo = ctx.detect_framebuffer()
-        fbo.use()
-        ctx.viewport = (0, 0, width, height)
         fbo.clear(0.0, 0.0, 0.0, 1.0)
         ctx.enable(moderngl.BLEND)
         ctx.blend_func = (moderngl.ONE, moderngl.ONE)

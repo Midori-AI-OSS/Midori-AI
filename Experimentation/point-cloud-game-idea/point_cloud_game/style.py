@@ -19,6 +19,19 @@ QFrame#mainMenuPanel, QWidget#mainMenuPanel {
     border-radius: 0px;
 }
 
+QFrame#mainMenuPanel[fullScreen="true"], QWidget#mainMenuPanel[fullScreen="true"] {
+    background-color: rgba(0, 0, 0, 245);
+    border: none;
+}
+
+QFrame#mainMenuPanel[fullScreen="true"][mode="pause"], QWidget#mainMenuPanel[fullScreen="true"][mode="pause"] {
+    background-color: rgba(0, 0, 0, 160);
+}
+
+QFrame#mainMenuPanel[fullScreen="true"][mode="game_over"], QWidget#mainMenuPanel[fullScreen="true"][mode="game_over"] {
+    background-color: rgba(0, 0, 0, 220);
+}
+
 QPushButton[stainedMenu="true"] {
     background-color: rgba(255, 255, 255, 26);
     border: none;
