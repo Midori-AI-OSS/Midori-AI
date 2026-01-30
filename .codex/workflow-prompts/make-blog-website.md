@@ -8,10 +8,11 @@ Vibe check (30 seconds)
 
 Artifacts (required)
 - Create/use: `/tmp/agents-artifacts/`
-- All subagents must write their outputs/drafts to `/tmp/agents-artifacts/` (do not put drafts in the repo).
+- All subagents must write their outputs/drafts to `/tmp/agents-artifacts/`.
+- Staging exception: change gatherers and Blog-Prompter may also write their brief/handoff files into `.codex/blog/staging/`.
 
 You must run this exact subagent loop until the post is ready:
-change-diff-gatherer -> blogger -> auditor -> blogger (repeat auditor/blogger as needed)
+change-diff-gatherer -> change-pr-gatherer -> change-issue-gatherer -> change-context-gatherer -> blog-prompter -> blogger -> auditor -> blogger (repeat auditor/blogger as needed)
 If unsure which subagent mode to use at any point, use `mode-picker`.
 For running main agent to sub agent, use your own copilot subagent tool, the sub agents you setup may use codex. (Only let the sub agents use codex, you should not)
 
@@ -24,9 +25,10 @@ Helpers are welcome (keep them tidy)
   - (If you run multiple helpers, consider switching `>` to `>>` or using per-helper log files so you don’t overwrite earlier logs.)
 
 Guardrails (so we don’t accidentally lie)
-- Change-Diff-Gatherer work is read-only: do not modify any repository working tree (no fetch/pull/checkout).
+- Change gatherer work is read-only: do not modify any repository working tree (no fetch/pull/checkout).
 - Do not create `process docs` or extra documentation files; only produce the required artifacts in `/tmp/agents-artifacts/`.
-- Do not write drafts or notes into the repo working tree. Keep all temporary writing in `/tmp/agents-artifacts/`.
+- Staging exception: the change gatherers and Blog-Prompter may write their brief/handoff files into `.codex/blog/staging/`.
+- Do not write drafts or notes elsewhere in the repo working tree. Keep all other temporary writing in `/tmp/agents-artifacts/`.
 - The website post must include BOTH:
   - (1) Notable things Luna Midori did in the past few days (from requester notes)
   - (2) What changed in the repos (based on real commits/diffs), including the mounted read-only repos
@@ -65,12 +67,52 @@ Change-Diff-Gatherer output format (single message, written to `/tmp/agents-arti
 - Section per repo
 - Each section includes diff-based summary (no speculation; no raw diffs; no commit IDs)
 
-Step 2: Blogger (write the website post)
-Goal: write a website post using the Change-Diff-Gatherer brief + requester notes, following Blogger Mode exactly.
+Output
+- Also stage to `.codex/blog/staging/change-diff-gatherer-brief.md`
+
+Step 2: Change-PR-Gatherer (evidence gathering only)
+Goal: produce a clean PR brief for the blogger (themes only; no PR numbers/titles/URLs).
+
+Note
+- Run `gh` commands from inside each repo directory (do not use `gh -R <repo_path>`; `-R/--repo` expects `OWNER/REPO`).
+
+Output
+- Write to `/tmp/agents-artifacts/change-pr-gatherer-brief.md`
+- Also stage to `.codex/blog/staging/change-pr-gatherer-brief.md`
+
+Step 3: Change-Issue-Gatherer (evidence gathering only)
+Goal: produce a clean issues brief for the blogger (themes only; no issue numbers/titles/URLs).
+
+Note
+- Run `gh` commands from inside each repo directory (do not use `gh -R <repo_path>`; `-R/--repo` expects `OWNER/REPO`).
+
+Output
+- Write to `/tmp/agents-artifacts/change-issue-gatherer-brief.md`
+- Also stage to `.codex/blog/staging/change-issue-gatherer-brief.md`
+
+Step 4: Change-Context-Gatherer (evidence gathering only)
+Goal: produce a small context brief for the blogger (workflow/focus signals; no speculation).
+
+Output
+- Write to `/tmp/agents-artifacts/change-context-gatherer-brief.md`
+- Also stage to `.codex/blog/staging/change-context-gatherer-brief.md`
+
+Step 5: Blog-Prompter (handoff builder)
+Goal: combine all staged briefs into a single, Blogger-ready handoff file.
+
+Output
+- Write to `/tmp/agents-artifacts/blogger-handoff.md`
+- Also stage to `.codex/blog/staging/blogger-handoff.md`
+
+Cleanup (required)
+- After the handoff is written, delete the source briefs from `.codex/blog/staging/` so Blogger only sees the handoff file.
+
+Step 6: Blogger (write the website post)
+Goal: write a website post using `blogger-handoff.md` + requester notes, following Blogger Mode exactly.
 
 Rules
 - Follow `.codex/modes/blog/BLOGGER.md` (website post rules and Becca voice) and use recent website posts in `./Website-Blog/blog/posts/` to keep continuity and avoid repeats.
-- You may use `codex exec` helper agents for the legwork (running `gh` commands, scanning issues/PRs, reading recent posts), but the final post must reflect Becca’s admin/blogger perspective and must stay truthful.
+- Blogger does not run `git` or `gh`. Use the staged handoff: `.codex/blog/staging/blogger-handoff.md` (or `/tmp/agents-artifacts/blogger-handoff.md`).
 - Tone: keep it light and fun (warm, human, a little playful) while staying honest and specific.
 - Date rule: do not hard-code `today’s date` in prompts. Resolve the post date at runtime (example: `date +%F`) and use it consistently for the website post filename and cover image path (per Blogger Mode).
 - Remind the Blogger that they need to take on Becca's voice, make the post as Becca not as a agent making
@@ -79,14 +121,12 @@ Rules
 Optional helper patterns (examples)
 - Summarize the last ~5 website posts so you can avoid repeating yourself:
   - `codex exec -s read-only -o /tmp/agents-artifacts/website-last-5-skim.md `Read the last ~5 files in Website-Blog/blog/posts/ and list: (1) 2–5 topics that were already explained recently, (2) 0–5 good callback candidates with their dates. Keep it concise.` > /tmp/agents-artifacts/subagent-run.log 2>&1`
-- Per repo, summarize `what’s being worked on` from issues/PRs (theme-level, no numbers/titles in the final post):
-  - `codex exec -s read-only -C <repo_path> -o /tmp/agents-artifacts/<repo>-issues-prs.md `First read /tmp/agents-artifacts/BLOGGER.md. Then follow it: review issues + PRs for this repo, read anything you might mention, and summarize the themes for Becca in plain language. Do not invent facts.` > /tmp/agents-artifacts/subagent-run.log 2>&1`
 
 Output
 - Write `websitepost.md` to `/tmp/agents-artifacts/websitepost-draft.md`
 - Website-only (do not write Discord/Facebook/LinkedIn posts unless explicitly requested later).
 
-Step 3: Auditor (proofread + fact-check only)
+Step 7: Auditor (proofread + fact-check only)
 Goal: ensure statements are true, the post is readable, and Becca’s established voice is preserved.
 
 Rules
@@ -138,7 +178,7 @@ PY`
   - Provide a minimal rewrite suggestion (keep Becca’s tone)
   - Call out missing repo coverage, missing requester-note coverage, or vague claims
 
-Step 4: Blogger (apply auditor edits)
+Step 8: Blogger (apply auditor edits)
 - Apply auditor feedback (keep changes minimal; preserve Becca voice).
 - Output the revised post to `/tmp/agents-artifacts/websitepost-revised.md`
 
