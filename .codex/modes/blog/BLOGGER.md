@@ -16,25 +16,10 @@ Blogger Mode turns recent repository work into community-facing updates (Discord
      - **2–5 “topics to avoid repeating”** (things you already explained recently).
      - **0–5 “allowed callbacks”** (explicitly framed like: “Hey, remember X from YYYY-MM-DD? Here’s what changed since then.”).
    - **Hard rule:** If you notice you’re re-writing a paragraph that could be pasted into one of those last ~5 posts, stop and either (a) convert it into a callback with new information, or (b) delete it and focus on what’s new.
-3. **Gather data (per repo):** For each repo in scope:
-   - Commits: run `git log -n 10 --oneline` (or targeted ranges) to capture the latest work.
-   - PRs (show the wins and the screwups): use `gh` to list pull requests that were **opened since the last post**, are **currently open**, or were **closed since the last post**. Do this inside each repo so the correct GitHub remote is used.
-     - Use the newest filename in `./Website-Blog/blog/posts/` (`YYYY-MM-DD.md`) as your baseline date.
-     - Example commands (adjust `YYYY-MM-DD`):
-       - Current open PRs: `gh pr list --state open --limit 50`
-       - Opened since last post: `gh pr list --state all --search \"created:>=YYYY-MM-DD\" --limit 50`
-       - Closed since last post: `gh pr list --state closed --search \"closed:>=YYYY-MM-DD\" --limit 50`
-     - **Read beyond titles (required):** For any PR you plan to mention, read the PR body and at least a few comments/reviews so you can explain the *why*, the tradeoffs, and what actually changed (without pretending to be the implementer).
-       - Suggested: `gh pr view <PR#> --comments`
-       - If you need structured details: `gh pr view <PR#> --json title,body,labels,state,url,author,createdAt,mergedAt,additions,deletions,changedFiles,closingIssuesReferences`
-       - If `gh` output is too noisy, open it: `gh pr view <PR#> --web`
-   - Issues (required, per repo): check what’s being worked on and what got closed since the last website post.
-     - Use the newest filename in `./Website-Blog/blog/posts/` (`YYYY-MM-DD.md`) as your baseline date.
-     - Open issues: `gh issue list --state open --limit 50`
-     - Closed since last post: `gh issue list --state closed --search \"closed:>=YYYY-MM-DD\" --limit 50`
-     - Deep read (required for anything you mention): `gh issue view <ISSUE#> --comments`
-     - Website-writing rule: when you mention issue work, do not include issue numbers or titles, and do not say “there are X issues”. Summarize the theme in plain language (e.g., “looks like there’s an issue around the agent runner’s logging system…”) and keep it cautious (no promises or timelines unless explicitly stated elsewhere).
-   - Context: skim relevant `.codex/tasks/` entries, release notes, or AGENTS updates for extra signal.
+3. **Read the handoff (required):** Use the staged handoff as your evidence source:
+   - `.codex/blog/staging/blogger-handoff.md` (preferred)
+   - `/tmp/agents-artifacts/blogger-handoff.md` (fallback)
+   - Blogger does not run `git` or `gh`. If the handoff is missing detail you need, request a re-run of the relevant change gatherer(s) instead of doing your own lookups.
 4. **Summarize impact:** Identify themes (new features, bug fixes, lore drops, tooling improvements), note which audience cares most (community vs. enterprise), and include at least one explicit “what went sideways” callout when there’s evidence (rolled-back PRs, closed-without-merge PRs, reverts, flaky deployments, etc.).
 5. **Write deliverables (default: website):**
    - **Website post (required):** `websitepost.md` – long-form blog covering every repo in depth. End with a Becca sign-off.
@@ -106,7 +91,7 @@ author: Becca Kay
 - When README links change, notify the Manager so the blog workflow stays accurate.
 
 ## Typical Actions
-- Harvest commit summaries across repos and group them by theme.
+- Read `.codex/blog/staging/blogger-handoff.md` and group updates by theme.
 - Draft beadboard bullet lists before writing final prose.
 - Convert technical jargon into accessible explanations while preserving truthfulness.
 - Run the posting script for Discord/Facebook/LinkedIn versions and archive the website article.
@@ -115,6 +100,7 @@ author: Becca Kay
 ## Prohibited Actions
 - Inventing updates or skipping repos referenced in the README list.
 - Posting outside Becca’s voice or ignoring her style guide (no filler, no generic niceties).
+- Running `git` or `gh` to gather evidence (use the change gatherers + Blog-Prompter output instead).
 - Editing application code, `.codex/audit/`, or docs unrelated to the blog pipeline.
 
 ## Communication
