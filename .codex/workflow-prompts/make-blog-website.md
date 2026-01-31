@@ -6,22 +6,28 @@ Vibe check (30 seconds)
 - Recent posts repeated themselves and sometimes slipped into `coder voice`.
 - We want Becca to stay Becca: admin/blogger perspective, truthful, specific, and not mean-spirited.
 
+Roles (make “you” unambiguous)
+- Coordinator (main agent): orchestrates the loop, launches subagents, verifies artifacts exist, and enforces guardrails.
+- Subagents: do the actual work in their assigned mode and write the required artifacts.
+- Helpers (optional): launched read-only via `codex exec` to summarize/review; outputs go to `/tmp/agents-artifacts/`.
+
 Artifacts (required)
 - Create/use: `/tmp/agents-artifacts/`
 - All subagents must write their outputs/drafts to `/tmp/agents-artifacts/`.
 - Staging exception: change gatherers and Blog-Prompter may also write their brief/handoff files into `.codex/blog/staging/`.
 
-You must run this exact subagent loop until the post is ready:
-change-diff-gatherer -> change-pr-gatherer -> change-issue-gatherer -> change-context-gatherer -> blog-prompter -> blogger -> auditor -> blogger (repeat auditor/blogger as needed)
-If unsure which subagent mode to use at any point, use `mode-picker`.
-For running main agent to sub agent, use your own copilot subagent tool, the sub agents you setup may use codex. (Only let the sub agents use codex, you should not)
+The loop (required)
+- Coordinator must run this exact subagent loop until the post is ready:
+  change-diff-gatherer -> change-pr-gatherer -> change-issue-gatherer -> change-context-gatherer -> blog-prompter -> blogger -> auditor -> blogger (repeat auditor/blogger as needed)
+- If unsure which subagent mode to use at any point, use `mode-picker`.
+- For main agent -> subagent: use your own copilot subagent tool. Subagents may use codex. (Only subagents use codex; Coordinator should not.)
 
 Helpers are welcome (keep them tidy)
-- When you need a helper agent for research/review work, use `codex exec` in read-only mode, write its final answer with `-o` into `/tmp/agents-artifacts/`, and redirect all other chatter to a log file.
+- When you need a helper for research/review work, use `codex exec` in read-only mode, write its final answer with `-o` into `/tmp/agents-artifacts/`, and redirect all other chatter to a log file.
 - Before running helpers, copy the relevant mode file(s) into `/tmp/agents-artifacts/` so helpers can read them even when launched with `-C` in another repo:
   - `cp .codex/modes/blog/BLOGGER.md /tmp/agents-artifacts/BLOGGER.md`
 - Template:
-  - `codex exec -s read-only -o /tmp/agents-artifacts/<name>.md `<instructions>` > /tmp/agents-artifacts/subagent-run.log 2>&1`
+  - `codex exec -s read-only -o /tmp/agents-artifacts/<name>.md "<instructions>" > /tmp/agents-artifacts/subagent-run.log 2>&1`
   - (If you run multiple helpers, consider switching `>` to `>>` or using per-helper log files so you don’t overwrite earlier logs.)
 
 Guardrails (so we don’t accidentally lie)
@@ -47,7 +53,11 @@ Time window
 Step 1: Change-Diff-Gatherer (evidence gathering only)
 Goal: produce a clean `change brief` for the blogger with concise diff-based summaries (no raw diffs; no commit IDs in the brief).
 
-For EACH repo listed above:
+Coordinator responsibilities
+- Launch the `change-diff-gatherer` subagent with the repos list + time window + output/staging requirements.
+- Verify the brief exists at both required paths when the subagent is done.
+
+Subagent responsibilities (for EACH repo listed above)
 1) Record the current branch:
    - `git -C <repo_path> rev-parse --abbrev-ref HEAD`
 2) Collect commit hashes to process (do not fetch/pull/checkout):
@@ -73,7 +83,10 @@ Output
 Step 2: Change-PR-Gatherer (evidence gathering only)
 Goal: produce a clean PR brief for the blogger (themes only; no PR numbers/titles/URLs).
 
-Note
+Coordinator responsibilities
+- Launch the `change-pr-gatherer` subagent and verify the outputs exist at both required paths.
+
+Subagent note
 - Run `gh` commands from inside each repo directory (do not use `gh -R <repo_path>`; `-R/--repo` expects `OWNER/REPO`).
 
 Output
@@ -83,7 +96,10 @@ Output
 Step 3: Change-Issue-Gatherer (evidence gathering only)
 Goal: produce a clean issues brief for the blogger (themes only; no issue numbers/titles/URLs).
 
-Note
+Coordinator responsibilities
+- Launch the `change-issue-gatherer` subagent and verify the outputs exist at both required paths.
+
+Subagent note
 - Run `gh` commands from inside each repo directory (do not use `gh -R <repo_path>`; `-R/--repo` expects `OWNER/REPO`).
 
 Output
@@ -93,6 +109,9 @@ Output
 Step 4: Change-Context-Gatherer (evidence gathering only)
 Goal: produce a small context brief for the blogger (workflow/focus signals; no speculation).
 
+Coordinator responsibilities
+- Launch the `change-context-gatherer` subagent and verify the outputs exist at both required paths.
+
 Output
 - Write to `/tmp/agents-artifacts/change-context-gatherer-brief.md`
 - Also stage to `.codex/blog/staging/change-context-gatherer-brief.md`
@@ -100,74 +119,93 @@ Output
 Step 5: Blog-Prompter (handoff builder)
 Goal: combine all staged briefs into a single, Blogger-ready handoff file.
 
+Coordinator responsibilities
+- Launch the `blog-prompter` subagent.
+- Verify the handoff exists at both required paths.
+- Verify staging cleanup happened (only the handoff should remain).
+
+Subagent responsibilities
+- Combine all staged briefs into one Blogger-ready handoff.
+- Write the handoff file.
+- Cleanup (required): after the handoff is written, delete the source briefs from `.codex/blog/staging/` so Blogger only sees the handoff file.
+
 Output
 - Write to `/tmp/agents-artifacts/blogger-handoff.md`
 - Also stage to `.codex/blog/staging/blogger-handoff.md`
 
-Cleanup (required)
-- After the handoff is written, delete the source briefs from `.codex/blog/staging/` so Blogger only sees the handoff file.
-
 Step 6: Blogger (write the website post)
 Goal: write a website post using `blogger-handoff.md` + requester notes, following Blogger Mode exactly.
 
-Rules
+Coordinator responsibilities
+- Launch the `blogger` subagent and ensure it uses the staged handoff (not `git`/`gh`).
+- Ensure the blogger is reminded to write as Becca (not as an agent explaining its process).
+
+Rules (for the blogger subagent)
 - Follow `.codex/modes/blog/BLOGGER.md` (website post rules and Becca voice) and use recent website posts in `./Website-Blog/blog/posts/` to keep continuity and avoid repeats.
 - Blogger does not run `git` or `gh`. Use the staged handoff: `.codex/blog/staging/blogger-handoff.md` (or `/tmp/agents-artifacts/blogger-handoff.md`).
 - Tone: keep it light and fun (warm, human, a little playful) while staying honest and specific.
-- Date rule: do not hard-code `today’s date` in prompts. Resolve the post date at runtime (example: `date +%F`) and use it consistently for the website post filename and cover image path (per Blogger Mode).
-- Remind the Blogger that they need to take on Becca's voice, make the post as Becca not as a agent making
+- Date rule: do not hard-code `today’s date`. Resolve the post date at runtime (example: `date +%F`) and use it consistently for the website post filename and cover image path (per Blogger Mode).
 - Cover image: pick one and open the exact image file you plan to use before describing it.
 
 Optional helper patterns (examples)
 - Summarize the last ~5 website posts so you can avoid repeating yourself:
-  - `codex exec -s read-only -o /tmp/agents-artifacts/website-last-5-skim.md `Read the last ~5 files in Website-Blog/blog/posts/ and list: (1) 2–5 topics that were already explained recently, (2) 0–5 good callback candidates with their dates. Keep it concise.` > /tmp/agents-artifacts/subagent-run.log 2>&1`
+  - `codex exec -s read-only -o /tmp/agents-artifacts/website-last-5-skim.md "Read the last ~5 files in Website-Blog/blog/posts/ and list: (1) 2–5 topics that were already explained recently, (2) 0–5 good callback candidates with their dates. Keep it concise." > /tmp/agents-artifacts/subagent-run.log 2>&1`
 
 Output
-- Write `websitepost.md` to `/tmp/agents-artifacts/websitepost-draft.md`
+- Write the draft to `/tmp/agents-artifacts/websitepost-draft.md`
 - Website-only (do not write Discord/Facebook/LinkedIn posts unless explicitly requested later).
 
 Step 7: Auditor (proofread + fact-check only)
 Goal: ensure statements are true, the post is readable, and Becca’s established voice is preserved.
 
-Rules
+Coordinator responsibilities
+- Launch the `auditor` subagent and confirm it produced the required similarity report.
+
+Rules (for the auditor subagent)
 - Similarity check (required)
   - Before giving rewrite suggestions, compare the draft against the last ~5 website posts for accidental repetition.
   - Write results to: `/tmp/agents-artifacts/auditor-similarity.txt`
   - Command (example):
-    - `python3 - <<'PY' > /tmp/agents-artifacts/auditor-similarity.txt
-import difflib, glob, os, subprocess
 
-draft = `/tmp/agents-artifacts/websitepost-draft.md`
-posts = subprocess.check_output([`bash`,`-lc`,`ls -1 Website-Blog/blog/posts/*.md 2>/dev/null | sort | tail -n 5`]).decode().strip().splitlines()
+```bash
+python3 - <<'PY' > /tmp/agents-artifacts/auditor-similarity.txt
+import difflib
+import subprocess
 
-with open(draft, `r`, encoding=`utf-8`, errors=`ignore`) as f:
+draft_path = "/tmp/agents-artifacts/websitepost-draft.md"
+posts = subprocess.check_output(
+    ["bash", "-lc", "ls -1 Website-Blog/blog/posts/*.md 2>/dev/null | sort | tail -n 5"]
+).decode().strip().splitlines()
+
+with open(draft_path, "r", encoding="utf-8", errors="ignore") as f:
     draft_text = f.read()
 
-print(`draft:`, draft)
-print(`posts:`, len(posts))
+print("draft:", draft_path)
+print("posts:", len(posts))
 print()
 
 flagged = []
-for p in posts:
+for path in posts:
     try:
-        with open(p, `r`, encoding=`utf-8`, errors=`ignore`) as f:
+        with open(path, "r", encoding="utf-8", errors="ignore") as f:
             post_text = f.read()
     except FileNotFoundError:
         continue
     ratio = difflib.SequenceMatcher(None, draft_text, post_text).ratio()
-    print(f`{ratio:.3f}  {p}`)
+    print(f"{ratio:.3f}  {path}")
     if ratio >= 0.5:
-        flagged.append((ratio, p))
+        flagged.append((ratio, path))
 
 print()
 if flagged:
-    print(`FLAGGED (>= 0.5):`)
-    for ratio, p in sorted(flagged, reverse=True):
-        print(f`{ratio:.3f}  {p}`)
+    print("FLAGGED (>= 0.5):")
+    for ratio, path in sorted(flagged, reverse=True):
+        print(f"{ratio:.3f}  {path}")
 else:
-    print(`No posts flagged (>= 0.5).`)
-PY`
-  - If any post is `>= 0.5`, you must open/read the flagged post(s) and the draft, then explicitly point out what’s being repeated and request a rewrite or a clear callback framing.
+    print("No posts flagged (>= 0.5).")
+PY
+```
+  - If any post is `>= 0.5`, auditor must open/read the flagged post(s) and the draft, then explicitly point out what’s being repeated and request a rewrite or a clear callback framing.
 - Auditor must read past website posts to learn Becca’s voice (and to catch repetition).
 - Auditor must not edit files and must not generate docs.
 - Auditor is not a co-author: do not rewrite the entire post in a new voice. Ask for minimal, targeted fixes.
@@ -179,7 +217,7 @@ PY`
   - Call out missing repo coverage, missing requester-note coverage, or vague claims
 
 Step 8: Blogger (apply auditor edits)
-- Apply auditor feedback (keep changes minimal; preserve Becca voice).
+- Blogger applies auditor feedback (keep changes minimal; preserve Becca voice).
 - Output the revised post to `/tmp/agents-artifacts/websitepost-revised.md`
 
 Loop
@@ -198,3 +236,4 @@ Requester notes (must be included)
   - Brain stormed plans for a point cloud style game! That was fun!
   - Maybe we need to make better prompting for the blogger and other roles... hmm...
   - Plan removal of past prototypes called `Swarm o codex`, `rpg note taker`, `lrm testing`, from the Monorepo. They were great learning moments for me as a dev.
+  - Played in a new dnd group — got to play `Echo` (more info coming to the lore page) and had a blast!
