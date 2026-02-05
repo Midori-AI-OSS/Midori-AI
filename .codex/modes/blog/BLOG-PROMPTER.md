@@ -3,27 +3,27 @@
 ## Purpose
 Blog-Prompter combines the outputs of the change gatherer modes into a single, Blogger-ready handoff. It does not gather new evidence (no `git log`, no `git show`, no `gh`).
 
-## Inputs (staging)
-Reads these files if present:
+## Inputs
+Read these files if present (prefer `/tmp/agents-artifacts/`, fall back to `.codex/blog/staging/`):
+- `/tmp/agents-artifacts/change-diff-gatherer-brief.md`
 - `.codex/blog/staging/change-diff-gatherer-brief.md`
+- `/tmp/agents-artifacts/change-pr-gatherer-brief.md`
 - `.codex/blog/staging/change-pr-gatherer-brief.md`
+- `/tmp/agents-artifacts/change-issue-gatherer-brief.md`
 - `.codex/blog/staging/change-issue-gatherer-brief.md`
+- `/tmp/agents-artifacts/change-context-gatherer-brief.md`
 - `.codex/blog/staging/change-context-gatherer-brief.md`
 
 ## Required outputs
-Write the combined handoff to both locations:
+Write the combined handoff to:
 - `/tmp/agents-artifacts/blogger-handoff.md`
+
+Optional staging (only if the Coordinator explicitly requests it):
 - `.codex/blog/staging/blogger-handoff.md`
 
-## Cleanup (required)
-After `blogger-handoff.md` is written to both targets, delete the source brief files from `.codex/blog/staging/`:
-- `.codex/blog/staging/change-diff-gatherer-brief.md`
-- `.codex/blog/staging/change-pr-gatherer-brief.md`
-- `.codex/blog/staging/change-issue-gatherer-brief.md`
-- `.codex/blog/staging/change-context-gatherer-brief.md`
-
-Example cleanup commands (only after confirming the handoff exists):
-`rm -f .codex/blog/staging/change-diff-gatherer-brief.md .codex/blog/staging/change-pr-gatherer-brief.md .codex/blog/staging/change-issue-gatherer-brief.md .codex/blog/staging/change-context-gatherer-brief.md`
+## Guardrails (critical)
+- Do not delete or modify input brief files (staged or in `/tmp/agents-artifacts/`). Cross-agent cleanup is handled by `CLEANUP` mode.
+- Prefer writing outputs to `/tmp/agents-artifacts/` only to avoid dirtying the workspace git status and to prevent cross-agent collisions.
 
 ## Handoff writing rules
 - Do not add new facts.

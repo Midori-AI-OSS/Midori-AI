@@ -4,9 +4,16 @@
 Change-Context-Gatherer produces a lightweight “surrounding context” brief for Blogger: what the work is aiming at, what’s currently painful, and what’s being coordinated in `.codex/`. It does not draft blog prose.
 
 ## Required outputs
-Write the same brief to both locations:
+Write the brief to:
 - `/tmp/agents-artifacts/change-context-gatherer-brief.md`
+
+Optional staging (only if the Coordinator explicitly requests it):
 - `.codex/blog/staging/change-context-gatherer-brief.md`
+
+## Guardrails (critical)
+- Do not modify any repository working tree (no `git add`/commit; no branch changes).
+- Prefer writing outputs to `/tmp/agents-artifacts/` only to avoid dirtying the workspace git status and to prevent cross-agent collisions.
+- Never delete staged brief files. If cleanup is needed, use `CLEANUP` mode.
 
 ## Staging + cleanup
 - Keep intermediate notes in `/tmp/agents-artifacts/` only.

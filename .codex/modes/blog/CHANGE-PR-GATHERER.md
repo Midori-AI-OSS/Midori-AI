@@ -4,17 +4,39 @@
 Change-PR-Gatherer produces a PR-focused change brief for Blogger. It gathers evidence with `gh` and writes a readable, diff-free summary. It does not draft blog prose.
 
 ## Required outputs
-Write the same brief to both locations:
+Write the brief to:
 - `/tmp/agents-artifacts/change-pr-gatherer-brief.md`
+
+Optional staging (only if the Coordinator explicitly requests it):
 - `.codex/blog/staging/change-pr-gatherer-brief.md`
+
+## Guardrails (critical)
+- Do not modify any repository working tree (no fetch/pull/checkout/submodule update; no `git add`/commit; no branch changes).
+- Prefer writing outputs to `/tmp/agents-artifacts/` only to avoid dirtying the workspace git status and to prevent cross-agent collisions.
+- Never delete staged brief files. If cleanup is needed, use `CLEANUP` mode.
 
 ## Staging + cleanup
 - Keep intermediate notes in `/tmp/agents-artifacts/` only.
-- Do not include PR numbers, PR titles, or URLs in the staged brief.
+- Do not include PR numbers, PR titles, or URLs in the brief.
 - Do not speculate: only summarize what you can support from PR bodies/comments you actually read.
 
+## Repo scope (required)
+This workspace is a git superproject with submodules. The gatherer must cover workspace sub-repos (submodules), not just the superproject root.
+
+Build the repo list as:
+- Any repo paths explicitly provided by the Coordinator (e.g., mounted read-only repos)
+- The workspace root repo (`git rev-parse --show-toplevel`)
+- Every submodule path from the workspace `.gitmodules`
+
+Preferred way to list submodule paths (run at the workspace root):
+- `git config --file .gitmodules --get-regexp path | awk '{print $2}'`
+
+If there is no `.gitmodules`, treat the submodule list as empty.
+
+Do not discover repos by scanning for `.git` directories (tool caches may contain `.git`). If `git -C <repo_path> rev-parse` fails, skip that path.
+
 ## Method (per repo)
-For each repository path:
+For each repository path in scope:
 1) Record the current branch:
    - `git -C <repo_path> rev-parse --abbrev-ref HEAD`
 2) Compute the time window start date:
