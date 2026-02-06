@@ -14,7 +14,8 @@ Roles (make “you” unambiguous)
 Artifacts (required)
 - Create/use: `/tmp/agents-artifacts/`
 - All subagents must write their outputs/drafts to `/tmp/agents-artifacts/`.
-- Staging exception: change gatherers and Blog-Prompter may also write their brief/handoff files into `.codex/blog/staging/`.
+- Optional staging: only stage into `.codex/blog/staging/` if the Coordinator explicitly requests it (default: `/tmp/agents-artifacts/` only).
+- Never delete staged files during the pipeline. If cleanup is needed, use `CLEANUP` mode.
 
 The loop (required)
 - Coordinator must run this exact subagent loop until the post is ready:
@@ -33,19 +34,24 @@ Helpers are welcome (keep them tidy)
 Guardrails (so we don’t accidentally lie)
 - Change gatherer work is read-only: do not modify any repository working tree (no fetch/pull/checkout).
 - Do not create `process docs` or extra documentation files; only produce the required artifacts in `/tmp/agents-artifacts/`.
-- Staging exception: the change gatherers and Blog-Prompter may write their brief/handoff files into `.codex/blog/staging/`.
+- Prefer `/tmp/agents-artifacts/` outputs. Only write to `.codex/blog/staging/` if the Coordinator explicitly requests it.
 - Do not write drafts or notes elsewhere in the repo working tree. Keep all other temporary writing in `/tmp/agents-artifacts/`.
 - The website post must include BOTH:
   - (1) Notable things Luna Midori did in the past few days (from requester notes)
-  - (2) What changed in the repos (based on real commits/diffs), including the mounted read-only repos
+  - (2) What changed in the repos (based on real commits/diffs), including workspace submodules and mounted read-only repos
 
 Repos available
 - Current workspace repo (this repo)
+- Workspace sub-repos (git submodules from `.gitmodules`)
+  - Repo list helper (run at workspace root): `git config --file .gitmodules --get-regexp path | awk '{print $2}'`
 - Mounted closed source read-only repos:
   - /home/midori-ai/Carly-AGI:ro
   - /home/midori-ai/Cookie-Club-Bots:ro
   - /home/midori-ai/dnd-notes:ro
   - /home/midori-ai/freedome-from-light:ro
+
+Repo scope for gatherers (required)
+- Build a repo path list that includes: workspace root + every submodule path + the mounted read-only repos.
 
 Time window
 - Use the last 3 days of commits (today, yesterday, and the day before) to avoid timezone drift.
@@ -54,8 +60,8 @@ Step 1: Change-Diff-Gatherer (evidence gathering only)
 Goal: produce a clean `change brief` for the blogger with concise diff-based summaries (no raw diffs; no commit IDs in the brief).
 
 Coordinator responsibilities
-- Launch the `change-diff-gatherer` subagent with the repos list + time window + output/staging requirements.
-- Verify the brief exists at both required paths when the subagent is done.
+- Launch the `change-diff-gatherer` subagent with the repos list + time window + output requirements (default: write to `/tmp/agents-artifacts/` only).
+- Verify the brief exists at the required path when the subagent is done.
 
 Subagent responsibilities (for EACH repo listed above)
 1) Record the current branch:
@@ -78,71 +84,69 @@ Change-Diff-Gatherer output format (single message, written to `/tmp/agents-arti
 - Each section includes diff-based summary (no speculation; no raw diffs; no commit IDs)
 
 Output
-- Also stage to `.codex/blog/staging/change-diff-gatherer-brief.md`
+- Optional: stage to `.codex/blog/staging/change-diff-gatherer-brief.md` only if the Coordinator explicitly requests it.
 
 Step 2: Change-PR-Gatherer (evidence gathering only)
 Goal: produce a clean PR brief for the blogger (themes only; no PR numbers/titles/URLs).
 
 Coordinator responsibilities
-- Launch the `change-pr-gatherer` subagent and verify the outputs exist at both required paths.
+- Launch the `change-pr-gatherer` subagent and verify the brief exists at the required path.
 
 Subagent note
 - Run `gh` commands from inside each repo directory (do not use `gh -R <repo_path>`; `-R/--repo` expects `OWNER/REPO`).
 
 Output
 - Write to `/tmp/agents-artifacts/change-pr-gatherer-brief.md`
-- Also stage to `.codex/blog/staging/change-pr-gatherer-brief.md`
+- Optional: stage to `.codex/blog/staging/change-pr-gatherer-brief.md` only if the Coordinator explicitly requests it.
 
 Step 3: Change-Issue-Gatherer (evidence gathering only)
 Goal: produce a clean issues brief for the blogger (themes only; no issue numbers/titles/URLs).
 
 Coordinator responsibilities
-- Launch the `change-issue-gatherer` subagent and verify the outputs exist at both required paths.
+- Launch the `change-issue-gatherer` subagent and verify the brief exists at the required path.
 
 Subagent note
 - Run `gh` commands from inside each repo directory (do not use `gh -R <repo_path>`; `-R/--repo` expects `OWNER/REPO`).
 
 Output
 - Write to `/tmp/agents-artifacts/change-issue-gatherer-brief.md`
-- Also stage to `.codex/blog/staging/change-issue-gatherer-brief.md`
+- Optional: stage to `.codex/blog/staging/change-issue-gatherer-brief.md` only if the Coordinator explicitly requests it.
 
 Step 4: Change-Context-Gatherer (evidence gathering only)
 Goal: produce a small context brief for the blogger (workflow/focus signals; no speculation).
 
 Coordinator responsibilities
-- Launch the `change-context-gatherer` subagent and verify the outputs exist at both required paths.
+- Launch the `change-context-gatherer` subagent and verify the brief exists at the required path.
 
 Output
 - Write to `/tmp/agents-artifacts/change-context-gatherer-brief.md`
-- Also stage to `.codex/blog/staging/change-context-gatherer-brief.md`
+- Optional: stage to `.codex/blog/staging/change-context-gatherer-brief.md` only if the Coordinator explicitly requests it.
 
 Step 5: Blog-Prompter (handoff builder)
-Goal: combine all staged briefs into a single, Blogger-ready handoff file.
+Goal: combine all briefs into a single, Blogger-ready handoff file.
 
 Coordinator responsibilities
 - Launch the `blog-prompter` subagent.
-- Verify the handoff exists at both required paths.
-- Verify staging cleanup happened (only the handoff should remain).
+- Verify the handoff exists at the required path.
 
 Subagent responsibilities
-- Combine all staged briefs into one Blogger-ready handoff.
+- Combine all briefs into one Blogger-ready handoff.
 - Write the handoff file.
-- Cleanup (required): after the handoff is written, delete the source briefs from `.codex/blog/staging/` so Blogger only sees the handoff file.
 
 Output
 - Write to `/tmp/agents-artifacts/blogger-handoff.md`
-- Also stage to `.codex/blog/staging/blogger-handoff.md`
+- Optional: stage to `.codex/blog/staging/blogger-handoff.md` only if the Coordinator explicitly requests it.
 
 Step 6: Blogger (write the website post)
 Goal: write a website post using `blogger-handoff.md` + requester notes, following Blogger Mode exactly.
 
 Coordinator responsibilities
-- Launch the `blogger` subagent and ensure it uses the staged handoff (not `git`/`gh`).
+- Launch the `blogger` subagent and ensure it uses the handoff file (not `git`/`gh`).
 - Ensure the blogger is reminded to write as Becca (not as an agent explaining its process).
 
 Rules (for the blogger subagent)
 - Follow `.codex/modes/blog/BLOGGER.md` (website post rules and Becca voice) and use recent website posts in `./Website-Blog/blog/posts/` to keep continuity and avoid repeats.
-- Blogger does not run `git` or `gh`. Use the staged handoff: `.codex/blog/staging/blogger-handoff.md` (or `/tmp/agents-artifacts/blogger-handoff.md`).
+- Blogger does not run `git` or `gh`. Use the handoff: `/tmp/agents-artifacts/blogger-handoff.md` (or `.codex/blog/staging/blogger-handoff.md`).
 - Tone: keep it light and fun (warm, human, a little playful) while staying honest and specific.
 - Date rule: do not hard-code `today’s date`. Resolve the post date at runtime (example: `date +%F`) and use it consistently for the website post filename and cover image path (per Blogger Mode).
 - Cover image: pick one and open the exact image file you plan to use before describing it.
