@@ -233,11 +233,7 @@ Once ready to publish
 
 Requester notes (must be included)
 - Notable things Luna Midori did the past few days / or wants the blogger to know are as follows:
-  - Baker Rust Bot still has some hard edges that we are working on sanding off, Ie it posts logs everytime someone changes something out side of the server its admin for, admins do not need this type of info...
-  - Worked on prototyping
-  - Went to the docs office and had a great chat about meds and things, hopefully this patches my human issues with not being able to work more =P
-  - Worked on bug fixes for the agents runner - Almost ready for a new stable ver, just doing the last of the clean up
-  - Brain stormed plans for a point cloud style game! That was fun!
-  - Maybe we need to make better prompting for the blogger and other roles... hmm...
-  - Plan removal of past prototypes called `Swarm o codex`, `rpg note taker`, `lrm testing`, from the Monorepo. They were great learning moments for me as a dev.
-  - Played in a new dnd group — got to play `Echo` (more info coming to the lore page) and had a blast!
+  - Worked on prototyping / coding on other projects.
+  - New fitness goal of walking on the walking pad for at least 3 hours a day!
+  - Worked on bug fixes for the agents runner - Rebuild under way as we speak! New agents plugins and reworked task flow!
+  - Plan removal of past prototypes called `Swarm o codex`, `rpg note taker`, `lrm testing`, from the Monorepo. Full removal `2/10/2026` grab them if you want to keep them.
