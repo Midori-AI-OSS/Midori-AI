@@ -234,8 +234,4 @@ Once ready to publish
 Requester notes (must be included)
 - Notable things Luna Midori did the past few days / or wants the blogger to know are as follows:
   (NOTE: Do not reflavor these things as things Becca did, these are things Luna has done)
-  - Worked on prototyping / coding on other projects.
-  - New fitness goal of walking on the walking pad for at least 3 hours a day! (Luna's big goal)
-  - Worked on bug fixes for the agents runner - Rebuild under way as we speak! New agents plugins and reworked task flow!
-    - Follow up, the new rebuild had to be rolled back abit, the new task flow needs to be better planned as it was too big of a change too fast.
-  - Plan removal of past prototypes called `Swarm o codex`, `rpg note taker`, `lrm testing`, from the Monorepo. Full removal `2/10/2026` grab them if you want to keep them.
+  - No Comments from Luna today. She is just hard at work on projects!
