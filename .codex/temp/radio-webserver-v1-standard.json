@@ -1,0 +1,429 @@
+{
+  "title": "Midori AI Radio Webserver-RS Standard Contract",
+  "spec_id": "midoriai.radio.webserver.v1",
+  "status": "active",
+  "spec_version": "1.0.0",
+  "last_verified_utc": "2026-02-11T16:12:19Z",
+  "base_url": "https://radio.midori-ai.xyz",
+  "api_version": "radio.v1",
+  "source_of_truth": {
+    "website_blog_plan": "/home/midori-ai/workspace/Website-Blog/radio-player-handoff.json",
+    "server_routes": "/home/midori-ai/Cookie-Club-Bots/Webserver-RS/crates/bin/src/routes.rs",
+    "server_models": "/home/midori-ai/Cookie-Club-Bots/Webserver-RS/crates/radio/src/models.rs",
+    "server_envelope": "/home/midori-ai/Cookie-Club-Bots/Webserver-RS/crates/core/src/envelope.rs",
+    "server_station_logic": "/home/midori-ai/Cookie-Club-Bots/Webserver-RS/crates/radio/src/station.rs",
+    "server_scanner_logic": "/home/midori-ai/Cookie-Club-Bots/Webserver-RS/crates/radio/src/scanner.rs"
+  },
+  "http_contract": {
+    "metadata_cache_control": "no-store, no-cache, must-revalidate",
+    "stream_cache_control": "public, max-age=30",
+    "json_envelope": {
+      "type": "object",
+      "required": [
+        "version",
+        "ok",
+        "now",
+        "data",
+        "error"
+      ],
+      "fields": {
+        "version": {
+          "type": "string",
+          "constant": "radio.v1"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "now": {
+          "type": "string",
+          "format": "rfc3339-millis-utc"
+        },
+        "data": {
+          "type": "object_or_null"
+        },
+        "error": {
+          "type": "object_or_null",
+          "shape": {
+            "code": "string",
+            "message": "string"
+          }
+        }
+      }
+    }
+  },
+  "channel_rules": {
+    "query_param_name": "channel",
+    "normalization": {
+      "trim_whitespace": true,
+      "lowercase": true,
+      "empty_string_resolves_to": "all",
+      "null_or_missing_resolves_to": "all"
+    },
+    "resolution": {
+      "virtual_channel": "all",
+      "unknown_channel_fallback": "all",
+      "known_channel_source": "top-level MUSIC_DIR folders converted to lowercase",
+      "root_tracks_channel": null,
+      "all_channel_includes": "every playable track including root and nested folder tracks"
+    }
+  },
+  "quality_rules": {
+    "query_param_name": "q",
+    "normalization": {
+      "missing_resolves_to": "medium",
+      "lowercase": true
+    },
+    "allowed": [
+      {
+        "name": "low",
+        "bitrate_kbps": 96
+      },
+      {
+        "name": "medium",
+        "bitrate_kbps": 160
+      },
+      {
+        "name": "high",
+        "bitrate_kbps": 320
+      }
+    ],
+    "invalid_quality_response": {
+      "status_code": 400,
+      "error_code": "INVALID_QUALITY"
+    }
+  },
+  "endpoints": [
+    {
+      "method": "GET",
+      "path": "/health",
+      "query": [],
+      "response": {
+        "content_type": "application/json",
+        "status": 200,
+        "data_shape": {
+          "status": "ready|warming",
+          "warmup_active": "boolean",
+          "track_count": "integer",
+          "cached_tracks": "integer",
+          "cached_bytes": "integer"
+        }
+      },
+      "errors": []
+    },
+    {
+      "method": "GET",
+      "path": "/radio/v1/tracks",
+      "query": [
+        {
+          "name": "channel",
+          "required": false,
+          "notes": "optional, normalized and resolved by channel rules"
+        }
+      ],
+      "response": {
+        "content_type": "application/json",
+        "status": 200,
+        "data_shape": {
+          "tracks": [
+            {
+              "track_id": "string",
+              "title": "string",
+              "format": "mp3|ogg|wav|flac|m4a",
+              "duration_ms": "integer"
+            }
+          ]
+        }
+      },
+      "errors": []
+    },
+    {
+      "method": "GET",
+      "path": "/radio/v1/current",
+      "query": [
+        {
+          "name": "channel",
+          "required": false,
+          "notes": "optional, normalized and resolved by channel rules"
+        }
+      ],
+      "response": {
+        "content_type": "application/json",
+        "status": 200,
+        "data_shape": {
+          "station_label": "string",
+          "channel": "string",
+          "track_id": "string",
+          "title": "string",
+          "duration_ms": "integer",
+          "position_ms": "integer",
+          "started_at": "rfc3339-millis-utc string",
+          "warmup_active": "boolean",
+          "quality_levels": [
+            {
+              "name": "low|medium|high",
+              "bitrate_kbps": "integer"
+            }
+          ]
+        }
+      },
+      "errors": [
+        {
+          "status": 503,
+          "code": "RADIO_UNAVAILABLE"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/radio/v1/channels",
+      "query": [],
+      "response": {
+        "content_type": "application/json",
+        "status": 200,
+        "data_shape": {
+          "channels": [
+            {
+              "name": "string",
+              "track_count": "integer"
+            }
+          ]
+        },
+        "ordering": "sorted by name ascending"
+      },
+      "errors": []
+    },
+    {
+      "method": "GET",
+      "path": "/radio/v1/art",
+      "query": [
+        {
+          "name": "channel",
+          "required": false,
+          "notes": "optional, normalized and resolved by channel rules"
+        }
+      ],
+      "response": {
+        "content_type": "application/json",
+        "status": 200,
+        "data_shape": {
+          "channel": "string",
+          "track_id": "string",
+          "has_art": "boolean",
+          "mime": "string|null",
+          "art_url": "string"
+        },
+        "art_url_rules": {
+          "when_has_art_true": "/radio/v1/art/image?channel=<resolved_channel>",
+          "when_has_art_false": "RADIO_DEFAULT_ART_URL"
+        }
+      },
+      "errors": [
+        {
+          "status": 503,
+          "code": "RADIO_UNAVAILABLE"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/radio/v1/art/image",
+      "query": [
+        {
+          "name": "channel",
+          "required": false,
+          "notes": "optional, normalized and resolved by channel rules"
+        }
+      ],
+      "response": {
+        "content_type": "image/*",
+        "status": 200,
+        "body": "binary image bytes",
+        "selection": {
+          "primary": "embedded track art from current channel track",
+          "fallback": "bytes fetched from RADIO_DEFAULT_ART_URL when embedded art is missing"
+        }
+      },
+      "errors": [
+        {
+          "status": 502,
+          "code": "FALLBACK_FETCH_FAILED"
+        },
+        {
+          "status": 503,
+          "code": "RADIO_UNAVAILABLE"
+        },
+        {
+          "status": 500,
+          "code": "RESPONSE_BUILD_FAILED"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/radio/v1/stream",
+      "query": [
+        {
+          "name": "channel",
+          "required": false,
+          "notes": "optional, normalized and resolved by channel rules"
+        },
+        {
+          "name": "q",
+          "required": false,
+          "notes": "optional, defaults to medium; low|medium|high"
+        }
+      ],
+      "response": {
+        "content_type": "audio/mpeg",
+        "status": 200,
+        "body": "mpeg audio stream",
+        "source_modes": [
+          "warmup loading track loop while station warmup_active=true",
+          "current track audio from in-memory cache after warmup"
+        ]
+      },
+      "errors": [
+        {
+          "status": 400,
+          "code": "INVALID_QUALITY"
+        },
+        {
+          "status": 503,
+          "code": "RADIO_UNAVAILABLE"
+        },
+        {
+          "status": 500,
+          "code": "TRANSCODE_FAILED"
+        },
+        {
+          "status": 500,
+          "code": "RESPONSE_BUILD_FAILED"
+        }
+      ]
+    }
+  ],
+  "examples": {
+    "channels": {
+      "request": "/radio/v1/channels",
+      "success": {
+        "version": "radio.v1",
+        "ok": true,
+        "now": "2026-02-11T00:00:00.000Z",
+        "data": {
+          "channels": [
+            {
+              "name": "all",
+              "track_count": 120
+            },
+            {
+              "name": "lofi",
+              "track_count": 48
+            }
+          ]
+        },
+        "error": null
+      }
+    },
+    "current_with_channel": {
+      "request": "/radio/v1/current?channel=lofi",
+      "success": {
+        "version": "radio.v1",
+        "ok": true,
+        "now": "2026-02-11T00:00:00.000Z",
+        "data": {
+          "station_label": "Midori AI Radio",
+          "channel": "lofi",
+          "track_id": "lofi/rain-night.mp3",
+          "title": "rain-night",
+          "duration_ms": 182000,
+          "position_ms": 45210,
+          "started_at": "2026-02-11T00:00:00.000Z",
+          "warmup_active": false,
+          "quality_levels": [
+            {
+              "name": "low",
+              "bitrate_kbps": 96
+            },
+            {
+              "name": "medium",
+              "bitrate_kbps": 160
+            },
+            {
+              "name": "high",
+              "bitrate_kbps": 320
+            }
+          ]
+        },
+        "error": null
+      }
+    },
+    "art_with_fallback": {
+      "request": "/radio/v1/art?channel=lofi",
+      "success": {
+        "version": "radio.v1",
+        "ok": true,
+        "now": "2026-02-11T00:00:00.000Z",
+        "data": {
+          "channel": "lofi",
+          "track_id": "lofi/rain-night.mp3",
+          "has_art": false,
+          "mime": null,
+          "art_url": "https://tea-cup.midori-ai.xyz/download/logo_color3.png"
+        },
+        "error": null
+      }
+    },
+    "stream_with_quality": {
+      "request": "/radio/v1/stream?channel=lofi&q=high",
+      "response": {
+        "status": 200,
+        "content_type": "audio/mpeg"
+      }
+    },
+    "invalid_quality_error": {
+      "request": "/radio/v1/stream?q=ultra",
+      "error": {
+        "version": "radio.v1",
+        "ok": false,
+        "now": "2026-02-11T00:00:00.000Z",
+        "data": null,
+        "error": {
+          "code": "INVALID_QUALITY",
+          "message": "Invalid quality value: ultra"
+        }
+      }
+    }
+  },
+  "website_blog_handoff_resolution": {
+    "resolved_items": [
+      {
+        "question": "What exact radio API fields and endpoint expose per-track artwork?",
+        "answer": "Use GET /radio/v1/art?channel=<name> for metadata (channel, track_id, has_art, mime, art_url) and GET /radio/v1/art/image?channel=<name> for image bytes."
+      },
+      {
+        "question": "What exact channels API shape should the website player consume?",
+        "answer": "Use GET /radio/v1/channels with envelope data.channels[] entries: { name, track_count }."
+      },
+      {
+        "question": "When channel changes, should stream restart immediately or defer?",
+        "answer": "Server is stateless per request; client chooses behavior. Requesting /radio/v1/stream with a new channel returns that channel's stream immediately."
+      },
+      {
+        "question": "Should channel selection persist per session or account?",
+        "answer": "No server-side session/account channel state exists. Persistence is a client responsibility."
+      },
+      {
+        "question": "Any extra headers/auth for art/channels endpoints?",
+        "answer": "No auth headers required. Endpoints are public read-only and use standard cache-control headers."
+      }
+    ]
+  },
+  "agent_consumption_notes": [
+    "Always parse JSON endpoints via the envelope first. If ok=false, branch on error.code.",
+    "Treat channel names as lowercase and normalize outgoing channel inputs to trim+lowercase.",
+    "Use /radio/v1/current for live title and track_id; use /radio/v1/art for art_url metadata.",
+    "Use /radio/v1/art/image for direct image bytes when a binary image response is required.",
+    "For streams, set q explicitly to avoid ambiguity; omit q only when medium quality is desired by default.",
+    "When channel is missing or unknown, expect all-channel behavior instead of endpoint failure."
+  ]
+}
