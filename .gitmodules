@@ -29,9 +29,9 @@
 [submodule "Python/agents-packages"]
 	path = Python/agents-packages
 	url = https://github.com/Midori-AI-OSS/agents-packages
-[submodule "Codex-Template"]
-	path = Codex-Template
-	url = https://github.com/Midori-AI-OSS/codex_template_repo
+[submodule "Agents-Template"]
+	path = Agents-Template
+	url = https://github.com/Midori-AI-OSS/agents_template
 [submodule "Endless-Idler"]
 	path = Endless-Idler
 	url = https://github.com/Midori-AI-OSS/Stained-Glass-Odyssey-Idle.git
