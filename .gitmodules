@@ -14,14 +14,6 @@
 	path = Obsidian-Notes
 	url = https://github.com/lunamidori5/Midori-AI-Obsidian-Notes.git
 	branch = master
-[submodule "Experimentation/rpg-note-taker"]
-	path = Experimentation/rpg-note-taker
-	url = https://github.com/lunamidori5/rpg-note-taker.git
-	branch = master
-[submodule "Experimentation/lrm-testing"]
-	path = Experimentation/lrm-testing
-	url = https://github.com/lunamidori5/lrm-testing.git
-	branch = master
 [submodule "Endless-Autofighter"]
 	path = Endless-Autofighter
 	url = https://github.com/Midori-AI-OSS/Stained-Glass-Odyssey-Endless.git
