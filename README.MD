@@ -32,13 +32,6 @@ This repository contains the following major projects and modules:
 
 - **Experimentation**  
   Experimental AI projects and proof-of-concept implementations:
-  - **Swarm-o-codex**: Persona-driven orchestration layer for large reasoning models (LRMs).
-    - Multi-backend execution system with specialized agents (Task Master, Manager, Coder, Reviewer, Auditor, Storyteller)
-    - Supports collaborative coding, auditing, storytelling, and automation tasks
-    - Enables local LRM execution (`gpt-oss:20b`) and cloud API integration
-    - Features tool-augmented reasoning via Model Context Protocol servers
-  - **lrm-testing**: Tools and utilities for Large Reasoning Model chat interfaces and Q&A data pipeline development.
-  - **rpg-note-taker**: Utilities for RPG campaign note-taking and management.
 
 - **Python**  
   Python package monorepo for AI agent systems:
