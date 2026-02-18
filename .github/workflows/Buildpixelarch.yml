@@ -41,7 +41,7 @@ jobs:
           sudo mv dist_linux/* /usr/local/bin/
 
       - name: Slim Docker image
-        run: docker-slim build --target lunamidori5/pixelarch:latest --tag quartz-slim
+        run: slim build --target lunamidori5/pixelarch:latest --tag quartz-slim
 
       - name: Build and push PixelArch Docker Image
         uses: docker/build-push-action@master
