@@ -35,10 +35,13 @@ jobs:
             type=raw,value=quartz
             type=raw,value=quartz-slim
 
-      - uses: kitabisa/docker-slim-action@v1
-        with:
-          target: lunamidori5/pixelarch:latest
-          tag: "quartz-slim"
+      - name: Install latest DockerSlim
+        run: |
+          curl -L https://github.com/slimtoolkit/slim/releases/latest/download/dist_linux.tar.gz | tar xz
+          sudo mv dist_linux/* /usr/local/bin/
+
+      - name: Slim Docker image
+        run: docker-slim build --target lunamidori5/pixelarch:latest --tag quartz-slim
 
       - name: Build and push PixelArch Docker Image
         uses: docker/build-push-action@master
