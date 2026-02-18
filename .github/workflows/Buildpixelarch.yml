@@ -70,7 +70,7 @@ jobs:
       - name: Build slim image from Dockerfile
         run: |
           slim build \
-            --dockerfile ./Pixelarch-OS/pixelarch_os/arch_dockerfile \
+            --dockerfile ./arch_dockerfile \
             --tag lunamidori5/pixelarch:quartz-slim \
             ./Pixelarch-OS/pixelarch_os/
 
