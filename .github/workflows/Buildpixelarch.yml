@@ -35,7 +35,7 @@ jobs:
             type=raw,value=quartz
             type=raw,value=quartz-slim
 
-      - uses: kitabisa/docker-slim-action@v1.2.0
+      - uses: kitabisa/docker-slim-action@v1
         with:
           target: lunamidori5/pixelarch:latest
           tag: "quartz-slim"
