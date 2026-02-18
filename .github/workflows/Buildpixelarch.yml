@@ -47,6 +47,7 @@ jobs:
   push_arch_slim_to_hub:
     name: Push Midori AI's PixelArch Slim to Docker Hub
     runs-on: ubuntu-latest
+    needs: push_arch_to_hub  # Wait for the full image to be built and pushed first
     steps:
       - uses: actions/checkout@v6
         with:
@@ -64,12 +65,19 @@ jobs:
           curl -L https://github.com/slimtoolkit/slim/releases/latest/download/dist_linux.tar.gz | tar xz
           sudo mv dist_linux/* /usr/local/bin/
 
-      - name: Build slim image from Dockerfile
+      - name: Pull the full image
         run: |
-          slim build \
-            --dockerfile ./arch_dockerfile \
-            --tag lunamidori5/pixelarch:quartz-slim \
-            ./Pixelarch-OS/pixelarch_os/
+          echo "Pulling lunamidori5/pixelarch:latest"
+          docker pull lunamidori5/pixelarch:latest
+          echo "Verifying image exists"
+          docker images | grep pixelarch
+
+      - name: Build slim image from existing image
+        run: |
+          echo "Building slim version using DockerSlim"
+          slim build --target lunamidori5/pixelarch:latest --tag lunamidori5/pixelarch:quartz-slim
+          echo "Verifying slim image was created"
+          docker images | grep quartz-slim
 
       - name: Push slim image to Docker Hub
         run: docker push lunamidori5/pixelarch:quartz-slim
