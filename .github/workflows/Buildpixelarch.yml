@@ -33,6 +33,12 @@ jobs:
           tags: |
             type=raw,value=latest
             type=raw,value=quartz
+            type=raw,value=quartz-slim
+
+      - uses: kitabisa/docker-slim-action@v1.2.0
+        with:
+          target: lunamidori5/pixelarch:latest
+          tag: "quartz-slim"
 
       - name: Build and push PixelArch Docker Image
         uses: docker/build-push-action@master
