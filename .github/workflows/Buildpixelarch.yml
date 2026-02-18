@@ -52,9 +52,6 @@ jobs:
         with:
           submodules: recursive
 
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-
       - name: Log in to Docker Hub
         uses: docker/login-action@master
         with:
