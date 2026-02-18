@@ -33,15 +33,6 @@ jobs:
           tags: |
             type=raw,value=latest
             type=raw,value=quartz
-            type=raw,value=quartz-slim
-
-      - name: Install latest DockerSlim
-        run: |
-          curl -L https://github.com/slimtoolkit/slim/releases/latest/download/dist_linux.tar.gz | tar xz
-          sudo mv dist_linux/* /usr/local/bin/
-
-      - name: Slim Docker image
-        run: slim build --target lunamidori5/pixelarch:latest --tag quartz-slim
 
       - name: Build and push PixelArch Docker Image
         uses: docker/build-push-action@master
@@ -52,6 +43,39 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+  push_arch_slim_to_hub:
+    name: Push Midori AI's PixelArch Slim to Docker Hub
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@master
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          logout: false
+
+      - name: Install latest DockerSlim
+        run: |
+          curl -L https://github.com/slimtoolkit/slim/releases/latest/download/dist_linux.tar.gz | tar xz
+          sudo mv dist_linux/* /usr/local/bin/
+
+      - name: Build slim image from Dockerfile
+        run: |
+          slim build \
+            --dockerfile ./Pixelarch-OS/pixelarch_os/arch_dockerfile \
+            --tag lunamidori5/pixelarch:quartz-slim \
+            ./Pixelarch-OS/pixelarch_os/
+
+      - name: Push slim image to Docker Hub
+        run: docker push lunamidori5/pixelarch:quartz-slim
 
   push_pixelarch_ver_to_hub:
     name: Push Midori AI's PixelArch to Docker Hub
