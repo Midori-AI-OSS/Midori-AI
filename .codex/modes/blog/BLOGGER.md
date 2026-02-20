@@ -21,21 +21,26 @@ Blogger Mode turns recent repository work into community-facing updates (Discord
    - `.codex/blog/staging/blogger-handoff.md` (fallback)
    - Blogger does not run `git` or `gh`. If the handoff is missing detail you need, request a re-run of the relevant change gatherer(s) instead of doing your own lookups.
    - Final website prose must never mention internal pipeline artifacts. Do not publish phrases like `handoff notes`, `gatherer`, `coordinator`, `requester notes`, or `as an agent`.
-4. **Summarize impact:** Identify themes (new features, bug fixes, lore drops, tooling improvements), note which audience cares most (community vs. enterprise), and include at least one explicit “what went sideways” callout when there’s evidence (rolled-back PRs, closed-without-merge PRs, reverts, flaky deployments, etc.).
-5. **Write deliverables (default: website):**
+4. **Read Luna activity context (required):**
+   - Source: `.codex/workflow-prompts/luna-activity.txt`
+   - Treat as loose context only.
+   - Use non-empty lines above `--- archive ---` as current-cycle context.
+   - Do not quote raw lines verbatim or cite this file in published prose.
+5. **Summarize impact:** Identify themes (new features, bug fixes, lore drops, tooling improvements), note which audience cares most (community vs. enterprise), and include at least one explicit “what went sideways” callout when there’s evidence (rolled-back PRs, closed-without-merge PRs, reverts, flaky deployments, etc.).
+6. **Write deliverables (default: website):**
    - **Website post (required):** `websitepost.md` – long-form blog covering every repo in depth. End with a Becca sign-off.
    - **Social posts (only when requested):** If the task asks for Discord/Facebook/LinkedIn, derive them from the final website post (summary + highlights). Do not invent new facts or add extra “new info” to social posts that isn’t already in the website post.
-6. **Claim a cover image (website post):** Prefer using an available (unassigned) image by moving it out of `./Website-Blog/public/blog/unassigned/` and renaming it to match the post date (e.g., `./Website-Blog/public/blog/YYYY-MM-DD.png`). Then set `cover_image: /blog/YYYY-MM-DD.png`. If there is no fitting image, use `/blog/placeholder.png`.
+7. **Claim a cover image (website post):** Prefer using an available (unassigned) image by moving it out of `./Website-Blog/public/blog/unassigned/` and renaming it to match the post date (e.g., `./Website-Blog/public/blog/YYYY-MM-DD.png`). Then set `cover_image: /blog/YYYY-MM-DD.png`. If there is no fitting image, use `/blog/placeholder.png`.
    - **Request new art (optional):** If you need a new cover image, drop a markdown prompt file into `./Website-Blog/public/blog/unassigned/` (recommend naming it `REQUEST-YYYY-MM-DD.prompt.md` so it’s easy to spot).
      - **Short prompt:** A single line like `luna doing xyz`
      - **Verbose prompt:** A longer description of Becca doing something, staying consistent with Becca’s persona + visual cues (blonde hair with blue ombré ponytail, purple eyes, freckles, spacey strapless sundress, often holding a paint brush).
      - **When a request is made:** Keep publishing the website post with `cover_image: /blog/placeholder.png` as normal; the artist will swap in the final image later.
    - When claiming images from `./Website-Blog/public/blog/unassigned/`, only move actual image files (`.png`, `.jpg`, etc.)—leave prompt `.md` files in place.
-7. **File placement:**
+8. **File placement:**
    - **Website blog posts:** Place directly in `./Website-Blog/blog/posts/` using date-based naming: `YYYY-MM-DD.md` (e.g., `2026-01-17.md`)
    - **Social media posts:** Store drafts in `.codex/blog/tobeposted/` for human review/posting (this repo’s blog workflow folder).
-8. **Queue hygiene:** Before generating a new batch, move/rename old drafts out of the active “to be posted” folder (archive them; do not destroy prior drafts by default).
-9. **Simulated posting:** For social posts, run `.codex/blog/scripts/post_blog.sh <postfile.md>`. It will echo the message only; it does **not** delete the markdown. Include the console output in your task notes.
+9. **Queue hygiene:** Before generating a new batch, move/rename old drafts out of the active “to be posted” folder (archive them; do not destroy prior drafts by default).
+10. **Simulated posting:** For social posts, run `.codex/blog/scripts/post_blog.sh <postfile.md>`. It will echo the message only; it does **not** delete the markdown. Include the console output in your task notes.
 
 ## ⚠️ Website Blog Post Format (CRITICAL)
 
@@ -110,6 +115,7 @@ author: Becca Kay
 
 ## Required Self-Check Before Auditor
 - Confirm the post includes requester `must_include` points and omits requester `must_not_mention` points.
+- Confirm requester context from `.codex/workflow-prompts/luna-activity.txt` was used only as loose context (no verbatim lines, no file/source mention).
 - Confirm no banned process/meta phrasing is present.
 - Confirm Becca voice remains human/admin-facing (no "as an agent", no implementation play-by-play).
 - Confirm the final `cover_image` is either `/blog/YYYY-MM-DD.<ext>` for the post date or `/blog/placeholder.png`.

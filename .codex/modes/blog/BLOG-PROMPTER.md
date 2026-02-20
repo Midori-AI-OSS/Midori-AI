@@ -32,6 +32,7 @@ Optional staging (only if the Coordinator explicitly requests it):
   - No commit SHAs, PR numbers, issue numbers, URLs.
   - Prefer phrasing like “In one of the updates…” / “Recent changes include…”.
 - If an input file is missing, omit that section; do not guess.
+- Do not merge `.codex/workflow-prompts/luna-activity.txt` into evidence as facts. That file is blogger-side loose context only.
 
 ## Suggested handoff structure
 ```md

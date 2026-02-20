@@ -36,6 +36,7 @@ Guardrails (so we don’t accidentally lie)
 - Do not create `process docs` or extra documentation files; only produce the required artifacts in `/tmp/agents-artifacts/`.
 - Prefer `/tmp/agents-artifacts/` outputs. Only write to `.codex/blog/staging/` if the Coordinator explicitly requests it.
 - Do not write drafts or notes elsewhere in the repo working tree. Keep all other temporary writing in `/tmp/agents-artifacts/`.
+- Approved exception: `.codex/workflow-prompts/luna-activity.txt` is a persistent requester-context input file. Read it only as loose context and never publish/internalize it as process narration.
 - Never include internal workflow narration in final website prose (`handoff notes`, `gatherer`, `coordinator`, `requester notes`, `as an agent`, or similar).
 - Convert requester input into two explicit lists before blogging:
   - `must_include`
@@ -152,6 +153,9 @@ Coordinator responsibilities
 Rules (for the blogger subagent)
 - Follow `.codex/modes/blog/BLOGGER.md` (website post rules and Becca voice) and use recent website posts in `./Website-Blog/blog/posts/` to keep continuity and avoid repeats.
 - Blogger does not run `git` or `gh`. Use the handoff: `/tmp/agents-artifacts/blogger-handoff.md` (or `.codex/blog/staging/blogger-handoff.md`).
+- Read requester context from `.codex/workflow-prompts/luna-activity.txt` as loose context:
+  - Use non-empty lines above `--- archive ---` as current-cycle context.
+  - If the file is missing, continue with handoff evidence + the hard rules below.
 - Tone: keep it light and fun (warm, human, a little playful) while staying honest and specific.
 - Date rule: do not hard-code `today’s date`. Resolve the post date at runtime (example: `date +%F`) and use it consistently for the website post filename and cover image path (per Blogger Mode).
 - Cover image: pick one and open the exact image file you plan to use before describing it.
@@ -267,10 +271,9 @@ Historical sweep rule (required)
 Requester notes (must be included)
 - Notable things Luna Midori did the past few days / or wants the blogger to know are as follows:
   (NOTE: Do not reflavor these things as things Becca did, these are things Luna has done)
+  - `must_include`
+    - Source: `.codex/workflow-prompts/luna-activity.txt`
+    - Read as loose context only (use lines above `--- archive ---`).
+    - Do not quote raw lines verbatim in final prose.
   - `must_not_mention`
     - "No Comments from Luna today. She is just hard at work on projects!"
-  - `must_include`
-    - Worked on the radio station a bit.
-    - Did some hard core clean up of the Baker rust bot.
-    - Prototyped with friends on how WEAVE is going to work.
-    - Bug fixes to the agents runner + typing + better safety stuff.
