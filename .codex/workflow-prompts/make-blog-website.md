@@ -267,10 +267,10 @@ Historical sweep rule (required)
 Requester notes (must be included)
 - Notable things Luna Midori did the past few days / or wants the blogger to know are as follows:
   (NOTE: Do not reflavor these things as things Becca did, these are things Luna has done)
+  - `must_not_mention`
+    - "No Comments from Luna today. She is just hard at work on projects!"
   - `must_include`
     - Worked on the radio station a bit.
     - Did some hard core clean up of the Baker rust bot.
     - Prototyped with friends on how WEAVE is going to work.
     - Bug fixes to the agents runner + typing + better safety stuff.
-  - `must_not_mention`
-    - "No Comments from Luna today. She is just hard at work on projects!"
