@@ -36,6 +36,11 @@ Guardrails (so we don’t accidentally lie)
 - Do not create `process docs` or extra documentation files; only produce the required artifacts in `/tmp/agents-artifacts/`.
 - Prefer `/tmp/agents-artifacts/` outputs. Only write to `.codex/blog/staging/` if the Coordinator explicitly requests it.
 - Do not write drafts or notes elsewhere in the repo working tree. Keep all other temporary writing in `/tmp/agents-artifacts/`.
+- Never include internal workflow narration in final website prose (`handoff notes`, `gatherer`, `coordinator`, `requester notes`, `as an agent`, or similar).
+- Convert requester input into two explicit lists before blogging:
+  - `must_include`
+  - `must_not_mention`
+- Treat `must_not_mention` violations as publish blockers.
 - The website post must include BOTH:
   - (1) Notable things Luna Midori did in the past few days (from requester notes)
   - (2) What changed in the repos (based on real commits/diffs), including workspace submodules and mounted read-only repos
@@ -150,6 +155,12 @@ Rules (for the blogger subagent)
 - Tone: keep it light and fun (warm, human, a little playful) while staying honest and specific.
 - Date rule: do not hard-code `today’s date`. Resolve the post date at runtime (example: `date +%F`) and use it consistently for the website post filename and cover image path (per Blogger Mode).
 - Cover image: pick one and open the exact image file you plan to use before describing it.
+- Cover image behavior: prefer claiming by moving/renaming from `./Website-Blog/public/blog/unassigned/`; placeholder is allowed when there is no fitting image.
+- Resolve and export post date once before validation commands:
+  - `POST_DATE="$(date +%F)"`
+- Run required checks before handing off to auditor:
+  - `uv run .codex/blog/scripts/verify_blog_meta.py /tmp/agents-artifacts/websitepost-draft.md`
+  - `uv run .codex/blog/scripts/verify_blog_cover.py /tmp/agents-artifacts/websitepost-draft.md --post-date "$POST_DATE"`
 
 Optional helper patterns (examples)
 - Summarize the last ~5 website posts so you can avoid repeating yourself:
@@ -164,6 +175,7 @@ Goal: ensure statements are true, the post is readable, and Becca’s establishe
 
 Coordinator responsibilities
 - Launch the `auditor` subagent and confirm it produced the required similarity report.
+- Launch the `auditor` subagent and confirm it produced the required humanity report.
 
 Rules (for the auditor subagent)
 - Similarity check (required)
@@ -210,6 +222,10 @@ else:
 PY
 ```
   - If any post is `>= 0.5`, auditor must open/read the flagged post(s) and the draft, then explicitly point out what’s being repeated and request a rewrite or a clear callback framing.
+- Humanity check (required)
+  - Write results to: `/tmp/agents-artifacts/auditor-humanity.txt`
+  - Confirm the draft reads like a human blog post and not an agent/process report.
+  - Explicitly fail if the draft includes workflow/meta narration (`handoff notes`, `gatherer`, `as an agent`, etc.).
 - Auditor must read past website posts to learn Becca’s voice (and to catch repetition).
 - Auditor must not edit files and must not generate docs.
 - Auditor is not a co-author: do not rewrite the entire post in a new voice. Ask for minimal, targeted fixes.
@@ -223,6 +239,9 @@ PY
 Step 8: Blogger (apply auditor edits)
 - Blogger applies auditor feedback (keep changes minimal; preserve Becca voice).
 - Output the revised post to `/tmp/agents-artifacts/websitepost-revised.md`
+- Re-run required checks on the revised file:
+  - `uv run .codex/blog/scripts/verify_blog_meta.py /tmp/agents-artifacts/websitepost-revised.md`
+  - `uv run .codex/blog/scripts/verify_blog_cover.py /tmp/agents-artifacts/websitepost-revised.md --post-date "$POST_DATE"`
 
 Loop
 - Repeat Auditor -> Blogger until the auditor says the post is ready to publish.
@@ -230,12 +249,28 @@ Loop
 Once ready to publish
 - Manager fact-check pass (final sign-off).
 - Final Blogger publishes to the website.
+- Coordinator must run a publish completion check and write:
+  - `uv run .codex/blog/scripts/verify_blog_publish.py --post-date "$POST_DATE"`
+  - Report path: `/tmp/agents-artifacts/publish-check.txt`
+- `publish-check` only passes when all are true:
+  - Final post file exists at `./Website-Blog/blog/posts/YYYY-MM-DD.md`
+  - Frontmatter includes `author: Becca Kay` and a valid `cover_image`
+  - `verify_blog_meta.py` passes
+  - `verify_blog_cover.py` passes
+  - `auditor-similarity.txt` exists
+  - `auditor-humanity.txt` exists
+- If publish-check fails, the pipeline is incomplete (do not mark done).
+
+Historical sweep rule (required)
+- For historical edits, use one fresh subagent per post. A subagent may not edit multiple post files in one run.
 
 Requester notes (must be included)
 - Notable things Luna Midori did the past few days / or wants the blogger to know are as follows:
   (NOTE: Do not reflavor these things as things Becca did, these are things Luna has done)
-  - Worked on the radio station a bit.
-  - Did some hard core clean up of the Baker rust bot.
-  - Prototyped with friends on how WEAVE is going to work.
-  - Bug fixes to the agents runner + typing + better safety stuff.
-  - ~~No Comments from Luna today. She is just hard at work on projects!~~
+  - `must_include`
+    - Worked on the radio station a bit.
+    - Did some hard core clean up of the Baker rust bot.
+    - Prototyped with friends on how WEAVE is going to work.
+    - Bug fixes to the agents runner + typing + better safety stuff.
+  - `must_not_mention`
+    - "No Comments from Luna today. She is just hard at work on projects!"

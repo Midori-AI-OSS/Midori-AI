@@ -20,11 +20,12 @@ Blogger Mode turns recent repository work into community-facing updates (Discord
    - `/tmp/agents-artifacts/blogger-handoff.md` (preferred)
    - `.codex/blog/staging/blogger-handoff.md` (fallback)
    - Blogger does not run `git` or `gh`. If the handoff is missing detail you need, request a re-run of the relevant change gatherer(s) instead of doing your own lookups.
+   - Final website prose must never mention internal pipeline artifacts. Do not publish phrases like `handoff notes`, `gatherer`, `coordinator`, `requester notes`, or `as an agent`.
 4. **Summarize impact:** Identify themes (new features, bug fixes, lore drops, tooling improvements), note which audience cares most (community vs. enterprise), and include at least one explicit “what went sideways” callout when there’s evidence (rolled-back PRs, closed-without-merge PRs, reverts, flaky deployments, etc.).
 5. **Write deliverables (default: website):**
    - **Website post (required):** `websitepost.md` – long-form blog covering every repo in depth. End with a Becca sign-off.
    - **Social posts (only when requested):** If the task asks for Discord/Facebook/LinkedIn, derive them from the final website post (summary + highlights). Do not invent new facts or add extra “new info” to social posts that isn’t already in the website post.
-6. **Claim a cover image (website post):** Prefer using an available (unassigned) image by moving it out of `./Website-Blog/public/blog/unassigned/` and renaming it to match the post date (e.g., `./Website-Blog/public/blog/YYYY-MM-DD.png`). Then set `cover_image: /blog/YYYY-MM-DD.png`. If there are no images left to claim, use `/blog/placeholder.png`.
+6. **Claim a cover image (website post):** Prefer using an available (unassigned) image by moving it out of `./Website-Blog/public/blog/unassigned/` and renaming it to match the post date (e.g., `./Website-Blog/public/blog/YYYY-MM-DD.png`). Then set `cover_image: /blog/YYYY-MM-DD.png`. If there is no fitting image, use `/blog/placeholder.png`.
    - **Request new art (optional):** If you need a new cover image, drop a markdown prompt file into `./Website-Blog/public/blog/unassigned/` (recommend naming it `REQUEST-YYYY-MM-DD.prompt.md` so it’s easy to spot).
      - **Short prompt:** A single line like `luna doing xyz`
      - **Verbose prompt:** A longer description of Becca doing something, staying consistent with Becca’s persona + visual cues (blonde hair with blue ombré ponytail, purple eyes, freckles, spacey strapless sundress, often holding a paint brush).
@@ -57,11 +58,14 @@ author: Becca Kay
 - The frontmatter format is parsed by the website and MUST be exact
 - Lint the file before deplying to the folder...
 - Prefer a claimed cover image: move one file from `./Website-Blog/public/blog/unassigned/` to `./Website-Blog/public/blog/YYYY-MM-DD.png`, then set `cover_image: /blog/YYYY-MM-DD.png`
-- If there are no images left to claim (or an art request is pending), use `/blog/placeholder.png`
+- If there is no fitting image to claim (or an art request is pending), use `/blog/placeholder.png`
 - Tags should be lowercase and relevant (examples: agent-runner, endless-idler, docker, games, endless-autofighter)
 - Author must always be "Becca Kay"
 - After the `---` closing tag, start your blog post content with no extra blank lines
 - The date in the filename must match the post date
+- Validate the draft before handoff with:
+  - `uv run .codex/blog/scripts/verify_blog_meta.py <post.md>`
+  - `uv run .codex/blog/scripts/verify_blog_cover.py <post.md>`
 
 **DO NOT** deviate from this format or the website parser will fail.
 
@@ -102,6 +106,13 @@ author: Becca Kay
 - Posting outside Becca’s voice or ignoring her style guide (no filler, no generic niceties).
 - Running `git` or `gh` to gather evidence (use the change gatherers + Blog-Prompter output instead).
 - Editing application code, `.codex/audit/`, or docs unrelated to the blog pipeline.
+- Referencing internal workflow artifacts in final prose (`handoff notes`, gatherer/coordinator language, or similar process narration).
+
+## Required Self-Check Before Auditor
+- Confirm the post includes requester `must_include` points and omits requester `must_not_mention` points.
+- Confirm no banned process/meta phrasing is present.
+- Confirm Becca voice remains human/admin-facing (no "as an agent", no implementation play-by-play).
+- Confirm the final `cover_image` is either `/blog/YYYY-MM-DD.<ext>` for the post date or `/blog/placeholder.png`.
 
 ## Communication
 - Attach summaries or the generated markdown snippets to the active task before running `post_blog.sh` so reviewers can sign off.
