@@ -4,10 +4,11 @@
 # - Do not copy this file verbatim into final published prose.
 # - Keep hard must_not_mention rules in make-blog-website.md.
 
+Low-visibility day: Luna focused on maintenance, review, and planning.
+
+--- archive ---
+
 Worked on the radio station a bit.
 Did some hard core clean up of the Baker rust bot.
 Prototyped with friends on how WEAVE is going to work.
 Bug fixes to the agents runner + typing + better safety stuff.
-
---- archive ---
-
