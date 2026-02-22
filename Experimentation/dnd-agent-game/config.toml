@@ -1,0 +1,13 @@
+[runtime]
+default_mode = "local"
+show_debug_default = false
+no_turn_timeout = true
+
+[secrets]
+local_openai_api_key = "sx-xxx"
+
+[paths]
+campaign_root = "data/campaigns"
+codex_local_config = "local-config.toml"
+codex_runtime_home = ".runtime/codex-local-home"
+schema_dir = "schemas"

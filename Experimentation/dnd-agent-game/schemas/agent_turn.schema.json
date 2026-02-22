@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "public_message": { "type": "string" },
+    "actions": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "type": { "const": "request_message_player" },
+              "target": { "type": "string" },
+              "targets": {
+                "type": "array",
+                "items": { "type": "string" },
+                "minItems": 1
+              },
+              "message": { "type": "string" },
+              "reason": { "type": "string" }
+            },
+            "required": ["type", "message"],
+            "anyOf": [
+              { "required": ["target"] },
+              { "required": ["targets"] }
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "const": "note_write" },
+              "text": { "type": "string" }
+            },
+            "required": ["type", "text"],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "note": { "type": "string" }
+  },
+  "required": ["public_message", "actions"],
+  "additionalProperties": false
+}
