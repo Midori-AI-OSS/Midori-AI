@@ -11,6 +11,7 @@ use std::time::Duration;
 
 use anyhow::{Context, Result, anyhow, bail};
 use clap::Parser;
+use crossterm::terminal;
 use indicatif::{ProgressBar, ProgressStyle};
 use owo_colors::OwoColorize;
 use serde::Deserialize;
@@ -28,6 +29,7 @@ const DEFAULT_RECENT_VISIBLE_EVENTS: usize = 40;
 const NOTE_WINDOW: usize = 12;
 const WHISPER_CONTEXT_EVENTS: usize = 24;
 const TURN_OUTPUT_REPAIR_RETRIES: usize = 2;
+const SPINNER_TICK_MS: u64 = 300;
 const THEME_OPTIONS: [&str; 10] = [
     "Classic Heroic Fantasy",
     "Grim Dark Fantasy",
@@ -874,11 +876,11 @@ fn run_actor_turn_with_hint(
 
                 if !response.public_message.trim().is_empty() {
                     campaign.add_public_message(actor_id, response.public_message.trim())?;
-                    println!(
+                    print_narrative_line(format!(
                         "{}: {}",
                         styled_actor_label(campaign, actor_id, human),
                         response.public_message.trim()
-                    );
+                    ));
                 }
 
                 if let Some(note) = &response.note
@@ -1059,22 +1061,16 @@ fn evaluate_whisper_request_batch(
     targets: &[String],
     message: &str,
     reason: Option<&str>,
-    human: &HumanIdentity,
+    _human: &HumanIdentity,
     show_debug: bool,
     recent_events: usize,
 ) -> Result<WhisperOutcome> {
     let dm_thread = campaign.get_thread_id(DM_ACTOR);
     let prompt =
         build_dm_whisper_prompt(campaign, sender, targets, message, reason, recent_events)?;
-    let target_label = format_target_labels(campaign, targets, human);
-    let result = run_with_spinner(
-        &format!(
-            "DM whisper gate ({} -> {})",
-            actor_label(campaign, sender, human),
-            target_label
-        ),
-        || runner.run_dm_whisper_approval(&prompt, dm_thread.as_deref()),
-    )?;
+    let result = run_with_spinner("DM deciding", || {
+        runner.run_dm_whisper_approval(&prompt, dm_thread.as_deref())
+    })?;
 
     if let Some(thread_id) = result.thread_id.clone() {
         campaign.set_thread_id(DM_ACTOR, thread_id)?;
@@ -1115,20 +1111,20 @@ fn finalize_whisper_outcome_batch(
             campaign.add_whisper(sender, target, message)?;
         }
         if includes_human {
-            println!(
+            print_narrative_line(format!(
                 "{} {} -> {}: {}",
                 "[whisper approved]".green().bold(),
                 styled_actor_label(campaign, sender, human),
                 target_label,
                 message
-            );
+            ));
         } else {
-            println!(
+            print_narrative_line(format!(
                 "{} {} -> {}",
                 "[whisper approved]".green().bold(),
                 styled_actor_label(campaign, sender, human),
                 target_label
-            );
+            ));
         }
     } else {
         let reason = outcome
@@ -1142,13 +1138,13 @@ fn finalize_whisper_outcome_batch(
                 reason
             ),
         )?;
-        println!(
+        print_narrative_line(format!(
             "{} {} -> {} ({})",
             "[whisper denied]".red().bold(),
             styled_actor_label(campaign, sender, human),
             target_label,
             reason
-        );
+        ));
     }
     Ok(())
 }
@@ -1168,7 +1164,8 @@ fn run_human_turn(
     );
 
     loop {
-        let input = prompt_line(&format!("{}> ", human.prompt_tag))?;
+        let prompt = format!("{}> ", human.prompt_tag);
+        let input = prompt_line(&prompt)?;
         let trimmed = input.trim();
 
         if trimmed.is_empty() {
@@ -1236,13 +1233,13 @@ fn run_human_turn(
             return Ok(true);
         }
 
-        hide_previous_input_line();
+        hide_previous_input_line(&prompt, &input);
         campaign.add_public_message(HUMAN_ACTOR, trimmed)?;
-        println!(
+        print_narrative_line(format!(
             "{}: {}",
             styled_actor_label(campaign, HUMAN_ACTOR, human),
             trimmed
-        );
+        ));
         return Ok(true);
     }
 }
@@ -1703,6 +1700,12 @@ fn public_actor_token(actor_id: &str) -> &'static str {
     }
 }
 
+fn print_narrative_line(line: impl AsRef<str>) {
+    println!();
+    println!("{}", line.as_ref());
+    println!();
+}
+
 fn run_with_spinner<T, F>(subject: &str, action: F) -> Result<T>
 where
     F: FnOnce() -> Result<T>,
@@ -1718,18 +1721,53 @@ fn start_thinking_spinner(subject: &str) -> ProgressBar {
     let pb = ProgressBar::new_spinner();
     let style = ProgressStyle::with_template("{spinner:.cyan} {msg}")
         .unwrap_or_else(|_| ProgressStyle::default_spinner())
-        .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]);
+        .tick_strings(&[
+            "[#---------]",
+            "[##--------]",
+            "[###-------]",
+            "[####------]",
+            "[#####-----]",
+            "[######----]",
+            "[#######---]",
+            "[########--]",
+            "[#########-]",
+            "[##########]",
+            "[#########-]",
+            "[########--]",
+            "[#######---]",
+            "[######----]",
+            "[#####-----]",
+            "[####------]",
+            "[###-------]",
+            "[##--------]",
+        ]);
     pb.set_style(style);
-    pb.enable_steady_tick(Duration::from_millis(90));
+    pb.enable_steady_tick(Duration::from_millis(SPINNER_TICK_MS));
     pb.set_message(subject.to_string());
     pb
 }
 
-fn hide_previous_input_line() {
-    if io::stdin().is_terminal() && io::stdout().is_terminal() {
-        print!("\x1b[1A\x1b[2K\r");
-        let _ = io::stdout().flush();
+fn hide_previous_input_line(prompt: &str, input: &str) {
+    if !io::stdin().is_terminal() || !io::stdout().is_terminal() {
+        return;
     }
+
+    let columns = terminal::size()
+        .map(|(width, _)| width as usize)
+        .unwrap_or(80)
+        .max(1);
+    let visual_len = prompt
+        .chars()
+        .count()
+        .saturating_add(input.chars().count())
+        .max(1);
+    let rows_used = ((visual_len - 1) / columns) + 1;
+
+    for _ in 0..rows_used {
+        print!("\x1b[1A\x1b[2K");
+    }
+    print!("\r");
+    let _ = io::stdout().flush();
 }
 
 fn prompt_yes_no(prompt: &str, default_yes: bool) -> Result<bool> {
