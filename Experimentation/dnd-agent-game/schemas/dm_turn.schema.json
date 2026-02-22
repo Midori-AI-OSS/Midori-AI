@@ -39,9 +39,19 @@
         ]
       }
     },
-    "next_actor_id": { "type": "string" },
+    "next_actor_id": {
+      "type": "string",
+      "enum": [
+        "dm_agent",
+        "player_ai_1",
+        "player_ai_2",
+        "player_ai_3",
+        "player_ai_4",
+        "human_player"
+      ]
+    },
     "note": { "type": "string" }
   },
-  "required": ["public_message", "actions"],
+  "required": ["public_message", "actions", "next_actor_id"],
   "additionalProperties": false
 }

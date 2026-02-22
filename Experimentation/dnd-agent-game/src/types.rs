@@ -58,6 +58,21 @@ pub struct CampaignState {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ActorIdentity {
+    pub actor_id: String,
+    pub display_name: String,
+    pub pronouns: String,
+    pub approved_by_dm: bool,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct IdentitiesFile {
+    pub format_version: u32,
+    pub identities: BTreeMap<String, ActorIdentity>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ActorSession {
     pub actor_id: String,
     pub thread_id: Option<String>,
@@ -106,6 +121,8 @@ pub struct AgentTurnResponse {
     pub public_message: String,
     #[serde(default)]
     pub actions: Vec<AgentAction>,
+    #[serde(default)]
+    pub next_actor_id: Option<String>,
     #[serde(default)]
     pub note: Option<String>,
 }

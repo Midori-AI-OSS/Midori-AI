@@ -3,10 +3,9 @@ mod config;
 mod persistence;
 mod types;
 
-use std::borrow::Cow;
 use std::collections::BTreeSet;
 use std::fs;
-use std::io::{self, Write};
+use std::io::{self, IsTerminal, Write};
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -14,6 +13,7 @@ use anyhow::{Context, Result, anyhow, bail};
 use clap::Parser;
 use indicatif::{ProgressBar, ProgressStyle};
 use owo_colors::OwoColorize;
+use serde::Deserialize;
 use serde::de::DeserializeOwned;
 
 use crate::codex_runner::{CodexRunner, CodexTurnResult};
@@ -44,7 +44,7 @@ const THEME_OPTIONS: [&str; 10] = [
 #[derive(Debug, Parser)]
 #[command(
     name = "dnd-agent-game",
-    about = "Local/remote 6-player DnD prototype with 1 DM agent, 4 AI players, and 1 human player."
+    about = "Local/remote 6-player DnD prototype with 1 DM and 5 players."
 )]
 struct Cli {
     #[arg(long, default_value = "config.toml")]
@@ -66,6 +66,54 @@ struct Cli {
 #[derive(Debug, Clone)]
 struct WhisperOutcome {
     approved: bool,
+    reason: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+struct ActorTurnOutcome {
+    next_actor_id: Option<String>,
+}
+
+#[derive(Debug, Default, Clone)]
+struct SchedulerStats {
+    actor_turn_counts: std::collections::BTreeMap<String, u64>,
+    dm_pick_counts: std::collections::BTreeMap<String, u64>,
+    consecutive_dm_self_picks: u32,
+}
+
+impl SchedulerStats {
+    fn note_actor_turn(&mut self, actor_id: &str) {
+        *self
+            .actor_turn_counts
+            .entry(actor_id.to_string())
+            .or_insert(0) += 1;
+    }
+
+    fn note_dm_pick(&mut self, actor_id: &str) {
+        *self.dm_pick_counts.entry(actor_id.to_string()).or_insert(0) += 1;
+        if actor_id == DM_ACTOR {
+            self.consecutive_dm_self_picks = self.consecutive_dm_self_picks.saturating_add(1);
+        } else {
+            self.consecutive_dm_self_picks = 0;
+        }
+    }
+
+    fn dm_pick_count(&self, actor_id: &str) -> u64 {
+        *self.dm_pick_counts.get(actor_id).unwrap_or(&0)
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct IdentityProposal {
+    name: String,
+    pronouns: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct IdentityDecision {
+    final_name: String,
+    final_pronouns: String,
+    #[serde(default)]
     reason: Option<String>,
 }
 
@@ -112,11 +160,20 @@ fn run() -> Result<()> {
         std::env::current_dir().context("failed to detect current directory")?,
     )?;
 
+    campaign.set_actor_identity(
+        HUMAN_ACTOR,
+        human.name.clone(),
+        human.pronouns.clone(),
+        true,
+    )?;
+
     print_startup_summary(&campaign, &runner, &paths, &human, show_debug);
 
     if is_new {
         initialize_new_campaign(&mut campaign, &human)?;
     }
+
+    setup_ai_identities(&runner, &mut campaign, &human, show_debug)?;
 
     game_loop(
         &runner,
@@ -130,7 +187,7 @@ fn run() -> Result<()> {
 }
 
 fn prompt_human_identity() -> Result<HumanIdentity> {
-    println!("{}", "Human identity setup".bold().bright_blue());
+    println!("{}", "Player identity setup".bold().bright_blue());
 
     let raw_name = prompt_line("Your name [Luna]: ")?;
     let display_name = if raw_name.trim().is_empty() {
@@ -160,6 +217,28 @@ fn normalize_display_name(input: &str) -> String {
         return "Luna".to_string();
     };
     format!("{}{}", first.to_uppercase(), chars.as_str())
+}
+
+fn normalize_name_with_fallback(input: &str, fallback: &str) -> String {
+    let trimmed = input.trim();
+    if trimmed.is_empty() {
+        return fallback.to_string();
+    }
+
+    let mut chars = trimmed.chars();
+    let Some(first) = chars.next() else {
+        return fallback.to_string();
+    };
+    format!("{}{}", first.to_uppercase(), chars.as_str())
+}
+
+fn normalize_pronouns(input: &str) -> String {
+    let trimmed = input.trim();
+    if trimmed.is_empty() {
+        "they/them".to_string()
+    } else {
+        trimmed.to_string()
+    }
 }
 
 fn select_or_create_campaign(
@@ -299,12 +378,12 @@ fn initialize_new_campaign(campaign: &mut CampaignRuntime, human: &HumanIdentity
     )?;
     campaign.append_note(
         HUMAN_ACTOR,
-        "Human commands: `/w target message`, `/pass`, `/history`, `/quit`.",
+        "Player commands: `/w target message`, `/pass`, `/history`, `/quit`.",
     )?;
     campaign.append_note(
         DM_ACTOR,
         &format!(
-            "Human player identity for this session: {} ({})",
+            "Player 5 identity for this session: {} ({})",
             human.name, human.pronouns
         ),
     )?;
@@ -369,6 +448,244 @@ fn choose_theme_shortlist() -> Result<Vec<String>> {
     }
 }
 
+fn setup_ai_identities(
+    runner: &CodexRunner,
+    campaign: &mut CampaignRuntime,
+    human: &HumanIdentity,
+    show_debug: bool,
+) -> Result<()> {
+    let pending: Vec<&str> = PLAYER_AI_ACTORS
+        .iter()
+        .copied()
+        .filter(|actor_id| !campaign.identity_is_approved(actor_id))
+        .collect();
+    if pending.is_empty() {
+        return Ok(());
+    }
+
+    println!();
+    println!(
+        "{}",
+        "Player identity setup (DM finalizes names/pronouns)"
+            .bold()
+            .bright_blue()
+    );
+
+    for actor_id in pending {
+        let previous_label = campaign.actor_display_name(actor_id);
+        let proposal = collect_identity_proposal(runner, campaign, actor_id, show_debug, human)?;
+        let decision =
+            collect_dm_identity_decision(runner, campaign, actor_id, &proposal, show_debug, human)?;
+
+        let final_name =
+            normalize_name_with_fallback(decision.final_name.trim(), proposal.name.as_str());
+        let final_pronouns = normalize_pronouns(decision.final_pronouns.trim());
+        campaign.set_actor_identity(actor_id, final_name.clone(), final_pronouns.clone(), true)?;
+
+        campaign.append_note(
+            DM_ACTOR,
+            &format!(
+                "Finalized identity for {}: {} ({})",
+                actor_id, final_name, final_pronouns
+            ),
+        )?;
+        if let Some(reason) = decision.reason
+            && !reason.trim().is_empty()
+        {
+            campaign.append_note(
+                DM_ACTOR,
+                &format!("Identity choice reason for {}: {}", actor_id, reason.trim()),
+            )?;
+        }
+
+        println!(
+            "{} {} {} ({})",
+            previous_label.bright_black(),
+            "->".bright_black(),
+            final_name.bold(),
+            final_pronouns
+        );
+    }
+
+    Ok(())
+}
+
+fn collect_identity_proposal(
+    runner: &CodexRunner,
+    campaign: &mut CampaignRuntime,
+    actor_id: &str,
+    show_debug: bool,
+    human: &HumanIdentity,
+) -> Result<IdentityProposal> {
+    let mut prompt = build_identity_proposal_prompt(campaign, actor_id, human);
+    let mut next_thread = campaign.get_thread_id(actor_id);
+
+    for attempt in 0..=TURN_OUTPUT_REPAIR_RETRIES {
+        let phase = if attempt == 0 {
+            "identity proposal"
+        } else {
+            "identity proposal repair"
+        };
+        let subject = format!("{} ({})", actor_label(campaign, actor_id, human), phase);
+        let result = run_with_spinner(&subject, || {
+            runner.run_identity_proposal(actor_id, &prompt, next_thread.as_deref())
+        })?;
+
+        if let Some(thread_id) = result.thread_id.clone() {
+            campaign.set_thread_id(actor_id, thread_id.clone())?;
+            next_thread = Some(thread_id);
+        }
+        campaign.set_last_message(actor_id, result.last_message.clone())?;
+
+        if show_debug {
+            print_debug_turn(actor_id, &result);
+        }
+
+        match parse_schema_json::<IdentityProposal>(&result.last_message) {
+            Ok(parsed) => {
+                let fallback = campaign.actor_display_name(actor_id);
+                let name = normalize_name_with_fallback(parsed.name.trim(), &fallback);
+                let pronouns = normalize_pronouns(parsed.pronouns.trim());
+                return Ok(IdentityProposal { name, pronouns });
+            }
+            Err(err) => {
+                if attempt >= TURN_OUTPUT_REPAIR_RETRIES {
+                    return Err(anyhow!(
+                        "{} identity proposal invalid after {} retries: {}",
+                        actor_label(campaign, actor_id, human),
+                        TURN_OUTPUT_REPAIR_RETRIES,
+                        err
+                    ));
+                }
+                prompt = build_identity_proposal_repair_prompt(actor_id, &result.last_message);
+            }
+        }
+    }
+
+    Err(anyhow!("identity proposal retries exhausted"))
+}
+
+fn collect_dm_identity_decision(
+    runner: &CodexRunner,
+    campaign: &mut CampaignRuntime,
+    actor_id: &str,
+    proposal: &IdentityProposal,
+    show_debug: bool,
+    human: &HumanIdentity,
+) -> Result<IdentityDecision> {
+    let mut prompt = build_identity_decision_prompt(campaign, actor_id, proposal, human);
+    let mut dm_thread = campaign.get_thread_id(DM_ACTOR);
+
+    for attempt in 0..=TURN_OUTPUT_REPAIR_RETRIES {
+        let phase = if attempt == 0 {
+            "identity decision"
+        } else {
+            "identity decision repair"
+        };
+        let subject = format!("DM ({})", phase);
+        let result = run_with_spinner(&subject, || {
+            runner.run_identity_decision(&prompt, dm_thread.as_deref())
+        })?;
+
+        if let Some(thread_id) = result.thread_id.clone() {
+            campaign.set_thread_id(DM_ACTOR, thread_id.clone())?;
+            dm_thread = Some(thread_id);
+        }
+        campaign.set_last_message(DM_ACTOR, result.last_message.clone())?;
+
+        if show_debug {
+            print_debug_turn("dm_identity_decision", &result);
+        }
+
+        match parse_schema_json::<IdentityDecision>(&result.last_message) {
+            Ok(parsed) => {
+                let final_name =
+                    normalize_name_with_fallback(parsed.final_name.trim(), proposal.name.as_str());
+                let final_pronouns = normalize_pronouns(parsed.final_pronouns.trim());
+                return Ok(IdentityDecision {
+                    final_name,
+                    final_pronouns,
+                    reason: parsed.reason,
+                });
+            }
+            Err(err) => {
+                if attempt >= TURN_OUTPUT_REPAIR_RETRIES {
+                    return Err(anyhow!(
+                        "DM identity decision invalid after {} retries: {}",
+                        TURN_OUTPUT_REPAIR_RETRIES,
+                        err
+                    ));
+                }
+                prompt = build_identity_decision_repair_prompt(actor_id, &result.last_message);
+            }
+        }
+    }
+
+    Err(anyhow!("identity decision retries exhausted"))
+}
+
+fn build_identity_proposal_prompt(
+    campaign: &CampaignRuntime,
+    actor_id: &str,
+    human: &HumanIdentity,
+) -> String {
+    let current = campaign.actor_display_name(actor_id);
+    format!(
+        "You are actor `{}` in DnD setup. Your temporary label is `{}`.\n\
+         Propose your player identity.\n\
+         Return ONLY JSON:\n\
+         {{\"name\":\"string\",\"pronouns\":\"string\"}}\n\
+         Rules:\n\
+         - Keep the name concise (1-3 words).\n\
+         - Do not include markdown.\n\
+         - Keep pronouns concise.\n\
+         - Player 5 is {} ({}).\n",
+        actor_id, current, human.name, human.pronouns
+    )
+}
+
+fn build_identity_decision_prompt(
+    campaign: &CampaignRuntime,
+    actor_id: &str,
+    proposal: &IdentityProposal,
+    human: &HumanIdentity,
+) -> String {
+    let current = campaign.actor_display_name(actor_id);
+    format!(
+        "You are DM finalizing player identities for this campaign.\n\
+         Actor: {} (current label `{}`)\n\
+         Proposed name: {}\n\
+         Proposed pronouns: {}\n\
+         Player 5: {} ({})\n\
+         Return ONLY JSON:\n\
+         {{\"final_name\":\"string\",\"final_pronouns\":\"string\",\"reason\":\"optional string\"}}\n\
+         Keep it concise and ready for gameplay.",
+        actor_id, current, proposal.name, proposal.pronouns, human.name, human.pronouns
+    )
+}
+
+fn build_identity_proposal_repair_prompt(actor_id: &str, bad_output: &str) -> String {
+    format!(
+        "Your identity proposal for actor `{}` was invalid.\n\
+         Return ONLY JSON:\n\
+         {{\"name\":\"string\",\"pronouns\":\"string\"}}\n\
+         Previous invalid output:\n{}",
+        actor_id,
+        truncate(bad_output, 800)
+    )
+}
+
+fn build_identity_decision_repair_prompt(actor_id: &str, bad_output: &str) -> String {
+    format!(
+        "Your identity decision for actor `{}` was invalid.\n\
+         Return ONLY JSON:\n\
+         {{\"final_name\":\"string\",\"final_pronouns\":\"string\",\"reason\":\"optional string\"}}\n\
+         Previous invalid output:\n{}",
+        actor_id,
+        truncate(bad_output, 800)
+    )
+}
+
 fn game_loop(
     runner: &CodexRunner,
     campaign: &mut CampaignRuntime,
@@ -376,57 +693,149 @@ fn game_loop(
     show_debug: bool,
     recent_events: usize,
 ) -> Result<()> {
-    loop {
-        let round = campaign.state.round_index + 1;
-        println!();
-        println!(
-            "{}",
-            format!("===== Round {} =====", round).bold().bright_blue()
-        );
+    let mut current_actor = DM_ACTOR.to_string();
+    let mut stats = SchedulerStats::default();
 
-        if let Err(err) =
-            run_actor_turn(runner, campaign, DM_ACTOR, human, show_debug, recent_events)
-        {
-            println!("{} {err:#}", "DM turn failed:".red().bold());
-            if !prompt_yes_no("Continue anyway? [y/N]: ", false)? {
-                return Err(err);
+    loop {
+        if current_actor == HUMAN_ACTOR {
+            if !run_human_turn(runner, campaign, human, show_debug, recent_events)? {
+                println!("{}", "Session ended by player.".bright_yellow());
+                break;
             }
+            stats.note_actor_turn(HUMAN_ACTOR);
+            current_actor = DM_ACTOR.to_string();
+            continue;
         }
 
-        for actor in PLAYER_AI_ACTORS {
-            if let Err(err) =
-                run_actor_turn(runner, campaign, actor, human, show_debug, recent_events)
-            {
-                println!(
-                    "{} turn failed: {err:#}",
-                    styled_actor_label(actor, human).red().bold()
-                );
-                if !prompt_yes_no("Continue anyway? [y/N]: ", false)? {
-                    return Err(err);
+        let dm_scheduler_hint = if current_actor == DM_ACTOR {
+            Some(build_dm_scheduler_hint(campaign, human, &stats))
+        } else {
+            None
+        };
+
+        match run_actor_turn_with_hint(
+            runner,
+            campaign,
+            &current_actor,
+            human,
+            show_debug,
+            recent_events,
+            dm_scheduler_hint.as_deref(),
+        ) {
+            Ok(outcome) => {
+                stats.note_actor_turn(&current_actor);
+                if current_actor == DM_ACTOR {
+                    campaign.bump_round()?;
+                    let Some(next_actor) = outcome.next_actor_id else {
+                        println!(
+                            "{}",
+                            "DM turn finished without next_actor_id; scheduler halted."
+                                .red()
+                                .bold()
+                        );
+                        if !prompt_yes_no("Retry DM turn? [Y/n]: ", true)? {
+                            break;
+                        }
+                        continue;
+                    };
+                    stats.note_dm_pick(&next_actor);
+                    println!(
+                        "{} {}",
+                        "DM selected next actor:".bright_black(),
+                        styled_actor_label(campaign, &next_actor, human)
+                    );
+                    current_actor = next_actor;
+                } else {
+                    current_actor = DM_ACTOR.to_string();
+                }
+            }
+            Err(err) => {
+                if current_actor == DM_ACTOR {
+                    println!("{} {err:#}", "DM turn failed:".red().bold());
+                    if !prompt_yes_no("Retry DM turn? [Y/n]: ", true)? {
+                        break;
+                    }
+                } else {
+                    println!(
+                        "{} turn failed: {err:#}",
+                        styled_actor_label(campaign, &current_actor, human)
+                            .red()
+                            .bold()
+                    );
+                    if !prompt_yes_no("Continue and return to DM? [y/N]: ", false)? {
+                        return Err(err);
+                    }
+                    current_actor = DM_ACTOR.to_string();
                 }
             }
         }
-
-        if !run_human_turn(runner, campaign, human, show_debug, recent_events)? {
-            println!("{}", "Session ended by human player.".bright_yellow());
-            break;
-        }
-
-        campaign.bump_round()?;
     }
 
     Ok(())
 }
 
-fn run_actor_turn(
+fn build_dm_scheduler_hint(
+    campaign: &CampaignRuntime,
+    human: &HumanIdentity,
+    stats: &SchedulerStats,
+) -> String {
+    let mut lines = vec![
+        "- Turn selection is your call; this guidance is advisory only.".to_string(),
+        "- Prefer less-used actors when one actor has dominated spotlight, unless the scene needs otherwise.".to_string(),
+    ];
+
+    let mut non_dm_counts: Vec<(String, u64)> = all_actor_ids()
+        .into_iter()
+        .filter(|id| *id != DM_ACTOR)
+        .map(|id| (id.to_string(), stats.dm_pick_count(id)))
+        .collect();
+    non_dm_counts.sort_by(|a, b| a.1.cmp(&b.1));
+
+    if let (Some((least_actor, least_count)), Some((most_actor, most_count))) =
+        (non_dm_counts.first(), non_dm_counts.last())
+        && most_count.saturating_sub(*least_count) >= 3
+    {
+        lines.push(format!(
+            "- Spotlight gap detected: {} has {} picks, {} has {} picks.",
+            actor_label(campaign, most_actor, human),
+            most_count,
+            actor_label(campaign, least_actor, human),
+            least_count
+        ));
+    }
+
+    if stats.consecutive_dm_self_picks >= 3 {
+        lines.push(format!(
+            "- DM self-pick streak is {}. Consider handing the spotlight to another actor if possible.",
+            stats.consecutive_dm_self_picks
+        ));
+    }
+
+    let picked_human = stats.dm_pick_count(HUMAN_ACTOR);
+    lines.push(format!(
+        "- Current DM pick counts this run: player5={}, p1={}, p2={}, p3={}, p4={}, dm_self={}.",
+        picked_human,
+        stats.dm_pick_count(PLAYER_AI_ACTORS[0]),
+        stats.dm_pick_count(PLAYER_AI_ACTORS[1]),
+        stats.dm_pick_count(PLAYER_AI_ACTORS[2]),
+        stats.dm_pick_count(PLAYER_AI_ACTORS[3]),
+        stats.dm_pick_count(DM_ACTOR),
+    ));
+
+    lines.join("\n")
+}
+
+fn run_actor_turn_with_hint(
     runner: &CodexRunner,
     campaign: &mut CampaignRuntime,
     actor_id: &str,
     human: &HumanIdentity,
     show_debug: bool,
     recent_events: usize,
-) -> Result<()> {
-    let mut prompt = build_actor_turn_prompt(campaign, actor_id, recent_events)?;
+    dm_scheduler_hint: Option<&str>,
+) -> Result<ActorTurnOutcome> {
+    let mut prompt =
+        build_actor_turn_prompt(campaign, actor_id, human, recent_events, dm_scheduler_hint)?;
     let mut next_thread = campaign.get_thread_id(actor_id);
 
     for attempt in 0..=TURN_OUTPUT_REPAIR_RETRIES {
@@ -435,7 +844,7 @@ fn run_actor_turn(
         } else {
             "repairing format"
         };
-        let subject = format!("{} ({})", actor_label(actor_id, human), phase);
+        let subject = format!("{} ({})", actor_label(campaign, actor_id, human), phase);
         let result = run_with_spinner(&subject, || {
             runner.run_actor_turn(actor_id, &prompt, next_thread.as_deref())
         })?;
@@ -452,11 +861,22 @@ fn run_actor_turn(
 
         match parse_agent_turn_response(&result.last_message) {
             Ok(response) => {
+                let next_actor_id = if actor_id == DM_ACTOR {
+                    let raw = response.next_actor_id.clone().ok_or_else(|| {
+                        anyhow!("DM output must include `next_actor_id` every turn")
+                    })?;
+                    let resolved = resolve_actor_id(&raw, campaign, human)
+                        .ok_or_else(|| anyhow!("Invalid DM next actor `{}`", raw))?;
+                    Some(resolved.to_string())
+                } else {
+                    None
+                };
+
                 if !response.public_message.trim().is_empty() {
                     campaign.add_public_message(actor_id, response.public_message.trim())?;
                     println!(
                         "{}: {}",
-                        styled_actor_label(actor_id, human),
+                        styled_actor_label(campaign, actor_id, human),
                         response.public_message.trim()
                     );
                 }
@@ -477,15 +897,22 @@ fn run_actor_turn(
                     recent_events,
                 )?;
 
-                return Ok(());
+                return Ok(ActorTurnOutcome { next_actor_id });
             }
             Err(err) => {
                 if attempt >= TURN_OUTPUT_REPAIR_RETRIES {
+                    if actor_id == DM_ACTOR {
+                        return Err(anyhow!(
+                            "DM output invalid after {} retries: {}",
+                            TURN_OUTPUT_REPAIR_RETRIES,
+                            err
+                        ));
+                    }
                     campaign.append_note(
                         DM_ACTOR,
                         &format!(
                             "{} produced invalid turn output after {} retries; output suppressed.",
-                            actor_label(actor_id, human),
+                            actor_label(campaign, actor_id, human),
                             TURN_OUTPUT_REPAIR_RETRIES
                         ),
                     )?;
@@ -496,15 +923,19 @@ fn run_actor_turn(
                             truncate(&err.to_string(), 200)
                         );
                     }
-                    return Ok(());
+                    return Ok(ActorTurnOutcome {
+                        next_actor_id: None,
+                    });
                 }
 
-                prompt = build_repair_prompt(actor_id, &result.last_message);
+                prompt = build_repair_prompt(actor_id, actor_id == DM_ACTOR, &result.last_message);
             }
         }
     }
 
-    Ok(())
+    Ok(ActorTurnOutcome {
+        next_actor_id: None,
+    })
 }
 
 fn handle_actions(
@@ -550,7 +981,7 @@ fn handle_actions(
                 let mut skipped_self_count: usize = 0;
 
                 for raw_target in requested_targets {
-                    let Some(resolved) = resolve_actor_id(&raw_target, human) else {
+                    let Some(resolved) = resolve_actor_id(&raw_target, campaign, human) else {
                         invalid_targets.push(raw_target);
                         continue;
                     };
@@ -571,7 +1002,7 @@ fn handle_actions(
                         &format!(
                             "Invalid whisper targets skipped: {}. Valid targets: {}",
                             invalid_targets.join(", "),
-                            valid_targets_csv(actor_id)
+                            valid_targets_csv(campaign, actor_id, human)
                         ),
                     )?;
                 }
@@ -635,11 +1066,11 @@ fn evaluate_whisper_request_batch(
     let dm_thread = campaign.get_thread_id(DM_ACTOR);
     let prompt =
         build_dm_whisper_prompt(campaign, sender, targets, message, reason, recent_events)?;
-    let target_label = format_target_labels(targets, human);
+    let target_label = format_target_labels(campaign, targets, human);
     let result = run_with_spinner(
         &format!(
             "DM whisper gate ({} -> {})",
-            actor_label(sender, human),
+            actor_label(campaign, sender, human),
             target_label
         ),
         || runner.run_dm_whisper_approval(&prompt, dm_thread.as_deref()),
@@ -676,7 +1107,7 @@ fn finalize_whisper_outcome_batch(
     human: &HumanIdentity,
     outcome: WhisperOutcome,
 ) -> Result<()> {
-    let target_label = format_target_labels(targets, human);
+    let target_label = format_target_labels(campaign, targets, human);
     let includes_human = sender == HUMAN_ACTOR || targets.iter().any(|t| t == HUMAN_ACTOR);
 
     if outcome.approved {
@@ -687,7 +1118,7 @@ fn finalize_whisper_outcome_batch(
             println!(
                 "{} {} -> {}: {}",
                 "[whisper approved]".green().bold(),
-                styled_actor_label(sender, human),
+                styled_actor_label(campaign, sender, human),
                 target_label,
                 message
             );
@@ -695,7 +1126,7 @@ fn finalize_whisper_outcome_batch(
             println!(
                 "{} {} -> {}",
                 "[whisper approved]".green().bold(),
-                styled_actor_label(sender, human),
+                styled_actor_label(campaign, sender, human),
                 target_label
             );
         }
@@ -707,14 +1138,14 @@ fn finalize_whisper_outcome_batch(
             sender,
             &format!(
                 "DM denied whisper to {}. Reason: {}",
-                format_target_plain(targets, human),
+                format_target_plain(campaign, targets, human),
                 reason
             ),
         )?;
         println!(
             "{} {} -> {} ({})",
             "[whisper denied]".red().bold(),
-            styled_actor_label(sender, human),
+            styled_actor_label(campaign, sender, human),
             target_label,
             reason
         );
@@ -758,7 +1189,7 @@ fn run_human_turn(
         }
 
         if trimmed.eq_ignore_ascii_case("/help") {
-            print_human_help(human);
+            print_human_help(campaign, human);
             continue;
         }
 
@@ -769,11 +1200,11 @@ fn run_human_turn(
 
         if trimmed.starts_with("/w ") || trimmed.starts_with("/whisper ") {
             let (target_token, message) = parse_human_whisper_command(trimmed)?;
-            let Some(target_id) = resolve_actor_id(&target_token, human) else {
+            let Some(target_id) = resolve_actor_id(&target_token, campaign, human) else {
                 println!(
                     "Unknown whisper target `{}`. Valid targets: {}",
                     target_token,
-                    valid_targets_csv(HUMAN_ACTOR)
+                    valid_targets_csv(campaign, HUMAN_ACTOR, human)
                 );
                 continue;
             };
@@ -805,8 +1236,13 @@ fn run_human_turn(
             return Ok(true);
         }
 
+        hide_previous_input_line();
         campaign.add_public_message(HUMAN_ACTOR, trimmed)?;
-        println!("{}: {}", styled_actor_label(HUMAN_ACTOR, human), trimmed);
+        println!(
+            "{}: {}",
+            styled_actor_label(campaign, HUMAN_ACTOR, human),
+            trimmed
+        );
         return Ok(true);
     }
 }
@@ -826,7 +1262,7 @@ fn parse_human_whisper_command(input: &str) -> Result<(String, String)> {
     Ok((target.to_string(), message.to_string()))
 }
 
-fn print_human_help(human: &HumanIdentity) {
+fn print_human_help(campaign: &CampaignRuntime, human: &HumanIdentity) {
     println!("{}", "Commands:".bold().bright_blue());
     println!("  /w targetplayername message  send a DM-approved whisper");
     println!("  /history                     show your visible recent events");
@@ -838,7 +1274,10 @@ fn print_human_help(human: &HumanIdentity) {
         human.name.bold().bright_cyan(),
         human.pronouns
     );
-    println!("Whisper targets: {}", valid_targets_csv(HUMAN_ACTOR));
+    println!(
+        "Whisper targets: {}",
+        valid_targets_csv(campaign, HUMAN_ACTOR, human)
+    );
 }
 
 fn print_human_history(
@@ -861,7 +1300,7 @@ fn print_human_history(
         println!(
             "  [{}] {}: {}",
             evt.timestamp,
-            actor_label(&evt.speaker, human),
+            actor_label(campaign, &evt.speaker, human),
             evt.message
         );
     }
@@ -871,7 +1310,9 @@ fn print_human_history(
 fn build_actor_turn_prompt(
     campaign: &CampaignRuntime,
     actor_id: &str,
+    human: &HumanIdentity,
     recent_events: usize,
+    dm_scheduler_hint: Option<&str>,
 ) -> Result<String> {
     let visible_events = campaign.visible_events_for_actor(actor_id, recent_events)?;
     let notes = campaign.read_notes(actor_id)?;
@@ -885,7 +1326,9 @@ fn build_actor_turn_prompt(
          - You are the Dungeon Master. Keep pacing tight and ask clarifying questions in-character.\n\
          - Ask each player what they want to play when uncertain about party direction.\n\
          - Adjudicate outcomes; do not reveal hidden info publicly unless earned.\n\
-         - For private communication use `request_message_player` actions.\n"
+         - For private communication use `request_message_player` actions.\n\
+         - After your turn, you MUST choose who acts next by setting `next_actor_id`.\n\
+         - You may choose yourself (`dm_agent`) if narration needs it.\n"
     } else {
         "Role guidance (Player):\n\
          - Stay in character and propose concrete actions.\n\
@@ -898,14 +1341,32 @@ fn build_actor_turn_prompt(
     prompt.push_str("You are participating in an ongoing 6-player DnD game.\n");
     prompt.push_str(&format!("Your actor_id is `{}`.\n", actor_id));
     prompt.push_str(&format!(
-        "Round index: {}.\n",
+        "Turn cycle index: {}.\n",
         campaign.state.round_index + 1
     ));
     prompt.push_str(&format!("Campaign id: {}.\n", campaign.campaign_id));
     prompt.push_str(&format!("{}\n", role_guidance));
+    prompt.push_str("Actor roster:\n");
+    for id in all_actor_ids() {
+        let name = campaign.actor_display_name(id);
+        let pronouns = campaign.actor_pronouns(id);
+        prompt.push_str(&format!("- {} => {} ({})\n", id, name, pronouns));
+    }
+    if actor_id == DM_ACTOR
+        && let Some(hint) = dm_scheduler_hint
+    {
+        prompt.push_str("\nScheduler guidance:\n");
+        prompt.push_str(hint);
+        prompt.push('\n');
+    }
     prompt.push_str("Output rules:\n");
     prompt.push_str("- Return only one JSON object. No markdown.\n");
     prompt.push_str("- Required keys: `public_message` (string), `actions` (array).\n");
+    if actor_id == DM_ACTOR {
+        prompt.push_str("- DM additionally requires `next_actor_id` (string actor_id).\n");
+    } else {
+        prompt.push_str("- `next_actor_id` is optional and ignored for non-DM actors.\n");
+    }
     prompt.push_str("- Optional key: `note` (string).\n");
     prompt.push_str("- Allowed action types: `request_message_player`, `note_write`.\n");
     prompt.push_str(
@@ -913,10 +1374,15 @@ fn build_actor_turn_prompt(
     );
     prompt.push_str("- `request_message_player` can set `target` (single) or `targets` (array) for the same message.\n");
     prompt.push_str("- Every whisper target must be one of: ");
-    prompt.push_str(&valid_targets_csv(actor_id));
+    prompt.push_str(&valid_targets_csv(campaign, actor_id, human));
     prompt.push_str(".\n");
     prompt
         .push_str("- Use `targets` when sending identical whisper text to multiple recipients.\n");
+    if actor_id == DM_ACTOR {
+        prompt.push_str(
+            "- `next_actor_id` must be one of: dm_agent, player_ai_1, player_ai_2, player_ai_3, player_ai_4, human_player.\n",
+        );
+    }
     prompt.push_str("- Keep `public_message` concise and in-character.\n\n");
 
     prompt.push_str("Character sheet JSON:\n");
@@ -964,25 +1430,47 @@ fn build_dm_whisper_prompt(
     Ok(prompt)
 }
 
-fn build_repair_prompt(actor_id: &str, bad_output: &str) -> String {
-    format!(
-        "Your previous turn output for actor `{}` was invalid for the required schema.\n\
-         Return ONLY valid JSON with exactly this structure:\n\
-         {{\n\
-           \"public_message\": \"string\",\n\
-           \"actions\": [\n\
-             {{\"type\":\"request_message_player\",\"target\":\"string\",\"targets\":[\"string\"],\"message\":\"string\",\"reason\":\"optional string\"}}\n\
-             or\n\
-             {{\"type\":\"note_write\",\"text\":\"string\"}}\n\
-           ],\n\
-           \"note\": \"optional string\"\n\
-         }}\n\
-         Do not include markdown fences.\n\
-         Do not include unsupported action types.\n\
-         Previous invalid output was:\n{}",
-        actor_id,
-        truncate(bad_output, 1200)
-    )
+fn build_repair_prompt(actor_id: &str, requires_next_actor: bool, bad_output: &str) -> String {
+    if requires_next_actor {
+        format!(
+            "Your previous turn output for actor `{}` was invalid for the required schema.\n\
+             Return ONLY valid JSON with exactly this structure:\n\
+             {{\n\
+               \"public_message\": \"string\",\n\
+               \"actions\": [\n\
+                 {{\"type\":\"request_message_player\",\"target\":\"string\",\"targets\":[\"string\"],\"message\":\"string\",\"reason\":\"optional string\"}}\n\
+                 or\n\
+                 {{\"type\":\"note_write\",\"text\":\"string\"}}\n\
+               ],\n\
+               \"next_actor_id\": \"dm_agent|player_ai_1|player_ai_2|player_ai_3|player_ai_4|human_player\",\n\
+               \"note\": \"optional string\"\n\
+             }}\n\
+             Do not include markdown fences.\n\
+             Do not include unsupported action types.\n\
+             Previous invalid output was:\n{}",
+            actor_id,
+            truncate(bad_output, 1200)
+        )
+    } else {
+        format!(
+            "Your previous turn output for actor `{}` was invalid for the required schema.\n\
+             Return ONLY valid JSON with exactly this structure:\n\
+             {{\n\
+               \"public_message\": \"string\",\n\
+               \"actions\": [\n\
+                 {{\"type\":\"request_message_player\",\"target\":\"string\",\"targets\":[\"string\"],\"message\":\"string\",\"reason\":\"optional string\"}}\n\
+                 or\n\
+                 {{\"type\":\"note_write\",\"text\":\"string\"}}\n\
+               ],\n\
+               \"note\": \"optional string\"\n\
+             }}\n\
+             Do not include markdown fences.\n\
+             Do not include unsupported action types.\n\
+             Previous invalid output was:\n{}",
+            actor_id,
+            truncate(bad_output, 1200)
+        )
+    }
 }
 
 fn parse_agent_turn_response(raw: &str) -> Result<AgentTurnResponse> {
@@ -1054,85 +1542,113 @@ fn print_debug_turn(actor_id: &str, result: &CodexTurnResult) {
     }
 }
 
-fn resolve_actor_id(input: &str, human: &HumanIdentity) -> Option<&'static str> {
-    let key = input.trim().to_ascii_lowercase();
+fn resolve_actor_id(
+    input: &str,
+    campaign: &CampaignRuntime,
+    human: &HumanIdentity,
+) -> Option<&'static str> {
+    let key = normalize_alias(input);
     match key.as_str() {
-        "dm" | "dungeonmaster" | "dm_agent" => Some(DM_ACTOR),
-        "human" | "human_player" | "luna" => Some(HUMAN_ACTOR),
-        "player_ai_1" | "player1" | "p1" | "ai1" | "ember" => Some(PLAYER_AI_ACTORS[0]),
-        "player_ai_2" | "player2" | "p2" | "ai2" | "tide" => Some(PLAYER_AI_ACTORS[1]),
-        "player_ai_3" | "player3" | "p3" | "ai3" | "stone" => Some(PLAYER_AI_ACTORS[2]),
-        "player_ai_4" | "player4" | "p4" | "ai4" | "gale" => Some(PLAYER_AI_ACTORS[3]),
-        _ => {
-            if human_aliases(human).iter().any(|alias| alias == &key) {
-                return Some(HUMAN_ACTOR);
-            }
-            if key == DM_ACTOR {
-                Some(DM_ACTOR)
-            } else if key == HUMAN_ACTOR {
-                Some(HUMAN_ACTOR)
-            } else if key == PLAYER_AI_ACTORS[0] {
-                Some(PLAYER_AI_ACTORS[0])
-            } else if key == PLAYER_AI_ACTORS[1] {
-                Some(PLAYER_AI_ACTORS[1])
-            } else if key == PLAYER_AI_ACTORS[2] {
-                Some(PLAYER_AI_ACTORS[2])
-            } else if key == PLAYER_AI_ACTORS[3] {
-                Some(PLAYER_AI_ACTORS[3])
-            } else {
-                None
-            }
+        "dm" | "dungeonmaster" | "dm_agent" => return Some(DM_ACTOR),
+        "player5" | "p5" | "human" | "human_player" => return Some(HUMAN_ACTOR),
+        "player_ai_1" | "player1" | "p1" | "ai1" => return Some(PLAYER_AI_ACTORS[0]),
+        "player_ai_2" | "player2" | "p2" | "ai2" => return Some(PLAYER_AI_ACTORS[1]),
+        "player_ai_3" | "player3" | "p3" | "ai3" => return Some(PLAYER_AI_ACTORS[2]),
+        "player_ai_4" | "player4" | "p4" | "ai4" => return Some(PLAYER_AI_ACTORS[3]),
+        _ => {}
+    }
+
+    if human_aliases(campaign, human)
+        .iter()
+        .any(|alias| alias == &key)
+    {
+        return Some(HUMAN_ACTOR);
+    }
+
+    for actor_id in all_actor_ids() {
+        if key == actor_id {
+            return Some(actor_id);
+        }
+        let aliases = actor_identity_aliases(campaign, actor_id);
+        if aliases.iter().any(|alias| alias == &key) {
+            return Some(actor_id);
         }
     }
+
+    None
 }
 
-fn valid_targets_csv(exclude_actor: &str) -> String {
-    let mut ids: Vec<&str> = all_actor_ids()
+fn valid_targets_csv(
+    campaign: &CampaignRuntime,
+    exclude_actor: &str,
+    human: &HumanIdentity,
+) -> String {
+    let ordered = [
+        DM_ACTOR,
+        PLAYER_AI_ACTORS[0],
+        PLAYER_AI_ACTORS[1],
+        PLAYER_AI_ACTORS[2],
+        PLAYER_AI_ACTORS[3],
+        HUMAN_ACTOR,
+    ];
+    ordered
         .into_iter()
         .filter(|id| *id != exclude_actor)
-        .collect();
-    ids.sort_unstable();
-    ids.join(", ")
+        .map(|id| {
+            format!(
+                "{} ({})",
+                public_actor_token(id),
+                actor_label(campaign, id, human)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
-fn actor_label<'a>(actor_id: &'a str, human: &'a HumanIdentity) -> Cow<'a, str> {
+fn actor_label(campaign: &CampaignRuntime, actor_id: &str, _human: &HumanIdentity) -> String {
     match actor_id {
-        DM_ACTOR => Cow::Borrowed("DM"),
-        HUMAN_ACTOR => Cow::Borrowed(&human.name),
-        id if id == PLAYER_AI_ACTORS[0] => Cow::Borrowed("Ember"),
-        id if id == PLAYER_AI_ACTORS[1] => Cow::Borrowed("Tide"),
-        id if id == PLAYER_AI_ACTORS[2] => Cow::Borrowed("Stone"),
-        id if id == PLAYER_AI_ACTORS[3] => Cow::Borrowed("Gale"),
-        "system" => Cow::Borrowed("System"),
-        _ => Cow::Owned(actor_id.to_string()),
+        DM_ACTOR => "DM".to_string(),
+        HUMAN_ACTOR => campaign.actor_display_name(HUMAN_ACTOR),
+        id if PLAYER_AI_ACTORS.contains(&id) => campaign.actor_display_name(id),
+        "system" => "System".to_string(),
+        _ => campaign.actor_display_name(actor_id),
     }
 }
 
-fn styled_actor_label(actor_id: &str, human: &HumanIdentity) -> String {
+fn styled_actor_label(campaign: &CampaignRuntime, actor_id: &str, human: &HumanIdentity) -> String {
+    let label = actor_label(campaign, actor_id, human);
     match actor_id {
-        DM_ACTOR => "DM".bright_magenta().bold().to_string(),
-        HUMAN_ACTOR => human.name.as_str().bright_cyan().bold().to_string(),
-        id if id == PLAYER_AI_ACTORS[0] => "Ember".bright_red().bold().to_string(),
-        id if id == PLAYER_AI_ACTORS[1] => "Tide".bright_blue().bold().to_string(),
-        id if id == PLAYER_AI_ACTORS[2] => "Stone".bright_yellow().bold().to_string(),
-        id if id == PLAYER_AI_ACTORS[3] => "Gale".bright_green().bold().to_string(),
-        "system" => "System".bright_black().bold().to_string(),
-        _ => actor_id.bold().to_string(),
+        DM_ACTOR => label.bright_magenta().bold().to_string(),
+        HUMAN_ACTOR => label.bright_cyan().bold().to_string(),
+        id if id == PLAYER_AI_ACTORS[0] => label.bright_red().bold().to_string(),
+        id if id == PLAYER_AI_ACTORS[1] => label.bright_blue().bold().to_string(),
+        id if id == PLAYER_AI_ACTORS[2] => label.bright_yellow().bold().to_string(),
+        id if id == PLAYER_AI_ACTORS[3] => label.bright_green().bold().to_string(),
+        "system" => label.bright_black().bold().to_string(),
+        _ => label.bold().to_string(),
     }
 }
 
-fn format_target_labels(targets: &[String], human: &HumanIdentity) -> String {
+fn format_target_labels(
+    campaign: &CampaignRuntime,
+    targets: &[String],
+    human: &HumanIdentity,
+) -> String {
     let labels: Vec<String> = targets
         .iter()
-        .map(|target| styled_actor_label(target, human))
+        .map(|target| styled_actor_label(campaign, target, human))
         .collect();
     format!("[{}]", labels.join(", "))
 }
 
-fn format_target_plain(targets: &[String], human: &HumanIdentity) -> String {
+fn format_target_plain(
+    campaign: &CampaignRuntime,
+    targets: &[String],
+    human: &HumanIdentity,
+) -> String {
     let labels: Vec<String> = targets
         .iter()
-        .map(|target| actor_label(target, human).to_string())
+        .map(|target| actor_label(campaign, target, human))
         .collect();
     format!("[{}]", labels.join(", "))
 }
@@ -1142,20 +1658,49 @@ fn make_prompt_tag(name: &str) -> String {
     let compact: String = first
         .chars()
         .filter(|c| c.is_ascii_alphanumeric() || *c == '_')
-        .collect::<String>()
-        .to_ascii_lowercase();
+        .collect::<String>();
     if compact.is_empty() {
-        "player".to_string()
+        "Player".to_string()
     } else {
-        compact
+        let mut chars = compact.chars();
+        let Some(first_char) = chars.next() else {
+            return "Player".to_string();
+        };
+        format!("{}{}", first_char.to_uppercase(), chars.as_str())
     }
 }
 
-fn human_aliases(human: &HumanIdentity) -> Vec<String> {
-    let base = human.name.trim().to_ascii_lowercase();
+fn human_aliases(campaign: &CampaignRuntime, human: &HumanIdentity) -> Vec<String> {
+    let base = campaign
+        .actor_display_name(HUMAN_ACTOR)
+        .trim()
+        .to_ascii_lowercase();
     let nospace = base.replace(' ', "");
     let first = base.split_whitespace().next().unwrap_or("").to_string();
-    vec![base, nospace, first, human.prompt_tag.clone()]
+    vec![base, nospace, first, human.prompt_tag.to_ascii_lowercase()]
+}
+
+fn actor_identity_aliases(campaign: &CampaignRuntime, actor_id: &str) -> Vec<String> {
+    let base = campaign.actor_display_name(actor_id).to_ascii_lowercase();
+    let compact = base.replace(' ', "");
+    let first = base.split_whitespace().next().unwrap_or("").to_string();
+    vec![base, compact, first]
+}
+
+fn normalize_alias(input: &str) -> String {
+    input.trim().to_ascii_lowercase()
+}
+
+fn public_actor_token(actor_id: &str) -> &'static str {
+    match actor_id {
+        DM_ACTOR => "dm",
+        id if id == PLAYER_AI_ACTORS[0] => "player1",
+        id if id == PLAYER_AI_ACTORS[1] => "player2",
+        id if id == PLAYER_AI_ACTORS[2] => "player3",
+        id if id == PLAYER_AI_ACTORS[3] => "player4",
+        HUMAN_ACTOR => "player5",
+        _ => "player",
+    }
 }
 
 fn run_with_spinner<T, F>(subject: &str, action: F) -> Result<T>
@@ -1178,6 +1723,13 @@ fn start_thinking_spinner(subject: &str) -> ProgressBar {
     pb.enable_steady_tick(Duration::from_millis(90));
     pb.set_message(subject.to_string());
     pb
+}
+
+fn hide_previous_input_line() {
+    if io::stdin().is_terminal() && io::stdout().is_terminal() {
+        print!("\x1b[1A\x1b[2K\r");
+        let _ = io::stdout().flush();
+    }
 }
 
 fn prompt_yes_no(prompt: &str, default_yes: bool) -> Result<bool> {

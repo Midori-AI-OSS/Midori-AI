@@ -8,8 +8,9 @@ use chrono::Utc;
 use uuid::Uuid;
 
 use crate::types::{
-    ActorSession, CampaignState, CharacterSheet, DM_ACTOR, HUMAN_ACTOR, NoteEntry, NotesFile,
-    PLAYER_AI_ACTORS, RunMode, SessionsFile, TranscriptEvent, Visibility, all_actor_ids,
+    ActorIdentity, ActorSession, CampaignState, CharacterSheet, DM_ACTOR, HUMAN_ACTOR,
+    IdentitiesFile, NoteEntry, NotesFile, PLAYER_AI_ACTORS, RunMode, SessionsFile, TranscriptEvent,
+    Visibility, all_actor_ids,
 };
 
 pub const STATE_FORMAT_VERSION: u32 = 1;
@@ -20,6 +21,7 @@ pub struct CampaignRuntime {
     pub root: PathBuf,
     pub state: CampaignState,
     pub sessions: SessionsFile,
+    pub identities: IdentitiesFile,
 }
 
 impl CampaignRuntime {
@@ -60,6 +62,11 @@ impl CampaignRuntime {
             );
         }
 
+        let mut identities = BTreeMap::new();
+        for actor in all_actor_ids() {
+            identities.insert(actor.to_string(), default_identity_for_actor(actor));
+        }
+
         let runtime = Self {
             campaign_id,
             root,
@@ -68,10 +75,15 @@ impl CampaignRuntime {
                 format_version: STATE_FORMAT_VERSION,
                 sessions,
             },
+            identities: IdentitiesFile {
+                format_version: STATE_FORMAT_VERSION,
+                identities,
+            },
         };
 
         runtime.save_state()?;
         runtime.save_sessions()?;
+        runtime.save_identities()?;
         runtime.write_bootstrap_files()?;
 
         Ok(runtime)
@@ -87,13 +99,32 @@ impl CampaignRuntime {
             .with_context(|| "failed to read campaign_state.json")?;
         let sessions: SessionsFile = read_json_file(&root.join("sessions/sessions.json"))
             .with_context(|| "failed to read sessions/sessions.json")?;
+        let identities_path = root.join("identities.json");
+        let identities = if identities_path.exists() {
+            read_json_file(&identities_path).with_context(|| "failed to read identities.json")?
+        } else {
+            let mut default_identities = BTreeMap::new();
+            for actor in all_actor_ids() {
+                default_identities.insert(actor.to_string(), default_identity_for_actor(actor));
+            }
+            let generated = IdentitiesFile {
+                format_version: STATE_FORMAT_VERSION,
+                identities: default_identities,
+            };
+            write_json_file(&identities_path, &generated)?;
+            generated
+        };
 
-        Ok(Self {
+        let mut runtime = Self {
             campaign_id: campaign_id.to_string(),
             root,
             state,
             sessions,
-        })
+            identities,
+        };
+
+        runtime.ensure_identity_defaults()?;
+        Ok(runtime)
     }
 
     pub fn list_campaign_ids(campaign_root: &Path) -> Result<Vec<String>> {
@@ -120,6 +151,10 @@ impl CampaignRuntime {
 
     pub fn save_sessions(&self) -> Result<()> {
         write_json_file(&self.root.join("sessions/sessions.json"), &self.sessions)
+    }
+
+    pub fn save_identities(&self) -> Result<()> {
+        write_json_file(&self.root.join("identities.json"), &self.identities)
     }
 
     fn write_bootstrap_files(&self) -> Result<()> {
@@ -278,6 +313,65 @@ impl CampaignRuntime {
         self.state.updated_at = Utc::now();
         self.save_state()
     }
+
+    pub fn actor_identity(&self, actor_id: &str) -> Option<&ActorIdentity> {
+        self.identities.identities.get(actor_id)
+    }
+
+    pub fn actor_display_name(&self, actor_id: &str) -> String {
+        self.actor_identity(actor_id)
+            .map(|identity| identity.display_name.clone())
+            .unwrap_or_else(|| actor_id.to_string())
+    }
+
+    pub fn actor_pronouns(&self, actor_id: &str) -> String {
+        self.actor_identity(actor_id)
+            .map(|identity| identity.pronouns.clone())
+            .unwrap_or_else(|| "they/them".to_string())
+    }
+
+    pub fn identity_is_approved(&self, actor_id: &str) -> bool {
+        self.actor_identity(actor_id)
+            .map(|identity| identity.approved_by_dm)
+            .unwrap_or(false)
+    }
+
+    pub fn set_actor_identity(
+        &mut self,
+        actor_id: &str,
+        display_name: String,
+        pronouns: String,
+        approved_by_dm: bool,
+    ) -> Result<()> {
+        self.identities.identities.insert(
+            actor_id.to_string(),
+            ActorIdentity {
+                actor_id: actor_id.to_string(),
+                display_name,
+                pronouns,
+                approved_by_dm,
+                updated_at: Utc::now(),
+            },
+        );
+        self.save_identities()
+    }
+
+    fn ensure_identity_defaults(&mut self) -> Result<()> {
+        let mut changed = false;
+        for actor in all_actor_ids() {
+            if !self.identities.identities.contains_key(actor) {
+                self.identities
+                    .identities
+                    .insert(actor.to_string(), default_identity_for_actor(actor));
+                changed = true;
+            }
+        }
+        if changed {
+            self.identities.format_version = STATE_FORMAT_VERSION;
+            self.save_identities()?;
+        }
+        Ok(())
+    }
 }
 
 fn default_sheet_for_actor(actor: &str) -> CharacterSheet {
@@ -305,6 +399,32 @@ fn default_sheet_for_actor(actor: &str) -> CharacterSheet {
         intelligence: 10,
         wisdom: 10,
         charisma: 10,
+    }
+}
+
+fn default_identity_for_actor(actor: &str) -> ActorIdentity {
+    let (display_name, pronouns, approved_by_dm) = if actor == DM_ACTOR {
+        ("DM".to_string(), "they/them".to_string(), true)
+    } else if actor == HUMAN_ACTOR {
+        ("Luna".to_string(), "she/her".to_string(), true)
+    } else if actor == PLAYER_AI_ACTORS[0] {
+        ("Player 1".to_string(), "they/them".to_string(), false)
+    } else if actor == PLAYER_AI_ACTORS[1] {
+        ("Player 2".to_string(), "they/them".to_string(), false)
+    } else if actor == PLAYER_AI_ACTORS[2] {
+        ("Player 3".to_string(), "they/them".to_string(), false)
+    } else if actor == PLAYER_AI_ACTORS[3] {
+        ("Player 4".to_string(), "they/them".to_string(), false)
+    } else {
+        (actor.to_string(), "they/them".to_string(), true)
+    };
+
+    ActorIdentity {
+        actor_id: actor.to_string(),
+        display_name,
+        pronouns,
+        approved_by_dm,
+        updated_at: Utc::now(),
     }
 }
 

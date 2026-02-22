@@ -2,10 +2,16 @@
 
 Rust prototype for a 6-player DnD loop:
 - 1 DM agent (`codex exec`)
-- 4 AI player agents (`codex exec`)
-- 1 human player (you)
+- 4 player agents (`codex exec`)
+- 1 player (you)
 
 It supports both local and remote Codex runs.
+
+Turn flow is DM-directed:
+- DM acts and sets `next_actor_id`
+- chosen actor acts
+- control returns to DM
+- repeats (no fixed round-robin fallback)
 
 ## Config Layout
 
@@ -49,7 +55,15 @@ cargo run -- --config config.toml --campaign <campaign_id> --mode local
 
 Flags are optional; the app prompts you in-program for new/continue and mode selection.
 
-## Game Commands (Human)
+## Identity Setup
+
+- Player 5 identity is prompted at startup (`name`, `pronouns`).
+- Players 1-4 start as `Player 1`..`Player 4`.
+- Players 1-4 each propose `name` + `pronouns`.
+- DM finalizes each player identity before play begins.
+- Identities are saved per campaign in `identities.json`.
+
+## Game Commands (Player)
 
 - `/w targetplayername message` -> DM-approved whisper
 - `/history` -> show your visible recent events
@@ -59,10 +73,15 @@ Flags are optional; the app prompts you in-program for new/continue and mode sel
 
 Targets accept IDs/aliases like:
 - `dm`, `dm_agent`
-- `player1` / `p1` / `ai1`
-- `player2` / `p2` / `ai2`
-- `player3` / `p3` / `ai3`
-- `player4` / `p4` / `ai4`
+- `player1` / `p1`
+- `player2` / `p2`
+- `player3` / `p3`
+- `player4` / `p4`
+- `player5` / `p5`
+
+Notes:
+- Plain player speech input is hidden after submit in interactive TTY mode.
+- Command inputs stay visible for traceability.
 
 ## Campaign Storage
 
@@ -70,6 +89,7 @@ By default:
 - `data/campaigns/<campaign_id>/campaign_state.json`
 - `data/campaigns/<campaign_id>/events.jsonl`
 - `data/campaigns/<campaign_id>/sessions/sessions.json`
+- `data/campaigns/<campaign_id>/identities.json`
 - `data/campaigns/<campaign_id>/notes/*.json`
 - `data/campaigns/<campaign_id>/characters/*.json`
 

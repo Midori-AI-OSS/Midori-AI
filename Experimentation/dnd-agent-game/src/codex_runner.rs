@@ -25,8 +25,11 @@ pub struct CodexRunner {
     workdir: PathBuf,
     output_dir: PathBuf,
     local_runtime_home: Option<PathBuf>,
-    agent_schema_path: PathBuf,
+    dm_turn_schema_path: PathBuf,
+    player_turn_schema_path: PathBuf,
     whisper_schema_path: PathBuf,
+    identity_proposal_schema_path: PathBuf,
+    identity_decision_schema_path: PathBuf,
 }
 
 impl CodexRunner {
@@ -43,9 +46,18 @@ impl CodexRunner {
         fs::create_dir_all(&output_dir)
             .with_context(|| format!("failed to create {}", output_dir.display()))?;
 
-        let agent_schema_path = paths.schema_dir.join("agent_turn.schema.json");
+        let dm_turn_schema_path = paths.schema_dir.join("dm_turn.schema.json");
+        let player_turn_schema_path = paths.schema_dir.join("player_turn.schema.json");
         let whisper_schema_path = paths.schema_dir.join("dm_whisper_decision.schema.json");
-        ensure_schema_files(&agent_schema_path, &whisper_schema_path)?;
+        let identity_proposal_schema_path = paths.schema_dir.join("identity_proposal.schema.json");
+        let identity_decision_schema_path = paths.schema_dir.join("identity_decision.schema.json");
+        ensure_schema_files(
+            &dm_turn_schema_path,
+            &player_turn_schema_path,
+            &whisper_schema_path,
+            &identity_proposal_schema_path,
+            &identity_decision_schema_path,
+        )?;
 
         let local_runtime_home = if mode == RunMode::Local {
             ensure_local_codex_template(&paths.codex_local_config)?;
@@ -61,8 +73,11 @@ impl CodexRunner {
             workdir,
             output_dir,
             local_runtime_home,
-            agent_schema_path,
+            dm_turn_schema_path,
+            player_turn_schema_path,
             whisper_schema_path,
+            identity_proposal_schema_path,
+            identity_decision_schema_path,
         })
     }
 
@@ -77,12 +92,12 @@ impl CodexRunner {
         existing_thread_id: Option<&str>,
     ) -> Result<CodexTurnResult> {
         let profile = self.select_profile(actor_id);
-        self.run_codex(
-            profile,
-            prompt,
-            existing_thread_id,
-            Some(&self.agent_schema_path),
-        )
+        let schema = if actor_id == DM_ACTOR {
+            &self.dm_turn_schema_path
+        } else {
+            &self.player_turn_schema_path
+        };
+        self.run_codex(profile, prompt, existing_thread_id, Some(schema))
     }
 
     pub fn run_dm_whisper_approval(
@@ -96,6 +111,35 @@ impl CodexRunner {
             prompt,
             existing_thread_id,
             Some(&self.whisper_schema_path),
+        )
+    }
+
+    pub fn run_identity_proposal(
+        &self,
+        actor_id: &str,
+        prompt: &str,
+        existing_thread_id: Option<&str>,
+    ) -> Result<CodexTurnResult> {
+        let profile = self.select_profile(actor_id);
+        self.run_codex(
+            profile,
+            prompt,
+            existing_thread_id,
+            Some(&self.identity_proposal_schema_path),
+        )
+    }
+
+    pub fn run_identity_decision(
+        &self,
+        prompt: &str,
+        existing_thread_id: Option<&str>,
+    ) -> Result<CodexTurnResult> {
+        let profile = self.select_profile(DM_ACTOR);
+        self.run_codex(
+            profile,
+            prompt,
+            existing_thread_id,
+            Some(&self.identity_decision_schema_path),
         )
     }
 
@@ -324,8 +368,14 @@ fn materialize_codex_home(local_config: &Path, runtime_home: &Path) -> Result<()
     Ok(())
 }
 
-fn ensure_schema_files(agent_schema: &Path, whisper_schema: &Path) -> Result<()> {
-    let agent_schema_contents = r#"{
+fn ensure_schema_files(
+    dm_turn_schema: &Path,
+    player_turn_schema: &Path,
+    whisper_schema: &Path,
+    identity_proposal_schema: &Path,
+    identity_decision_schema: &Path,
+) -> Result<()> {
+    let dm_turn_schema_contents = r#"{
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "properties": {
@@ -366,14 +416,76 @@ fn ensure_schema_files(agent_schema: &Path, whisper_schema: &Path) -> Result<()>
         ]
       }
     },
+    "next_actor_id": {
+      "type": "string",
+      "enum": [
+        "dm_agent",
+        "player_ai_1",
+        "player_ai_2",
+        "player_ai_3",
+        "player_ai_4",
+        "human_player"
+      ]
+    },
+    "note": { "type": "string" }
+  },
+  "required": ["public_message", "actions", "next_actor_id"],
+  "additionalProperties": false
+}
+"#;
+    fs::write(dm_turn_schema, dm_turn_schema_contents)
+        .with_context(|| format!("failed to write {}", dm_turn_schema.display()))?;
+
+    let player_turn_schema_contents = r#"{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "public_message": { "type": "string" },
+    "actions": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "type": { "const": "request_message_player" },
+              "target": { "type": "string" },
+              "targets": {
+                "type": "array",
+                "items": { "type": "string" },
+                "minItems": 1
+              },
+              "message": { "type": "string" },
+              "reason": { "type": "string" }
+            },
+            "required": ["type", "message"],
+            "anyOf": [
+              { "required": ["target"] },
+              { "required": ["targets"] }
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "const": "note_write" },
+              "text": { "type": "string" }
+            },
+            "required": ["type", "text"],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "next_actor_id": { "type": "string" },
     "note": { "type": "string" }
   },
   "required": ["public_message", "actions"],
   "additionalProperties": false
 }
 "#;
-    fs::write(agent_schema, agent_schema_contents)
-        .with_context(|| format!("failed to write {}", agent_schema.display()))?;
+    fs::write(player_turn_schema, player_turn_schema_contents)
+        .with_context(|| format!("failed to write {}", player_turn_schema.display()))?;
 
     let whisper_schema_contents = r#"{
   "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -388,6 +500,35 @@ fn ensure_schema_files(agent_schema: &Path, whisper_schema: &Path) -> Result<()>
 "#;
     fs::write(whisper_schema, whisper_schema_contents)
         .with_context(|| format!("failed to write {}", whisper_schema.display()))?;
+
+    let identity_proposal_schema_contents = r#"{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "pronouns": { "type": "string", "minLength": 1 }
+  },
+  "required": ["name", "pronouns"],
+  "additionalProperties": false
+}
+"#;
+    fs::write(identity_proposal_schema, identity_proposal_schema_contents)
+        .with_context(|| format!("failed to write {}", identity_proposal_schema.display()))?;
+
+    let identity_decision_schema_contents = r#"{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "final_name": { "type": "string", "minLength": 1 },
+    "final_pronouns": { "type": "string", "minLength": 1 },
+    "reason": { "type": "string" }
+  },
+  "required": ["final_name", "final_pronouns"],
+  "additionalProperties": false
+}
+"#;
+    fs::write(identity_decision_schema, identity_decision_schema_contents)
+        .with_context(|| format!("failed to write {}", identity_decision_schema.display()))?;
 
     Ok(())
 }

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "final_name": { "type": "string", "minLength": 1 },
+    "final_pronouns": { "type": "string", "minLength": 1 },
+    "reason": { "type": "string" }
+  },
+  "required": ["final_name", "final_pronouns"],
+  "additionalProperties": false
+}
