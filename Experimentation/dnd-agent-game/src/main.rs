@@ -523,12 +523,7 @@ fn collect_identity_proposal(
     let mut next_thread = campaign.get_thread_id(actor_id);
 
     for attempt in 0..=TURN_OUTPUT_REPAIR_RETRIES {
-        let phase = if attempt == 0 {
-            "identity proposal"
-        } else {
-            "identity proposal repair"
-        };
-        let subject = format!("{} ({})", actor_label(campaign, actor_id, human), phase);
+        let subject = format!("Setting up {}", actor_label(campaign, actor_id, human));
         let result = run_with_spinner(&subject, || {
             runner.run_identity_proposal(actor_id, &prompt, next_thread.as_deref())
         })?;
@@ -579,12 +574,7 @@ fn collect_dm_identity_decision(
     let mut dm_thread = campaign.get_thread_id(DM_ACTOR);
 
     for attempt in 0..=TURN_OUTPUT_REPAIR_RETRIES {
-        let phase = if attempt == 0 {
-            "identity decision"
-        } else {
-            "identity decision repair"
-        };
-        let subject = format!("DM ({})", phase);
+        let subject = "DM finalizing player setup".to_string();
         let result = run_with_spinner(&subject, || {
             runner.run_identity_decision(&prompt, dm_thread.as_deref())
         })?;
@@ -841,12 +831,7 @@ fn run_actor_turn_with_hint(
     let mut next_thread = campaign.get_thread_id(actor_id);
 
     for attempt in 0..=TURN_OUTPUT_REPAIR_RETRIES {
-        let phase = if attempt == 0 {
-            "thinking"
-        } else {
-            "repairing format"
-        };
-        let subject = format!("{} ({})", actor_label(campaign, actor_id, human), phase);
+        let subject = format!("{} is thinking", actor_label(campaign, actor_id, human));
         let result = run_with_spinner(&subject, || {
             runner.run_actor_turn(actor_id, &prompt, next_thread.as_deref())
         })?;
@@ -875,11 +860,17 @@ fn run_actor_turn_with_hint(
                 };
 
                 if !response.public_message.trim().is_empty() {
-                    campaign.add_public_message(actor_id, response.public_message.trim())?;
+                    let cleaned_message = normalize_public_message(
+                        campaign,
+                        actor_id,
+                        human,
+                        response.public_message.trim(),
+                    );
+                    campaign.add_public_message(actor_id, &cleaned_message)?;
                     print_narrative_line(format!(
                         "{}: {}",
                         styled_actor_label(campaign, actor_id, human),
-                        response.public_message.trim()
+                        cleaned_message
                     ));
                 }
 
@@ -1068,7 +1059,7 @@ fn evaluate_whisper_request_batch(
     let dm_thread = campaign.get_thread_id(DM_ACTOR);
     let prompt =
         build_dm_whisper_prompt(campaign, sender, targets, message, reason, recent_events)?;
-    let result = run_with_spinner("DM deciding", || {
+    let result = run_with_spinner("DM acting", || {
         runner.run_dm_whisper_approval(&prompt, dm_thread.as_deref())
     })?;
 
@@ -1112,16 +1103,14 @@ fn finalize_whisper_outcome_batch(
         }
         if includes_human {
             print_narrative_line(format!(
-                "{} {} -> {}: {}",
-                "[whisper approved]".green().bold(),
+                "{} whispered to {}: {}",
                 styled_actor_label(campaign, sender, human),
                 target_label,
                 message
             ));
         } else {
             print_narrative_line(format!(
-                "{} {} -> {}",
-                "[whisper approved]".green().bold(),
+                "{} whispered to {}.",
                 styled_actor_label(campaign, sender, human),
                 target_label
             ));
@@ -1138,13 +1127,13 @@ fn finalize_whisper_outcome_batch(
                 reason
             ),
         )?;
-        print_narrative_line(format!(
-            "{} {} -> {} ({})",
-            "[whisper denied]".red().bold(),
-            styled_actor_label(campaign, sender, human),
-            target_label,
-            reason
-        ));
+        if includes_human {
+            print_narrative_line(format!(
+                "DM blocked a whisper from {} to {}.",
+                styled_actor_label(campaign, sender, human),
+                target_label
+            ));
+        }
     }
     Ok(())
 }
@@ -1688,6 +1677,40 @@ fn normalize_alias(input: &str) -> String {
     input.trim().to_ascii_lowercase()
 }
 
+fn normalize_public_message(
+    campaign: &CampaignRuntime,
+    actor_id: &str,
+    human: &HumanIdentity,
+    raw: &str,
+) -> String {
+    let mut out = raw.trim().to_string();
+    let mut labels = vec![campaign.actor_display_name(actor_id)];
+    labels.push(actor_label(campaign, actor_id, human));
+    if actor_id == DM_ACTOR {
+        labels.push("DM".to_string());
+    }
+
+    for _ in 0..3 {
+        let Some((head, rest)) = out.split_once(':') else {
+            break;
+        };
+        if labels
+            .iter()
+            .any(|label| head.trim().eq_ignore_ascii_case(label.trim()))
+        {
+            out = rest.trim_start().to_string();
+            continue;
+        }
+        break;
+    }
+
+    if out.is_empty() {
+        return raw.trim().to_string();
+    }
+
+    out
+}
+
 fn public_actor_token(actor_id: &str) -> &'static str {
     match actor_id {
         DM_ACTOR => "dm",
@@ -1710,7 +1733,6 @@ fn run_with_spinner<T, F>(subject: &str, action: F) -> Result<T>
 where
     F: FnOnce() -> Result<T>,
 {
-    println!("{}", format!("--- {}...", subject).bright_black());
     let spinner = start_thinking_spinner(subject);
     let output = action();
     spinner.finish_and_clear();
@@ -1719,7 +1741,7 @@ where
 
 fn start_thinking_spinner(subject: &str) -> ProgressBar {
     let pb = ProgressBar::new_spinner();
-    let style = ProgressStyle::with_template("{spinner:.cyan} {msg}")
+    let style = ProgressStyle::with_template("{spinner:.bright_black} - {msg:.bright_black}")
         .unwrap_or_else(|_| ProgressStyle::default_spinner())
         .tick_strings(&[
             "[#---------]",
