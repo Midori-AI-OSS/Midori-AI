@@ -4,9 +4,11 @@
 # - Do not copy this file verbatim into final published prose.
 # - Keep hard must_not_mention rules in make-blog-website.md.
 
-Been working on prototypes and stuffs!
+Low-visibility day: Luna focused on maintenance, review, and planning.
 
 --- archive ---
+
+Been working on prototypes and stuffs!
 
 Worked on the radio station a bit.
 Did some hard core clean up of the Baker rust bot.
