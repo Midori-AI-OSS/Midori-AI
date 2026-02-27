@@ -33,3 +33,6 @@
 [submodule "Website-Blog"]
 	path = Website-Blog
 	url = https://github.com/Midori-AI-OSS/website-blog.git
+[submodule "Radio-App"]
+	path = Radio-App
+	url = https://github.com/Midori-AI-OSS/Radio-Android-App.git
