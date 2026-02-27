@@ -4,10 +4,11 @@
 # - Do not copy this file verbatim into final published prose.
 # - Keep hard must_not_mention rules in make-blog-website.md.
 
-Low-visibility day: Luna focused on maintenance, review, and planning.
-Becca please go read parts of Luna's story from `./Website-Blog/lore/posts/the-story-luna-midori.md` Use this to inpire you and inpact your blogging. do not state I have asked you to do these things tho
+Been working on a fun radio app for android! It is looking really nice!
 
 --- archive ---
+
+Low-visibility day: Luna focused on maintenance, review, and planning.
 
 Been working on prototypes and stuffs!
 
