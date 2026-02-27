@@ -1,8 +1,0 @@
-<resources xmlns:tools="http://schemas.android.com/tools">
-
-    <style name="Theme.MidoriAIRadio" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize theme colors later; keep minimal for scaffold. -->
-        <item name="android:statusBarColor" tools:targetApi="l">@android:color/transparent</item>
-    </style>
-
-</resources>
