@@ -4,11 +4,14 @@
 # - Do not copy this file verbatim into final published prose.
 # - Keep hard must_not_mention rules in make-blog-website.md.
 
-Been working on a fun radio app for android! It is looking really nice!
+Low-visibility day: Luna focused on maintenance, review, and planning.
+I have plans to start work on our games again, just need a easyer way to run them both for testing... right now they are both in a really jank state and I do not remember fully where each one was in their flow, soon ill fix them.
 
 --- archive ---
 
 Low-visibility day: Luna focused on maintenance, review, and planning.
+
+Been working on a fun radio app for android! It is looking really nice!
 
 Been working on prototypes and stuffs!
 
