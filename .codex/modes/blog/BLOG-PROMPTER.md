@@ -28,6 +28,10 @@ Optional staging (only if the Coordinator explicitly requests it):
 ## Handoff writing rules
 - Do not add new facts.
 - Keep the handoff easy to skim: short sections, verbose bullets.
+- Include explicit `must_include` and `must_not_mention` sections for the blogger.
+- In `must_include`, require cover-image claiming when claimable files exist in `Website-Blog/public/blog/unassigned/` and allow placeholder only when no claimable image exists or a dated `REQUEST-YYYY-MM-DD.prompt.md` marker is present.
+- In `must_include`, require attribution framing where implementation work is credited to Luna/team/project (not Becca as implementer).
+- In `must_not_mention`, block first-person implementation attribution like “I fixed”, “we implemented”, or equivalent.
 - Do not include IDs that trigger “123 added X” writing:
   - No commit SHAs, PR numbers, issue numbers, URLs.
   - Prefer phrasing like “In one of the updates…” / “Recent changes include…”.

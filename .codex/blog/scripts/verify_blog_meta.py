@@ -17,6 +17,27 @@ BLOCKED_PATTERNS = (
     (re.compile(r"\bas an agent\b", re.IGNORECASE), "contains agent-facing narration"),
     (re.compile(r"\bthis agent\b", re.IGNORECASE), "contains agent-facing narration"),
     (re.compile(r"\bno comments from luna today\b", re.IGNORECASE), "contains blocked Luna note"),
+    (
+        re.compile(
+            r"\b(?:i|we)\s+(?:personally\s+)?(?:implemented|fixed|added|removed|refactored|rewrote|built|coded|patched|merged|shipped|deployed|updated|changed|worked on|handled)\b",
+            re.IGNORECASE,
+        ),
+        "contains first-person implementation attribution",
+    ),
+    (
+        re.compile(
+            r"\b(?:i|we)(?:'ve| have)\s+been\s+(?:implementing|fixing|adding|removing|refactoring|working on)\b",
+            re.IGNORECASE,
+        ),
+        "contains first-person implementation attribution",
+    ),
+    (
+        re.compile(
+            r"\bfor me\b[^.\n]{0,120}\b(?:cycle|stretch|update)\b[^.\n]{0,120}\b(?:was|is)\b[^.\n]{0,120}\b(?:maintenance|review|planning|implementation|development|repo work|work)\b",
+            re.IGNORECASE,
+        ),
+        "contains first-person implementation attribution",
+    ),
 )
 
 

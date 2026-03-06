@@ -42,6 +42,7 @@ Guardrails (so we don’t accidentally lie)
   - `must_include`
   - `must_not_mention`
 - Treat `must_not_mention` violations as publish blockers.
+- Attribution guardrail: Becca may use first-person for narrative framing, but implementation work must be attributed to Luna/team/project (never to Becca as implementer).
 - The website post must include BOTH:
   - (1) Notable things Luna Midori did in the past few days (from requester notes)
   - (2) What changed in the repos (based on real commits/diffs), including workspace submodules and mounted read-only repos
@@ -157,6 +158,7 @@ Rules (for the blogger subagent)
   - Use non-empty lines above `--- archive ---` as current-cycle context.
   - If the file is missing, continue with handoff evidence + the hard rules below.
 - Tone: keep it light and fun (warm, human, a little playful) while staying honest and specific.
+- Attribution rule: allow first-person only for observations/feelings; do not write first-person implementation claims. Credit implementation actions to Luna/team/project.
 - Date rule: do not hard-code `today’s date`. Resolve the post date at runtime (example: `date +%F`) and use it consistently for the website post filename and cover image path (per Blogger Mode).
 - Cover image: pick one and open the exact image file you plan to use before describing it.
 - Cover image behavior: prefer claiming by moving/renaming from `./Website-Blog/public/blog/unassigned/`; placeholder is allowed when there is no fitting image.
@@ -230,6 +232,7 @@ PY
   - Write results to: `/tmp/agents-artifacts/auditor-humanity.txt`
   - Confirm the draft reads like a human blog post and not an agent/process report.
   - Explicitly fail if the draft includes workflow/meta narration (`handoff notes`, `gatherer`, `as an agent`, etc.).
+  - Explicitly fail if the draft includes first-person implementation attribution (e.g., “I fixed”, “we implemented”, “I worked on repo changes”).
 - Auditor must read past website posts to learn Becca’s voice (and to catch repetition).
 - Auditor must not edit files and must not generate docs.
 - Auditor is not a co-author: do not rewrite the entire post in a new voice. Ask for minimal, targeted fixes.
@@ -277,3 +280,4 @@ Requester notes (must be included)
     - Do not quote raw lines verbatim in final prose.
   - `must_not_mention`
     - "No Comments from Luna today. She is just hard at work on projects!"
+    - Any wording that reframes repo implementation work as Becca personally doing it

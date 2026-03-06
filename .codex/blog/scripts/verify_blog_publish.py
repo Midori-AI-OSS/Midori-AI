@@ -9,6 +9,8 @@ from pathlib import Path
 
 
 DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+PLACEHOLDER_COVER = "/blog/placeholder.png"
+IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".avif"}
 
 
 def parse_args() -> argparse.Namespace:
@@ -65,6 +67,21 @@ def run_check(command: list[str]) -> tuple[bool, str]:
     return False, combined or f"Command exited with code {completed.returncode}"
 
 
+def has_claimable_unassigned_image(unassigned_dir: Path) -> bool:
+    if not unassigned_dir.is_dir():
+        return False
+
+    for candidate in sorted(unassigned_dir.iterdir()):
+        if candidate.is_file() and candidate.suffix.lower() in IMAGE_EXTENSIONS:
+            return True
+    return False
+
+
+def has_art_request_marker(unassigned_dir: Path, post_date: str) -> bool:
+    marker_path = unassigned_dir / f"REQUEST-{post_date}.prompt.md"
+    return marker_path.is_file()
+
+
 def main() -> int:
     args = parse_args()
     report_lines = []
@@ -82,6 +99,7 @@ def main() -> int:
 
     report_lines.append(f"post_date: {args.post_date}")
     report_lines.append(f"post_path: {post_path}")
+    unassigned_dir = repo_root / "Website-Blog" / "public" / "blog" / "unassigned"
 
     if post_path.is_file():
         report_lines.append("post_file_exists: PASS")
@@ -108,6 +126,26 @@ def main() -> int:
         failures += 1
         frontmatter = {}
 
+    cover_image = frontmatter.get("cover_image", "").strip().strip("'\"")
+    if cover_image == PLACEHOLDER_COVER:
+        claimable_exists = has_claimable_unassigned_image(unassigned_dir)
+        request_marker_exists = has_art_request_marker(unassigned_dir, args.post_date)
+
+        if claimable_exists and not request_marker_exists:
+            report_lines.append("cover_placeholder_policy: FAIL (claimable unassigned images exist)")
+            report_lines.append(f"claimable_source: {unassigned_dir}")
+            report_lines.append(f"required_marker: {unassigned_dir / f'REQUEST-{args.post_date}.prompt.md'}")
+            failures += 1
+        elif request_marker_exists:
+            report_lines.append("cover_placeholder_policy: PASS (request marker present)")
+        else:
+            report_lines.append("cover_placeholder_policy: PASS (no claimable unassigned images found)")
+    elif cover_image:
+        report_lines.append("cover_placeholder_policy: PASS (claimed cover)")
+    else:
+        report_lines.append("cover_placeholder_policy: FAIL (missing cover_image)")
+        failures += 1
+
     meta_cmd = [
         "uv",
         "run",
@@ -131,6 +169,14 @@ def main() -> int:
         report_lines.append(meta_output)
     if not meta_ok:
         failures += 1
+
+    lower_meta_output = (meta_output or "").lower()
+    if meta_ok:
+        report_lines.append("role_attribution_policy: PASS")
+    elif "first-person implementation attribution" in lower_meta_output:
+        report_lines.append("role_attribution_policy: FAIL (becca-as-implementer phrasing detected)")
+    else:
+        report_lines.append("role_attribution_policy: FAIL (verify_blog_meta failed)")
 
     report_lines.append(f"verify_blog_cover: {'PASS' if cover_ok else 'FAIL'}")
     if cover_output:

@@ -14,6 +14,8 @@ Auditors provide the deepest quality gate for this workspace. They pull work fro
 - Probe for security, performance, concurrency, and data-quality issues that could silently break production.
 - Record every finding with file paths, line numbers, reproduction steps, and severity so coders can act quickly.
 - Respect documented exceptions in the service you are auditing; do not flag intentionally deferred assets or workflows noted in `AGENTS.md`.
+- For website blog audits, treat placeholder covers as a publish blocker when claimable images exist in `Website-Blog/public/blog/unassigned/` and no dated `REQUEST-YYYY-MM-DD.prompt.md` marker exists.
+- For website blog audits, treat first-person implementation attribution to Becca as a publish blocker; implementation work must be credited to Luna/team/project.
 - When the audit ends, move the task to `.codex/tasks/taskmaster/` if it passes or back to `.codex/tasks/wip/` with your findings when it fails.
 
 ### Audit Workflow Checklist

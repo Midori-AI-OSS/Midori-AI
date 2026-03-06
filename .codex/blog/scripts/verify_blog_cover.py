@@ -10,6 +10,7 @@ from pathlib import Path
 PLACEHOLDER_COVER = "/blog/placeholder.png"
 DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 DATE_FILE_PATTERN = re.compile(r"^(\d{4}-\d{2}-\d{2})\.md$")
+IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".avif"}
 
 
 def parse_args() -> argparse.Namespace:
@@ -76,6 +77,21 @@ def extract_cover_image(path: Path) -> str | None:
     return cover_image.strip()
 
 
+def has_claimable_unassigned_image(unassigned_dir: Path) -> bool:
+    if not unassigned_dir.is_dir():
+        return False
+
+    for candidate in sorted(unassigned_dir.iterdir()):
+        if candidate.is_file() and candidate.suffix.lower() in IMAGE_EXTENSIONS:
+            return True
+    return False
+
+
+def has_art_request_marker(unassigned_dir: Path, post_date: str) -> bool:
+    marker_path = unassigned_dir / f"REQUEST-{post_date}.prompt.md"
+    return marker_path.is_file()
+
+
 def main() -> int:
     args = parse_args()
     post_path = Path(args.post_path).resolve()
@@ -108,7 +124,22 @@ def main() -> int:
         return 1
 
     if cover_image == PLACEHOLDER_COVER:
-        print(f"PASS: {post_path} uses placeholder cover image.")
+        unassigned_dir = public_dir / "unassigned"
+        claimable_exists = has_claimable_unassigned_image(unassigned_dir)
+        request_marker_exists = has_art_request_marker(unassigned_dir, post_date)
+
+        if claimable_exists and not request_marker_exists:
+            print(f"FAILED: cover validation failed for {post_path}")
+            print("- placeholder cover is not allowed while claimable unassigned images exist.")
+            print(f"- claim an image from: {unassigned_dir}")
+            print(f"- or add marker to allow placeholder: {unassigned_dir / f'REQUEST-{post_date}.prompt.md'}")
+            return 1
+
+        if request_marker_exists:
+            print(f"PASS: {post_path} uses placeholder with request marker present.")
+            return 0
+
+        print(f"PASS: {post_path} uses placeholder (no claimable unassigned images found).")
         return 0
 
     expected_prefix = f"/blog/{post_date}."
