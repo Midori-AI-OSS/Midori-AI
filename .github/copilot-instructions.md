@@ -5,7 +5,7 @@ Follow these actionable instructions to maximize effectiveness and avoid common 
 
 ## Big Picture Architecture
 - The repository is a **multi-project mono-repo**: each major directory (e.g., `Endless-Autofighter`, `Pixelarch-OS`, `Subsystem-Manager`, `Website`) is a distinct service or product, often with its own build/test conventions and agent rules.
-- **Service boundaries** are defined by top-level folders. Each service may have its own `AGENTS.md`, `.codex/`, and `README.md` with local rules and workflows.
+- **Service boundaries** are defined by top-level folders. Each service may have its own `AGENTS.md`, `.agents/`, and `README.md` with local rules and workflows.
 - **Cross-service integration** is managed via containerization (Docker, Compose) and shared OS images (see `Pixelarch-OS/pixelarch_os/`, `Subsystem-Manager`).
 - **Data flows**: Most agent services use Python, with data and models in `data/`, and plugins/extensions in `plugins/` or `mods/`.
 
@@ -19,9 +19,9 @@ Follow these actionable instructions to maximize effectiveness and avoid common 
 
 ## Project-Specific Conventions
 - **Imports:** Each import on its own line, sorted shortest to longest within groups (stdlib, third-party, project). Blank lines between groups. No inline imports.
-- **Documentation:** Update `.codex/implementation/` and `README.md` when changing core logic or adding plugins/players/foes.
-- **Plugins:** Place custom modules in `plugins/` or `mods/`. See `.codex/instructions/plugin-system.md` for plugin rules.
-  - **Contributor Modes:** Reference `.codex/modes/` for Task Master, Coder, Reviewer, Auditor, Brainstormer, and Prompter roles. Keep your cheat sheet in `.codex/notes/` up to date.
+- **Documentation:** Update `.agents/implementation/` and `README.md` when changing core logic or adding plugins/players/foes.
+- **Plugins:** Place custom modules in `plugins/` or `mods/`. See `.agents/instructions/plugin-system.md` for plugin rules.
+  - **Contributor Modes:** Reference `.agents/modes/` for Task Master, Coder, Reviewer, Auditor, Brainstormer, and Prompter roles. Keep your cheat sheet in `.agents/notes/` up to date.
 - **Legacy code:** Do not modify code in `legacy/` folders.
 
 ## Integration Points & External Dependencies
@@ -33,11 +33,11 @@ Follow these actionable instructions to maximize effectiveness and avoid common 
 - `Pixelarch-OS/pixelarch_os/`: Custom OS Dockerfiles
 - `README.md` (per-service): Quickstart, architecture, setup
 - `AGENTS.md` (global and per-service): Agent rules, contributor practices
-- `.codex/` (per-service): Contributor docs, implementation notes, instructions
+- `.agents/` (per-service): Contributor docs, implementation notes, instructions
 
 ## Example Patterns
-- For new contributor onboarding: start with `AGENTS.md` and `.codex/instructions/` in your target service.
-- To add a new player/enemy plugin: update both `README.md` and `.codex/implementation/player-foe-reference.md`.
+- For new contributor onboarding: start with `AGENTS.md` and `.agents/instructions/` in your target service.
+- To add a new player/enemy plugin: update both `README.md` and `.agents/implementation/player-foe-reference.md`.
 
 ## Must-Dos
 - **Always use thinking tools**: For all coding agents, use tools like `Sequential Thinking` to thoroughly analyze each request from the user.
@@ -59,4 +59,4 @@ Follow these actionable instructions to maximize effectiveness and avoid common 
 
 ---
 
-For unclear or missing instructions, check the relevant service's `AGENTS.md` and `.codex/instructions/`, then ask for feedback to improve this guide.
+For unclear or missing instructions, check the relevant service's `AGENTS.md` and `.agents/instructions/`, then ask for feedback to improve this guide.

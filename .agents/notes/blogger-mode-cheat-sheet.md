@@ -68,7 +68,7 @@ author: Becca Kay
 - 2026-01-21: Polish focus (bug fixes, visual refinement, game balance)
 - 2026-01-22: Threading the needle (timer thread affinity bugs, lore section launch)
 - 2026-01-23: Scaffolding (CI testing infrastructure, lore image tokens, quiet day pattern)
-- 2026-01-25: Between sessions (W.E.A.V.E character transform, .codex→.agents rename planning, games pause for ecosystem rework, scrcpy phone experiment)
+- 2026-01-25: Between sessions (W.E.A.V.E character transform, .agents standard rename planning, games pause for ecosystem rework, scrcpy phone experiment)
 - Recurring theme: Invisible infrastructure that prevents problems silently
 - New pattern: Quieter days focused on foundations rather than features
 - Planning periods are valid content—pausing to rebuild foundations is strategic, not failure

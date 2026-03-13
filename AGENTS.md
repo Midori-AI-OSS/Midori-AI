@@ -7,7 +7,7 @@ This document summarizes common development practices for all services in this r
 
 ## Where to Look for Guidance (Per-Service Layout)
 - **`.feedback/`**: Task lists and priorities. *Read only*—never edit directly.
-- **`.codex/`** (inside each service directory, e.g., `WebUI/.codex/`, `Rest-Servers/.codex/`):
+- **`.agents/`** (inside each service directory, e.g., `WebUI/.agents/`, `Rest-Servers/.agents/`):
   - Use it for contributor coordination (tasks, modes, notes). Prefer reading code and docstrings as the source of truth; keep notes minimal and task-scoped.
 - **`.github/`**: Workflow guidelines and UX standards.
 
