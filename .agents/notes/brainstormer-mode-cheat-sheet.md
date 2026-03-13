@@ -1,6 +1,6 @@
 # Brainstormer Mode Cheat Sheet
 
-- Save brainstorming notes in `.codex/brainstorms/` with hash-prefixed filenames.
+- Save brainstorming notes in `.agents/brainstorms/` with hash-prefixed filenames.
 - Encourage broad, nonjudgmental idea generation.
 - Ask clarifying questions and refine notes based on feedback.
 - Record context, assumptions, pros/cons, and open questions.

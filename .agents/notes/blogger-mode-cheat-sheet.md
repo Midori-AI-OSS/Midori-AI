@@ -8,7 +8,7 @@
 
 ## File Placement
 - **Website posts**: `./Website-Blog/blog/posts/YYYY-MM-DD.md` (direct placement)
-- **Social posts**: `.codex/blog/tobeposted/` (for human review)
+- **Social posts**: `.agents/blog/tobeposted/` (for human review)
 - **Cover images**: Claim from `./Website-Blog/public/blog/unassigned/` → `./Website-Blog/public/blog/YYYY-MM-DD.png`
 
 ## Website Post Frontmatter (CRITICAL - Must be exact)
@@ -30,7 +30,7 @@ author: Becca Kay
 5. ✅ Identify themes (features, fixes, polish, what went wrong)
 6. ✅ Claim cover image or use `/blog/placeholder.png`
 7. ✅ Write deliverables (website + social)
-8. ✅ Run `.codex/blog/scripts/post_blog.sh` for social posts
+8. ✅ Run `.agents/blog/scripts/post_blog.sh` for social posts
 9. ✅ Archive old drafts before next batch
 
 ## Repos to Cover (from README)
@@ -91,7 +91,7 @@ gh pr list --state all --search "created:>=YYYY-MM-DD" --limit 50
 gh pr list --state closed --search "closed:>=YYYY-MM-DD" --limit 50
 
 # Simulate posting
-bash .codex/blog/scripts/post_blog.sh <postfile.md>
+bash .agents/blog/scripts/post_blog.sh <postfile.md>
 ```
 
 ## Remember

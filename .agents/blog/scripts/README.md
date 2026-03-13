@@ -16,7 +16,7 @@ This folder contains utility scripts for Blogger Mode contributors.
 ## Validation Usage
 
 ```bash
-uv run .codex/blog/scripts/verify_blog_meta.py <postfile.md>
-uv run .codex/blog/scripts/verify_blog_cover.py <postfile.md>
-uv run .codex/blog/scripts/verify_blog_publish.py --post-date YYYY-MM-DD
+uv run .agents/blog/scripts/verify_blog_meta.py <postfile.md>
+uv run .agents/blog/scripts/verify_blog_cover.py <postfile.md>
+uv run .agents/blog/scripts/verify_blog_publish.py --post-date YYYY-MM-DD
 ```

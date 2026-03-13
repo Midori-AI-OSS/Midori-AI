@@ -8,7 +8,7 @@ Write the brief to:
 - `/tmp/agents-artifacts/change-diff-gatherer-brief.md`
 
 Optional staging (only if the Coordinator explicitly requests it):
-- `.codex/blog/staging/change-diff-gatherer-brief.md`
+- `.agents/blog/staging/change-diff-gatherer-brief.md`
 
 ## Guardrails (critical)
 - Do not modify any repository working tree (no fetch/pull/checkout/submodule update; no `git add`/commit; no branch changes).
@@ -16,7 +16,7 @@ Optional staging (only if the Coordinator explicitly requests it):
 - Never delete staged brief files. If cleanup is needed, use `CLEANUP` mode.
 
 ## Staging + cleanup
-- Store intermediate raw diffs in `/tmp/agents-artifacts/` only (not in `.codex/blog/`) so Blogger never sees raw diffs.
+- Store intermediate raw diffs in `/tmp/agents-artifacts/` only (not in `.agents/blog/`) so Blogger never sees raw diffs.
 - Do not include raw patch text in the brief.
 - After the brief is written, delete any intermediate diff and helper files you created in `/tmp/agents-artifacts/`.
 

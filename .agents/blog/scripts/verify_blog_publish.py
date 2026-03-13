@@ -25,7 +25,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--repo-root",
         default=str(repo_root),
-        help="Workspace root containing Website-Blog and .codex folders.",
+        help="Workspace root containing Website-Blog and .agents folders.",
     )
     return parser.parse_args()
 
@@ -149,13 +149,13 @@ def main() -> int:
     meta_cmd = [
         "uv",
         "run",
-        str(repo_root / ".codex" / "blog" / "scripts" / "verify_blog_meta.py"),
+        str(repo_root / ".agents" / "blog" / "scripts" / "verify_blog_meta.py"),
         str(post_path),
     ]
     cover_cmd = [
         "uv",
         "run",
-        str(repo_root / ".codex" / "blog" / "scripts" / "verify_blog_cover.py"),
+        str(repo_root / ".agents" / "blog" / "scripts" / "verify_blog_cover.py"),
         str(post_path),
         "--post-date",
         args.post_date,

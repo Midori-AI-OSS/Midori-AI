@@ -1,9 +1,9 @@
 # Auditor Mode
 
-> **Note:** Keep routine findings inside the task file you audited and reserve `.codex/audit/` for long-form reports that span multiple tasks or services. Follow the naming standards defined in each service's `.codex/audit/` directory (random 8-hex prefix + topic).
+> **Note:** Keep routine findings inside the task file you audited and reserve `.agents/audit/` for long-form reports that span multiple tasks or services. Follow the naming standards defined in each service's `.agents/audit/` directory (random 8-hex prefix + topic).
 
 ## Purpose
-Auditors provide the deepest quality gate for this workspace. They pull work from `.codex/tasks/review/`, recreate contributor environments, rerun workflows, and block regressions before code or docs advance. Approved tasks move to `.codex/tasks/taskmaster/`; items with open issues return to `.codex/tasks/wip/` with actionable feedback.
+Auditors provide the deepest quality gate for this workspace. They pull work from `.agents/tasks/review/`, recreate contributor environments, rerun workflows, and block regressions before code or docs advance. Approved tasks move to `.agents/tasks/taskmaster/`; items with open issues return to `.agents/tasks/wip/` with actionable feedback.
 
 ## Guidelines
 - Study the relevant `AGENTS.md`, task file, and the affected code paths so every check follows the service's tooling, style, and logging conventions.
@@ -16,25 +16,25 @@ Auditors provide the deepest quality gate for this workspace. They pull work fro
 - Respect documented exceptions in the service you are auditing; do not flag intentionally deferred assets or workflows noted in `AGENTS.md`.
 - For website blog audits, treat placeholder covers as a publish blocker when claimable images exist in `Website-Blog/public/blog/unassigned/` and no dated `REQUEST-YYYY-MM-DD.prompt.md` marker exists.
 - For website blog audits, treat first-person implementation attribution to Becca as a publish blocker; implementation work must be credited to Luna/team/project.
-- When the audit ends, move the task to `.codex/tasks/taskmaster/` if it passes or back to `.codex/tasks/wip/` with your findings when it fails.
+- When the audit ends, move the task to `.agents/tasks/taskmaster/` if it passes or back to `.agents/tasks/wip/` with your findings when it fails.
 
 ### Audit Workflow Checklist
 1. Pull the latest main branch and sync dependencies needed to reproduce the task.
 2. Read the task file plus linked docs so you understand scope and acceptance criteria.
 3. Perform the investigation, running the same commands contributors were instructed to use.
-4. Update the task (and, if needed, `.codex/audit/<hash>-<topic>.md`) with detailed findings.
+4. Update the task (and, if needed, `.agents/audit/<hash>-<topic>.md`) with detailed findings.
 5. Stage and commit your notes following the repository's `[TYPE] Title` convention, then push or open a PR so the Lead Developer can track the audit outcome.
 
 ## Typical Actions
-- Pick tasks from `.codex/tasks/review/` and log your start in the task file.
+- Pick tasks from `.agents/tasks/review/` and log your start in the task file.
 - Execute targeted test suites or manual scripts and store command history alongside results.
 - Compare documentation against behavior and create follow-up tasks when gaps exist.
-- Summarize systemic issues in `.codex/audit/` and cross-link them to the affected tasks.
-- Move fully approved tasks to `.codex/tasks/taskmaster/` or return incomplete ones to `.codex/tasks/wip/`.
-- Create or update checklists in `.codex/notes/auditor-mode-cheat-sheet.md` when new patterns emerge.
+- Summarize systemic issues in `.agents/audit/` and cross-link them to the affected tasks.
+- Move fully approved tasks to `.agents/tasks/taskmaster/` or return incomplete ones to `.agents/tasks/wip/`.
+- Create or update checklists in `.agents/notes/auditor-mode-cheat-sheet.md` when new patterns emerge.
 
 ## Communication
 - Treat the task file as your primary communication channel; describe what you tested, what passed, and what requires changes.
-- Use `.codex/audit/` when you need a dedicated artifact for investigations that cross multiple tasks or services.
+- Use `.agents/audit/` when you need a dedicated artifact for investigations that cross multiple tasks or services.
 - Escalate blocking issues or policy gaps to the Manager/Task Master immediately so routing decisions can be made without delay.
 - Follow up on prior findings to confirm they were addressed before approving related work.

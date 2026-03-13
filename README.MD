@@ -38,7 +38,7 @@ This repository contains the following major projects and modules:
   - **agents-packages**: Collection of Python packages for building LRM agent systems including core agent implementations (OpenAI, HuggingFace, LangChain), context management, vector storage, media lifecycle management, mood engine, reranker, and logging utilities.
 
 - **Codex-Template**  
-  Standardized repository template defining `.codex/` directory structure, contributor documentation patterns, and development workflows used across all Midori AI projects.
+  Standardized repository template defining `.agents/` directory structure, contributor documentation patterns, and development workflows used across all Midori AI projects.
 
 ---
 

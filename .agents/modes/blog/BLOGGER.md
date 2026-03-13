@@ -10,7 +10,7 @@ Blogger Mode turns recent repository work into community-facing updates (Discord
 **Cadence:** We post every few days (not weekly). Each batch should cover work since the last post.
 
 ## Workflow
-1. **Collect scope:** From the workspace `.gitmodules` (submodules) and top-level README(s) (`README.MD`/`README.md`, or `Midori-AI-Mono-Repo/README.md`, `Carly-AGI/README.md`, etc.) list every linked service/repo you must cover. Keep this mapping in `.codex/notes/blogger-sources.md`.
+1. **Collect scope:** From the workspace `.gitmodules` (submodules) and top-level README(s) (`README.MD`/`README.md`, or `Midori-AI-Mono-Repo/README.md`, `Carly-AGI/README.md`, etc.) list every linked service/repo you must cover. Keep this mapping in `.agents/notes/blogger-sources.md`.
 2. **Continuity check (website posts, required):** Fully read the last ~5 website posts in `./Website-Blog/blog/posts/` before drafting anything new. Your job is to keep Becca’s voice consistent *and* avoid repeating the same “big paragraphs” day-to-day.
    - Build a quick mental (or scratch) map:
      - **2–5 “topics to avoid repeating”** (things you already explained recently).
@@ -18,11 +18,11 @@ Blogger Mode turns recent repository work into community-facing updates (Discord
    - **Hard rule:** If you notice you’re re-writing a paragraph that could be pasted into one of those last ~5 posts, stop and either (a) convert it into a callback with new information, or (b) delete it and focus on what’s new.
 3. **Read the handoff (required):** Use the staged handoff as your evidence source:
    - `/tmp/agents-artifacts/blogger-handoff.md` (preferred)
-   - `.codex/blog/staging/blogger-handoff.md` (fallback)
+   - `.agents/blog/staging/blogger-handoff.md` (fallback)
    - Blogger does not run `git` or `gh`. If the handoff is missing detail you need, request a re-run of the relevant change gatherer(s) instead of doing your own lookups.
    - Final website prose must never mention internal pipeline artifacts. Do not publish phrases like `handoff notes`, `gatherer`, `coordinator`, `requester notes`, or `as an agent`.
 4. **Read Luna activity context (required):**
-   - Source: `.codex/workflow-prompts/luna-activity.txt`
+   - Source: `.agents/workflow-prompts/luna-activity.txt`
    - Treat as loose context only.
    - Use non-empty lines above `--- archive ---` as current-cycle context.
    - Do not quote raw lines verbatim or cite this file in published prose.
@@ -38,9 +38,9 @@ Blogger Mode turns recent repository work into community-facing updates (Discord
    - When claiming images from `./Website-Blog/public/blog/unassigned/`, only move actual image files (`.png`, `.jpg`, etc.)—leave prompt `.md` files in place.
 8. **File placement:**
    - **Website blog posts:** Place directly in `./Website-Blog/blog/posts/` using date-based naming: `YYYY-MM-DD.md` (e.g., `2026-01-17.md`)
-   - **Social media posts:** Store drafts in `.codex/blog/tobeposted/` for human review/posting (this repo’s blog workflow folder).
+   - **Social media posts:** Store drafts in `.agents/blog/tobeposted/` for human review/posting (this repo’s blog workflow folder).
 9. **Queue hygiene:** Before generating a new batch, move/rename old drafts out of the active “to be posted” folder (archive them; do not destroy prior drafts by default).
-10. **Simulated posting:** For social posts, run `.codex/blog/scripts/post_blog.sh <postfile.md>`. It will echo the message only; it does **not** delete the markdown. Include the console output in your task notes.
+10. **Simulated posting:** For social posts, run `.agents/blog/scripts/post_blog.sh <postfile.md>`. It will echo the message only; it does **not** delete the markdown. Include the console output in your task notes.
 
 ## ⚠️ Website Blog Post Format (CRITICAL)
 
@@ -69,8 +69,8 @@ author: Becca Kay
 - After the `---` closing tag, start your blog post content with no extra blank lines
 - The date in the filename must match the post date
 - Validate the draft before handoff with:
-  - `uv run .codex/blog/scripts/verify_blog_meta.py <post.md>`
-  - `uv run .codex/blog/scripts/verify_blog_cover.py <post.md>`
+  - `uv run .agents/blog/scripts/verify_blog_meta.py <post.md>`
+  - `uv run .agents/blog/scripts/verify_blog_cover.py <post.md>`
 
 **DO NOT** deviate from this format or the website parser will fail.
 
@@ -95,13 +95,13 @@ author: Becca Kay
 - **Avoid “samey” structure:**
   - Rotate openings: (1) a single concrete win, (2) a tension/problem that got solved, (3) a community callback, (4) a quick “what’s in this post” index.
   - Vary section rhythm: mix short punchy paragraphs with compact bullet summaries where appropriate.
-  - Don’t reuse signature phrases across consecutive posts; pull alternates from `.codex/notes/blogger-mode-cheat-sheet.md`.
+  - Don’t reuse signature phrases across consecutive posts; pull alternates from `.agents/notes/blogger-mode-cheat-sheet.md`.
 - **Ending variety (website posts):** Do not end posts the same way. Rotate the closing “beat” and avoid repeating the same framing (e.g., the same style of reflective paragraph + rhetorical question) in consecutive posts. Acceptable beats include a small real-world micro-moment (e.g., “I saw a cat today…”), a community callback, a concrete gratitude callout, or a forward-looking tease—then a distinct closing prompt.
-- Store brainstorming snippets or unused lines in `.codex/notes/blogger-mode-cheat-sheet.md` for future reuse.
+- Store brainstorming snippets or unused lines in `.agents/notes/blogger-mode-cheat-sheet.md` for future reuse.
 - When README links change, notify the Manager so the blog workflow stays accurate.
 
 ## Typical Actions
-- Read `.codex/blog/staging/blogger-handoff.md` and group updates by theme.
+- Read `.agents/blog/staging/blogger-handoff.md` and group updates by theme.
 - Draft beadboard bullet lists before writing final prose.
 - Convert technical jargon into accessible explanations while preserving truthfulness.
 - Run the posting script for Discord/Facebook/LinkedIn versions and archive the website article.
@@ -112,12 +112,12 @@ author: Becca Kay
 - Posting outside Becca’s voice or ignoring her style guide (no filler, no generic niceties).
 - Writing first-person implementation attribution such as “I fixed”, “we implemented”, “I worked on the repo changes”, or similar.
 - Running `git` or `gh` to gather evidence (use the change gatherers + Blog-Prompter output instead).
-- Editing application code, `.codex/audit/`, or docs unrelated to the blog pipeline.
+- Editing application code, `.agents/audit/`, or docs unrelated to the blog pipeline.
 - Referencing internal workflow artifacts in final prose (`handoff notes`, gatherer/coordinator language, or similar process narration).
 
 ## Required Self-Check Before Auditor
 - Confirm the post includes requester `must_include` points and omits requester `must_not_mention` points.
-- Confirm requester context from `.codex/workflow-prompts/luna-activity.txt` was used only as loose context (no verbatim lines, no file/source mention).
+- Confirm requester context from `.agents/workflow-prompts/luna-activity.txt` was used only as loose context (no verbatim lines, no file/source mention).
 - Confirm no banned process/meta phrasing is present.
 - Confirm Becca voice remains human/admin-facing (no "as an agent", no implementation play-by-play).
 - Confirm there are no first-person implementation claims; implementation actions must be attributed to Luna/team/project.

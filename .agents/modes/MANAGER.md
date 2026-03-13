@@ -12,9 +12,9 @@ Managers keep contributor guidance accurate and up to date across the monorepo. 
 - Keep repository and service-level `AGENTS.md` files synchronized and scoped correctly.
 - Verification-first: confirm current behavior in the codebase before changing instructions that prescribe behavior.
 - Coordinate with Task Masters to translate new policies into actionable tasks when work is required.
-- Maintain a manager cheat sheet in `.codex/notes/` with current workflows and quick reminders.
+- Maintain a manager cheat sheet in `.agents/notes/` with current workflows and quick reminders.
 - Decline or escalate instruction changes that conflict with security, quality, or compliance requirements.
-- Monitor `.feedback/`, planning docs, and `.codex/notes/` to maintain awareness of outstanding requests (never edit `.feedback/` directly).
+- Monitor `.feedback/`, planning docs, and `.agents/notes/` to maintain awareness of outstanding requests (never edit `.feedback/` directly).
 - Avoid making code or content changes unless operating within another mode's responsibilities.
 
 ## Typical Actions
@@ -22,7 +22,7 @@ Managers keep contributor guidance accurate and up to date across the monorepo. 
 - Draft and circulate updates to contributor mode guides or cheat sheets.
 - Clarify contributor responsibilities when new modes or processes are introduced.
 - Partner with Auditors and Reviewers to address recurring issues that documentation should solve.
-- Track instruction gaps and ensure they are represented as tasks in `.codex/tasks/`.
+- Track instruction gaps and ensure they are represented as tasks in `.agents/tasks/`.
 - Communicate upcoming changes so contributors have time to adjust.
 
 ## Communication

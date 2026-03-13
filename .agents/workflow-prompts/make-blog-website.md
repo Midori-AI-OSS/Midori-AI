@@ -14,7 +14,7 @@ Roles (make “you” unambiguous)
 Artifacts (required)
 - Create/use: `/tmp/agents-artifacts/`
 - All subagents must write their outputs/drafts to `/tmp/agents-artifacts/`.
-- Optional staging: only stage into `.codex/blog/staging/` if the Coordinator explicitly requests it (default: `/tmp/agents-artifacts/` only).
+- Optional staging: only stage into `.agents/blog/staging/` if the Coordinator explicitly requests it (default: `/tmp/agents-artifacts/` only).
 - Never delete staged files during the pipeline. If cleanup is needed, use `CLEANUP` mode.
 
 The loop (required)
@@ -26,7 +26,7 @@ The loop (required)
 Helpers are welcome (keep them tidy)
 - When you need a helper for research/review work, use `codex exec` in read-only mode, write its final answer with `-o` into `/tmp/agents-artifacts/`, and redirect all other chatter to a log file.
 - Before running helpers, copy the relevant mode file(s) into `/tmp/agents-artifacts/` so helpers can read them even when launched with `-C` in another repo:
-  - `cp .codex/modes/blog/BLOGGER.md /tmp/agents-artifacts/BLOGGER.md`
+  - `cp .agents/modes/blog/BLOGGER.md /tmp/agents-artifacts/BLOGGER.md`
 - Template:
   - `codex exec -s read-only -o /tmp/agents-artifacts/<name>.md "<instructions>" > /tmp/agents-artifacts/subagent-run.log 2>&1`
   - (If you run multiple helpers, consider switching `>` to `>>` or using per-helper log files so you don’t overwrite earlier logs.)
@@ -34,9 +34,9 @@ Helpers are welcome (keep them tidy)
 Guardrails (so we don’t accidentally lie)
 - Change gatherer work is read-only: do not modify any repository working tree (no fetch/pull/checkout).
 - Do not create `process docs` or extra documentation files; only produce the required artifacts in `/tmp/agents-artifacts/`.
-- Prefer `/tmp/agents-artifacts/` outputs. Only write to `.codex/blog/staging/` if the Coordinator explicitly requests it.
+- Prefer `/tmp/agents-artifacts/` outputs. Only write to `.agents/blog/staging/` if the Coordinator explicitly requests it.
 - Do not write drafts or notes elsewhere in the repo working tree. Keep all other temporary writing in `/tmp/agents-artifacts/`.
-- Approved exception: `.codex/workflow-prompts/luna-activity.txt` is a persistent requester-context input file. Read it only as loose context and never publish/internalize it as process narration.
+- Approved exception: `.agents/workflow-prompts/luna-activity.txt` is a persistent requester-context input file. Read it only as loose context and never publish/internalize it as process narration.
 - Never include internal workflow narration in final website prose (`handoff notes`, `gatherer`, `coordinator`, `requester notes`, `as an agent`, or similar).
 - Convert requester input into two explicit lists before blogging:
   - `must_include`
@@ -91,7 +91,7 @@ Change-Diff-Gatherer output format (single message, written to `/tmp/agents-arti
 - Each section includes diff-based summary (no speculation; no raw diffs; no commit IDs)
 
 Output
-- Optional: stage to `.codex/blog/staging/change-diff-gatherer-brief.md` only if the Coordinator explicitly requests it.
+- Optional: stage to `.agents/blog/staging/change-diff-gatherer-brief.md` only if the Coordinator explicitly requests it.
 
 Step 2: Change-PR-Gatherer (evidence gathering only)
 Goal: produce a clean PR brief for the blogger (themes only; no PR numbers/titles/URLs).
@@ -104,7 +104,7 @@ Subagent note
 
 Output
 - Write to `/tmp/agents-artifacts/change-pr-gatherer-brief.md`
-- Optional: stage to `.codex/blog/staging/change-pr-gatherer-brief.md` only if the Coordinator explicitly requests it.
+- Optional: stage to `.agents/blog/staging/change-pr-gatherer-brief.md` only if the Coordinator explicitly requests it.
 
 Step 3: Change-Issue-Gatherer (evidence gathering only)
 Goal: produce a clean issues brief for the blogger (themes only; no issue numbers/titles/URLs).
@@ -117,7 +117,7 @@ Subagent note
 
 Output
 - Write to `/tmp/agents-artifacts/change-issue-gatherer-brief.md`
-- Optional: stage to `.codex/blog/staging/change-issue-gatherer-brief.md` only if the Coordinator explicitly requests it.
+- Optional: stage to `.agents/blog/staging/change-issue-gatherer-brief.md` only if the Coordinator explicitly requests it.
 
 Step 4: Change-Context-Gatherer (evidence gathering only)
 Goal: produce a small context brief for the blogger (workflow/focus signals; no speculation).
@@ -127,7 +127,7 @@ Coordinator responsibilities
 
 Output
 - Write to `/tmp/agents-artifacts/change-context-gatherer-brief.md`
-- Optional: stage to `.codex/blog/staging/change-context-gatherer-brief.md` only if the Coordinator explicitly requests it.
+- Optional: stage to `.agents/blog/staging/change-context-gatherer-brief.md` only if the Coordinator explicitly requests it.
 
 Step 5: Blog-Prompter (handoff builder)
 Goal: combine all briefs into a single, Blogger-ready handoff file.
@@ -142,7 +142,7 @@ Subagent responsibilities
 
 Output
 - Write to `/tmp/agents-artifacts/blogger-handoff.md`
-- Optional: stage to `.codex/blog/staging/blogger-handoff.md` only if the Coordinator explicitly requests it.
+- Optional: stage to `.agents/blog/staging/blogger-handoff.md` only if the Coordinator explicitly requests it.
 
 Step 6: Blogger (write the website post)
 Goal: write a website post using `blogger-handoff.md` + requester notes, following Blogger Mode exactly.
@@ -152,9 +152,9 @@ Coordinator responsibilities
 - Ensure the blogger is reminded to write as Becca (not as an agent explaining its process).
 
 Rules (for the blogger subagent)
-- Follow `.codex/modes/blog/BLOGGER.md` (website post rules and Becca voice) and use recent website posts in `./Website-Blog/blog/posts/` to keep continuity and avoid repeats.
-- Blogger does not run `git` or `gh`. Use the handoff: `/tmp/agents-artifacts/blogger-handoff.md` (or `.codex/blog/staging/blogger-handoff.md`).
-- Read requester context from `.codex/workflow-prompts/luna-activity.txt` as loose context:
+- Follow `.agents/modes/blog/BLOGGER.md` (website post rules and Becca voice) and use recent website posts in `./Website-Blog/blog/posts/` to keep continuity and avoid repeats.
+- Blogger does not run `git` or `gh`. Use the handoff: `/tmp/agents-artifacts/blogger-handoff.md` (or `.agents/blog/staging/blogger-handoff.md`).
+- Read requester context from `.agents/workflow-prompts/luna-activity.txt` as loose context:
   - Use non-empty lines above `--- archive ---` as current-cycle context.
   - If the file is missing, continue with handoff evidence + the hard rules below.
 - Tone: keep it light and fun (warm, human, a little playful) while staying honest and specific.
@@ -165,8 +165,8 @@ Rules (for the blogger subagent)
 - Resolve and export post date once before validation commands:
   - `POST_DATE="$(date +%F)"`
 - Run required checks before handing off to auditor:
-  - `uv run .codex/blog/scripts/verify_blog_meta.py /tmp/agents-artifacts/websitepost-draft.md`
-  - `uv run .codex/blog/scripts/verify_blog_cover.py /tmp/agents-artifacts/websitepost-draft.md --post-date "$POST_DATE"`
+  - `uv run .agents/blog/scripts/verify_blog_meta.py /tmp/agents-artifacts/websitepost-draft.md`
+  - `uv run .agents/blog/scripts/verify_blog_cover.py /tmp/agents-artifacts/websitepost-draft.md --post-date "$POST_DATE"`
 
 Optional helper patterns (examples)
 - Summarize the last ~5 website posts so you can avoid repeating yourself:
@@ -247,8 +247,8 @@ Step 8: Blogger (apply auditor edits)
 - Blogger applies auditor feedback (keep changes minimal; preserve Becca voice).
 - Output the revised post to `/tmp/agents-artifacts/websitepost-revised.md`
 - Re-run required checks on the revised file:
-  - `uv run .codex/blog/scripts/verify_blog_meta.py /tmp/agents-artifacts/websitepost-revised.md`
-  - `uv run .codex/blog/scripts/verify_blog_cover.py /tmp/agents-artifacts/websitepost-revised.md --post-date "$POST_DATE"`
+  - `uv run .agents/blog/scripts/verify_blog_meta.py /tmp/agents-artifacts/websitepost-revised.md`
+  - `uv run .agents/blog/scripts/verify_blog_cover.py /tmp/agents-artifacts/websitepost-revised.md --post-date "$POST_DATE"`
 
 Loop
 - Repeat Auditor -> Blogger until the auditor says the post is ready to publish.
@@ -257,7 +257,7 @@ Once ready to publish
 - Manager fact-check pass (final sign-off).
 - Final Blogger publishes to the website.
 - Coordinator must run a publish completion check and write:
-  - `uv run .codex/blog/scripts/verify_blog_publish.py --post-date "$POST_DATE"`
+  - `uv run .agents/blog/scripts/verify_blog_publish.py --post-date "$POST_DATE"`
   - Report path: `/tmp/agents-artifacts/publish-check.txt`
 - `publish-check` only passes when all are true:
   - Final post file exists at `./Website-Blog/blog/posts/YYYY-MM-DD.md`
@@ -275,7 +275,7 @@ Requester notes (must be included)
 - Notable things Luna Midori did the past few days / or wants the blogger to know are as follows:
   (NOTE: Do not reflavor these things as things Becca did, these are things Luna has done)
   - `must_include`
-    - Source: `.codex/workflow-prompts/luna-activity.txt`
+    - Source: `.agents/workflow-prompts/luna-activity.txt`
     - Read as loose context only (use lines above `--- archive ---`).
     - Do not quote raw lines verbatim in final prose.
   - `must_not_mention`

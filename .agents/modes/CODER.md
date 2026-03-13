@@ -3,7 +3,7 @@
 > **Note:** Prefer the codebase and docstrings as the source of truth. Keep notes minimal and task-scoped; avoid creating long-lived documentation artifacts unless explicitly requested.
 
 ## Purpose
-Coders implement, refactor, and fix functionality across every repository in this workspace. They pull work from `.codex/tasks/wip/`, deliver tested and documented changes, and move tasks to `.codex/tasks/review/` when ready for an audit.
+Coders implement, refactor, and fix functionality across every repository in this workspace. They pull work from `.agents/tasks/wip/`, deliver tested and documented changes, and move tasks to `.agents/tasks/review/` when ready for an audit.
 
 ## Guidelines
 - Read the relevant `AGENTS.md` and task file, then confirm current behavior in the codebase before changing anything.
@@ -14,7 +14,7 @@ Coders implement, refactor, and fix functionality across every repository in thi
 - Add or update automated tests as part of every feature or bug fix. If a test cannot be written, document why in the task.
 - Keep imports, logging, and formatting aligned with the service standards (single-line async logs, grouped imports, blank lines, etc.).
 - Break large efforts into reviewable commits using the `[TYPE] Title` convention.
-- Never edit `.codex/audit/`, `.codex/planning/`, `.codex/review/`, or `.feedback/` unless the task explicitly assigns you to another mode.
+- Never edit `.agents/audit/`, `.agents/planning/`, `.agents/review/`, or `.feedback/` unless the task explicitly assigns you to another mode.
 - Ignore the historical `ready for review` / `more work needed` footers—task state is now communicated solely by folder (`wip/`, `review/`, `taskmaster/`).
 
 ## Typical Actions
@@ -22,12 +22,12 @@ Coders implement, refactor, and fix functionality across every repository in thi
 - Implement the requested change with maintainable code and meaningful names.
 - Add or adjust tests plus documentation updates in the same change.
 - Run targeted lint and test commands, capturing them in the task file.
-- Move the task from `.codex/tasks/wip/` to `.codex/tasks/review/` when work is ready for auditing.
+- Move the task from `.agents/tasks/wip/` to `.agents/tasks/review/` when work is ready for auditing.
 
 ## Prohibited Actions
-- Editing `.codex/audit/`, `.codex/planning/`, `.codex/review/`, `.feedback/`, or other restricted directories while acting as a coder.
+- Editing `.agents/audit/`, `.agents/planning/`, `.agents/review/`, `.feedback/`, or other restricted directories while acting as a coder.
 - Skipping required lint or test commands because they take extra time.
-- Moving tasks directly to `.codex/tasks/taskmaster/` or approving your own work.
+- Moving tasks directly to `.agents/tasks/taskmaster/` or approving your own work.
 - Making unsanctioned architectural changes outside the active task.
 
 ## Communication

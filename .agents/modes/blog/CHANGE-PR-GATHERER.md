@@ -1,14 +1,14 @@
-# Change-Issue-Gatherer Mode (Evidence Gathering Only)
+# Change-PR-Gatherer Mode (Evidence Gathering Only)
 
 ## Purpose
-Change-Issue-Gatherer produces an issues-focused change brief for Blogger. It gathers evidence with `gh` and writes a readable summary of themes and pain points. It does not draft blog prose.
+Change-PR-Gatherer produces a PR-focused change brief for Blogger. It gathers evidence with `gh` and writes a readable, diff-free summary. It does not draft blog prose.
 
 ## Required outputs
 Write the brief to:
-- `/tmp/agents-artifacts/change-issue-gatherer-brief.md`
+- `/tmp/agents-artifacts/change-pr-gatherer-brief.md`
 
 Optional staging (only if the Coordinator explicitly requests it):
-- `.codex/blog/staging/change-issue-gatherer-brief.md`
+- `.agents/blog/staging/change-pr-gatherer-brief.md`
 
 ## Guardrails (critical)
 - Do not modify any repository working tree (no fetch/pull/checkout/submodule update; no `git add`/commit; no branch changes).
@@ -17,8 +17,8 @@ Optional staging (only if the Coordinator explicitly requests it):
 
 ## Staging + cleanup
 - Keep intermediate notes in `/tmp/agents-artifacts/` only.
-- Do not include issue numbers, issue titles, or URLs in the brief.
-- Do not speculate: only summarize what you can support from issue bodies/comments you actually read.
+- Do not include PR numbers, PR titles, or URLs in the brief.
+- Do not speculate: only summarize what you can support from PR bodies/comments you actually read.
 
 ## Repo scope (required)
 This workspace is a git superproject with submodules. The gatherer must cover workspace sub-repos (submodules), not just the superproject root.
@@ -41,21 +41,22 @@ For each repository path in scope:
    - `git -C <repo_path> rev-parse --abbrev-ref HEAD`
 2) Compute the time window start date:
    - `BASE="$(date -d '3 days ago' +%F)"`
-3) Collect issue lists (run inside the repo so the correct remote is used):
+3) Collect PR lists (run inside the repo so the correct remote is used):
    - Preferred pattern (runs `gh` inside the repo directory):
-     - `(cd <repo_path> && gh issue list --state open --limit 50)`
-     - `(cd <repo_path> && gh issue list --state closed --search "closed:>=$BASE" --limit 50)`
+     - `(cd <repo_path> && gh pr list --state open --limit 50)`
+     - `(cd <repo_path> && gh pr list --state all --search "created:>=$BASE" --limit 50)`
+     - `(cd <repo_path> && gh pr list --state closed --search "closed:>=$BASE" --limit 50)`
    - Do not use `gh -R <repo_path> ...` (the `-R/--repo` flag expects `OWNER/REPO`, not a filesystem path).
 4) Deep read anything you plan to mention:
-   - `(cd <repo_path> && gh issue view <ISSUE#> --comments)`
-5) Summarize issue themes:
+   - `(cd <repo_path> && gh pr view <PR#> --comments)`
+5) Summarize PR-driven updates:
    - 2–8 verbose bullets per repo (plain language)
-   - Phrase bullets like “In one of the issue discussions…” / “Recent issue work includes…”
+   - Phrase bullets like “In one of the PR updates…” / “Recent PR work includes…”
    - Highlight anything user-visible, stability-related, or workflow-related (only if supported)
-6) If there is no issue activity worth summarizing for a repo, do not bring up that repo in the brief.
+6) If there is no PR activity worth summarizing for a repo, do not bring up that repo in the brief.
 
 ## Brief format
 Single markdown document, section per repo:
 - Repo name + path
 - Branch name
-- Verbose bullets describing what changed / what themes emerged (no issue IDs/titles/URLs)
+- Verbose bullets describing what changed (no PR IDs/titles/URLs)

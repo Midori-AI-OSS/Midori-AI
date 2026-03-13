@@ -1,14 +1,14 @@
 # Change-Context-Gatherer Mode (Evidence Gathering Only)
 
 ## Purpose
-Change-Context-Gatherer produces a lightweight “surrounding context” brief for Blogger: what the work is aiming at, what’s currently painful, and what’s being coordinated in `.codex/`. It does not draft blog prose.
+Change-Context-Gatherer produces a lightweight “surrounding context” brief for Blogger: what the work is aiming at, what’s currently painful, and what’s being coordinated in `.agents/`. It does not draft blog prose.
 
 ## Required outputs
 Write the brief to:
 - `/tmp/agents-artifacts/change-context-gatherer-brief.md`
 
 Optional staging (only if the Coordinator explicitly requests it):
-- `.codex/blog/staging/change-context-gatherer-brief.md`
+- `.agents/blog/staging/change-context-gatherer-brief.md`
 
 ## Guardrails (critical)
 - Do not modify any repository working tree (no `git add`/commit; no branch changes).
@@ -22,8 +22,8 @@ Optional staging (only if the Coordinator explicitly requests it):
 
 ## Method
 1) Scan for recent coordination signals:
-   - `.codex/tasks/` (especially active/wip)
-   - `.codex/workflow-prompts/` changes that affect the blog pipeline
+   - `.agents/tasks/` (especially active/wip)
+   - `.agents/workflow-prompts/` changes that affect the blog pipeline
    - Any service-level `AGENTS.md` changes relevant to workflow
 2) Summarize:
    - 6–15 verbose bullets total, grouped by theme
