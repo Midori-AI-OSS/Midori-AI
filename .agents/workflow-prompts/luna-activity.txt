@@ -4,10 +4,12 @@
 # - Do not copy this file verbatim into final published prose.
 # - Keep hard must_not_mention rules in make-blog-website.md.
 
-Working on a full new **all agi swarm** for doing big tasks slowly over time. 
-This is why there has been a gap in posts over the past weeks.
+Working hard at upgrading our systems for agents skills and building out better tooling for more persons to use
 
 --- archive ---
+
+Working on a full new **all agi swarm** for doing big tasks slowly over time. 
+This is why there has been a gap in posts over the past weeks.
 
 Been working on the games, agents systems, opencode memes, and more! Been having a blast working on all of these new projects, also teaming up with a new group! 
 I have been working on something fun from a subnet on bittensor, so that has been a great learning moment.
