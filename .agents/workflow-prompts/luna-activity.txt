@@ -4,7 +4,11 @@
 # - Do not copy this file verbatim into final published prose.
 # - Keep hard must_not_mention rules in make-blog-website.md.
 
-Working hard at upgrading our systems for agents skills and building out better tooling for more persons to use
+Nova is my assistant and companion presence inside the tooling, and I have been building her up to feel warm, useful, and actually present instead of like a generic helper.
+I have been building out Nova directly in the repo, adding voice, giving her a few practical skills, and making the whole assistant experience feel more real and lived-in to use.
+I also spent time tightening reliability, smoothing workflow rough edges, and making the day-to-day tooling feel nicer instead of janky.
+On the hearing tools side, I built out the Rust command stack, improved the transcribe / review / QA / voice-management flow, and tightened the related docs, plans, and skill setup.
+I also did source-first reporting, evidence bundle work, and provider smoke / retest passes to make the hearing flow easier to verify and reason about.
 
 --- archive ---
 
