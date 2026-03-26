@@ -4,6 +4,8 @@
 # - Do not copy this file verbatim into final published prose.
 # - Keep hard must_not_mention rules in make-blog-website.md.
 
+--- Live Comments ---
+
 Low-visibility day: Luna focused on maintenance, review, and planning.
 
 --- archive ---
