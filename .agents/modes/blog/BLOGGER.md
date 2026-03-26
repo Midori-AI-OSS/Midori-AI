@@ -52,7 +52,7 @@ When creating posts for `./Website-Blog/blog/posts/`, use this **exact** format:
 ```markdown
 ---
 title: "Your Post Title Here"
-summary: One-line summary of the post content
+summary: "One-line summary of the post content"
 tags: [tag1, tag2, tag3, tag4]
 cover_image: /blog/YYYY-MM-DD.png
 author: Becca Kay
@@ -61,7 +61,8 @@ author: Becca Kay
 
 **Critical Notes:**
 - The frontmatter format is parsed by the website and MUST be exact
-- Lint the file before deplying to the folder...
+- `title:` and `summary:` must always use double-quoted values or the post is invalid
+- Markdown linting is enforced during the workflow auditor pass; blogger should hand off a clean draft for audit
 - Prefer a claimed cover image: move one file from `./Website-Blog/public/blog/unassigned/` to `./Website-Blog/public/blog/YYYY-MM-DD.png`, then set `cover_image: /blog/YYYY-MM-DD.png`
 - If there is no fitting image to claim, or a dated art-request marker (`REQUEST-YYYY-MM-DD.prompt.md`) is present, use `/blog/placeholder.png`
 - Tags should be lowercase and relevant (examples: agent-runner, endless-idler, docker, games, endless-autofighter)

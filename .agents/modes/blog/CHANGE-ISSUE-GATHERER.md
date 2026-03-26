@@ -35,16 +35,27 @@ If there is no `.gitmodules`, treat the submodule list as empty.
 
 Do not discover repos by scanning for `.git` directories (tool caches may contain `.git`). If `git -C <repo_path> rev-parse` fails, skip that path.
 
+## Time window (required)
+Do not use a rolling `3 days ago` window.
+
+Resolve the newest filename in `Website-Blog/blog/posts/` (`YYYY-MM-DD.md`) once at the start of the run and use it to compute a shared `SINCE_DATE` baseline for every repo.
+
+Example:
+- `LAST_POST_DATE="$(basename "$(ls -1 Website-Blog/blog/posts/*.md | sort | tail -n 1)" .md)"`
+- `SINCE_DATE="$(date -d "$LAST_POST_DATE + 1 day" +%F)"`
+
+If there is no prior website post, stop and ask the Coordinator for an explicit baseline date instead of guessing.
+
 ## Method (per repo)
 For each repository path in scope:
 1) Record the current branch:
    - `git -C <repo_path> rev-parse --abbrev-ref HEAD`
 2) Compute the time window start date:
-   - `BASE="$(date -d '3 days ago' +%F)"`
+   - `BASE="$SINCE_DATE"`
 3) Collect issue lists (run inside the repo so the correct remote is used):
    - Preferred pattern (runs `gh` inside the repo directory):
-     - `(cd <repo_path> && gh issue list --state open --limit 50)`
-     - `(cd <repo_path> && gh issue list --state closed --search "closed:>=$BASE" --limit 50)`
+      - `(cd <repo_path> && gh issue list --state open --limit 50)`
+      - `(cd <repo_path> && gh issue list --state closed --search "closed:>=$BASE" --limit 50)`
    - Do not use `gh -R <repo_path> ...` (the `-R/--repo` flag expects `OWNER/REPO`, not a filesystem path).
 4) Deep read anything you plan to mention:
    - `(cd <repo_path> && gh issue view <ISSUE#> --comments)`

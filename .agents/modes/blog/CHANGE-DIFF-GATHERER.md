@@ -35,21 +35,32 @@ If there is no `.gitmodules`, treat the submodule list as empty.
 
 Do not discover repos by scanning for `.git` directories (tool caches may contain `.git`). If `git -C <repo_path> rev-parse` fails, skip that path.
 
+## Time window (required)
+Do not use a rolling `3 days ago` window.
+
+Resolve the newest filename in `Website-Blog/blog/posts/` (`YYYY-MM-DD.md`) once at the start of the run and use it to compute a shared `SINCE_DATE` baseline for every repo.
+
+Example:
+- `LAST_POST_DATE="$(basename "$(ls -1 Website-Blog/blog/posts/*.md | sort | tail -n 1)" .md)"`
+- `SINCE_DATE="$(date -d "$LAST_POST_DATE + 1 day" +%F)"`
+
+If there is no prior website post, stop and ask the Coordinator for an explicit baseline date instead of guessing.
+
 ## Method (per repo)
 For each repository path in scope:
 1) Record the current branch:
    - `git -C <repo_path> rev-parse --abbrev-ref HEAD`
-2) Collect commit hashes to process (last 3 days, up to 50; do not fetch/pull/checkout):
-   - `git -C <repo_path> log --since="3 days ago" -n 50 --pretty=format:"%H"`
+2) Collect commit hashes to process (since `SINCE_DATE`, up to 50; do not fetch/pull/checkout):
+   - `git -C <repo_path> log --since="$SINCE_DATE" -n 50 --pretty=format:"%H"`
 3) For each commit hash found:
-   - Capture its metadata (for labeling, not IDs): `git -C <repo_path> show -s --date=short --format="%ad | %s" <sha>`
-   - Capture the diff: `git -C <repo_path> show --stat --patch <sha>`
-   - Save the raw diff output as `/tmp/agents-artifacts/change-diff-gatherer-diff-<repo>-<n>.patch`
+    - Capture its metadata (for labeling, not IDs): `git -C <repo_path> show -s --date=short --format="%ad | %s" <sha>`
+    - Capture the diff: `git -C <repo_path> show --stat --patch <sha>`
+    - Save the raw diff output as `/tmp/agents-artifacts/change-diff-gatherer-diff-<repo>-<n>.patch`
 4) Summarize each update from the diff:
    - 2–5 verbose bullets describing what changed (diff-derived; no speculation)
    - Call out anything user-visible, stability-related, or workflow-related (only if supported by the diff)
    - Do not include commit IDs/SHAs or “commit 123 …” phrasing in the brief; use language like “In one of the updates…” when helpful.
-5) If there are zero commits in the last 3 days for a repo, do not bring up that repo in the brief.
+5) If there are zero commits since `SINCE_DATE` for a repo, do not bring up that repo in the brief.
 
 ## Brief format
 Single markdown document, section per repo:
@@ -75,7 +86,7 @@ Example skeleton:
 
 Branch: <branch>
 
-Updates (last 3 days, up to 50):
+Updates (since last website post, up to 50):
 - YYYY-MM-DD | <subject>
   - <diff-based bullet (no sha)>
   - <diff-based bullet (no sha)>

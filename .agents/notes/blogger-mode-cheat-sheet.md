@@ -15,7 +15,7 @@
 ```markdown
 ---
 title: "Your Post Title Here"
-summary: One-line summary of the post content
+summary: "One-line summary of the post content"
 tags: [tag1, tag2, tag3, tag4]
 cover_image: /blog/YYYY-MM-DD.png
 author: Becca Kay

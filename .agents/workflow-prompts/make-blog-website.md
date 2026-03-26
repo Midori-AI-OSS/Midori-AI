@@ -44,7 +44,7 @@ Guardrails (so we don’t accidentally lie)
 - Treat `must_not_mention` violations as publish blockers.
 - Attribution guardrail: Becca may use first-person for narrative framing, but implementation work must be attributed to Luna/team/project (never to Becca as implementer).
 - The website post must include BOTH:
-  - (1) Notable things Luna Midori did in the past few days (from requester notes)
+  - (1) Notable things Luna Midori did since the last website post (from requester notes)
   - (2) What changed in the repos (based on real commits/diffs), including workspace submodules and mounted read-only repos
 
 Repos available
@@ -61,20 +61,26 @@ Repo scope for gatherers (required)
 - Build a repo path list that includes: workspace root + every submodule path + the mounted read-only repos.
 
 Time window
-- Use the last 3 days of commits (today, yesterday, and the day before) to avoid timezone drift.
+- Do not use a rolling `3 days ago` window.
+- Resolve the newest filename in `./Website-Blog/blog/posts/` (`YYYY-MM-DD.md`) once at the start of the run and store it as `LAST_POST_DATE`.
+- Compute `SINCE_DATE` as the day after `LAST_POST_DATE` so each batch covers work after the last website post without overlapping the prior batch.
+- Example:
+  - `LAST_POST_DATE="$(basename "$(ls -1 Website-Blog/blog/posts/*.md | sort | tail -n 1)" .md)"`
+  - `SINCE_DATE="$(date -d "$LAST_POST_DATE + 1 day" +%F)"`
+- If there is no prior website post, stop and get an explicit baseline date instead of guessing.
 
 Step 1: Change-Diff-Gatherer (evidence gathering only)
 Goal: produce a clean `change brief` for the blogger with concise diff-based summaries (no raw diffs; no commit IDs in the brief).
 
 Coordinator responsibilities
-- Launch the `change-diff-gatherer` subagent with the repos list + time window + output requirements (default: write to `/tmp/agents-artifacts/` only).
+- Launch the `change-diff-gatherer` subagent with the repos list + `SINCE_DATE` baseline + output requirements (default: write to `/tmp/agents-artifacts/` only).
 - Verify the brief exists at the required path when the subagent is done.
 
 Subagent responsibilities (for EACH repo listed above)
 1) Record the current branch:
    - `git -C <repo_path> rev-parse --abbrev-ref HEAD`
 2) Collect commit hashes to process (do not fetch/pull/checkout):
-   - `git -C <repo_path> log --since="3 days ago" -n 50 --pretty=format:"%H"`
+   - `git -C <repo_path> log --since="$SINCE_DATE" -n 50 --pretty=format:"%H"`
 3) For each commit hash found, capture metadata + diff without altering the working tree:
    - `git -C <repo_path> show -s --date=short --format="%ad | %s" <sha>`
    - `git -C <repo_path> show --stat --patch <sha>`
@@ -84,7 +90,7 @@ Subagent responsibilities (for EACH repo listed above)
    - Bullet list of updates (date, subject; no commit IDs)
    - For each update: 2–5 bullets describing what changed (from the diff; no commit IDs)
    - Highlight anything user-visible, stability-related, or workflow-related
-5) If there are zero commits in the last 3 days for a repo, do not bring up that repo in the brief.
+5) If there are zero commits since `SINCE_DATE` for a repo, do not bring up that repo in the brief.
 
 Change-Diff-Gatherer output format (single message, written to `/tmp/agents-artifacts/change-diff-gatherer-brief.md`)
 - Section per repo
@@ -97,10 +103,11 @@ Step 2: Change-PR-Gatherer (evidence gathering only)
 Goal: produce a clean PR brief for the blogger (themes only; no PR numbers/titles/URLs).
 
 Coordinator responsibilities
-- Launch the `change-pr-gatherer` subagent and verify the brief exists at the required path.
+- Launch the `change-pr-gatherer` subagent with the same `SINCE_DATE` baseline and verify the brief exists at the required path.
 
 Subagent note
 - Run `gh` commands from inside each repo directory (do not use `gh -R <repo_path>`; `-R/--repo` expects `OWNER/REPO`).
+- Use `SINCE_DATE` for all created/closed date filters.
 
 Output
 - Write to `/tmp/agents-artifacts/change-pr-gatherer-brief.md`
@@ -110,10 +117,11 @@ Step 3: Change-Issue-Gatherer (evidence gathering only)
 Goal: produce a clean issues brief for the blogger (themes only; no issue numbers/titles/URLs).
 
 Coordinator responsibilities
-- Launch the `change-issue-gatherer` subagent and verify the brief exists at the required path.
+- Launch the `change-issue-gatherer` subagent with the same `SINCE_DATE` baseline and verify the brief exists at the required path.
 
 Subagent note
 - Run `gh` commands from inside each repo directory (do not use `gh -R <repo_path>`; `-R/--repo` expects `OWNER/REPO`).
+- Use `SINCE_DATE` for all closed-date filters.
 
 Output
 - Write to `/tmp/agents-artifacts/change-issue-gatherer-brief.md`
@@ -160,6 +168,7 @@ Rules (for the blogger subagent)
 - Tone: keep it light and fun (warm, human, a little playful) while staying honest and specific.
 - Attribution rule: allow first-person only for observations/feelings; do not write first-person implementation claims. Credit implementation actions to Luna/team/project.
 - Date rule: do not hard-code `today’s date`. Resolve the post date at runtime (example: `date +%F`) and use it consistently for the website post filename and cover image path (per Blogger Mode).
+- Frontmatter rule: `title:` and `summary:` MUST use double-quoted values exactly like `title: "..."` and `summary: "..."`. Unquoted values are publish blockers.
 - Cover image: pick one and open the exact image file you plan to use before describing it.
 - Cover image behavior: prefer claiming by moving/renaming from `./Website-Blog/public/blog/unassigned/`; placeholder is allowed when there is no fitting image.
 - Resolve and export post date once before validation commands:
@@ -167,6 +176,7 @@ Rules (for the blogger subagent)
 - Run required checks before handing off to auditor:
   - `uv run .agents/blog/scripts/verify_blog_meta.py /tmp/agents-artifacts/websitepost-draft.md`
   - `uv run .agents/blog/scripts/verify_blog_cover.py /tmp/agents-artifacts/websitepost-draft.md --post-date "$POST_DATE"`
+- Markdown linting belongs to the auditor pass, not the blogger pass.
 
 Optional helper patterns (examples)
 - Summarize the last ~5 website posts so you can avoid repeating yourself:
@@ -177,13 +187,15 @@ Output
 - Website-only (do not write Discord/Facebook/LinkedIn posts unless explicitly requested later).
 
 Step 7: Auditor (proofread + fact-check only)
-Goal: ensure statements are true, the post is readable, and Becca’s established voice is preserved.
+Goal: ensure statements are true, the post is readable, Becca’s established voice is preserved, and publish-blocking markdown/frontmatter rules are enforced.
 
 Coordinator responsibilities
-- Launch the `auditor` subagent and confirm it produced the required similarity report.
-- Launch the `auditor` subagent and confirm it produced the required humanity report.
+- Launch the `auditor` subagent and confirm it produced the required similarity, humanity, and markdown lint reports.
 
 Rules (for the auditor subagent)
+- Frontmatter quote check (required)
+  - Explicitly fail if `title:` or `summary:` is not wrapped in double quotes in the YAML frontmatter.
+  - Quote the offending line in the audit feedback and request the smallest possible fix.
 - Similarity check (required)
   - Before giving rewrite suggestions, compare the draft against the last ~5 website posts for accidental repetition.
   - Write results to: `/tmp/agents-artifacts/auditor-similarity.txt`
@@ -228,6 +240,10 @@ else:
 PY
 ```
   - If any post is `>= 0.5`, auditor must open/read the flagged post(s) and the draft, then explicitly point out what’s being repeated and request a rewrite or a clear callback framing.
+- Markdown lint check (required)
+  - Run `bunx markdownlint-cli <current-post.md> > /tmp/agents-artifacts/auditor-markdownlint.txt 2>&1`
+  - Treat any markdownlint failure as a publish blocker.
+  - If lint fails, quote the specific markdownlint findings in the audit feedback instead of summarizing them vaguely.
 - Humanity check (required)
   - Write results to: `/tmp/agents-artifacts/auditor-humanity.txt`
   - Confirm the draft reads like a human blog post and not an agent/process report.
@@ -251,11 +267,12 @@ Step 8: Blogger (apply auditor edits)
   - `uv run .agents/blog/scripts/verify_blog_cover.py /tmp/agents-artifacts/websitepost-revised.md --post-date "$POST_DATE"`
 
 Loop
-- Repeat Auditor -> Blogger until the auditor says the post is ready to publish.
+- Repeat Auditor -> Blogger until the auditor says the post is ready to publish; rerun frontmatter quote checks, markdown lint, similarity, and humanity on each auditor pass.
 
 Once ready to publish
 - Manager fact-check pass (final sign-off).
 - Final Blogger publishes to the website.
+- Coordinator must also confirm the latest auditor pass produced `/tmp/agents-artifacts/auditor-markdownlint.txt` and that markdownlint reported no issues for the final file.
 - Coordinator must run a publish completion check and write:
   - `uv run .agents/blog/scripts/verify_blog_publish.py --post-date "$POST_DATE"`
   - Report path: `/tmp/agents-artifacts/publish-check.txt`
@@ -266,13 +283,14 @@ Once ready to publish
   - `verify_blog_cover.py` passes
   - `auditor-similarity.txt` exists
   - `auditor-humanity.txt` exists
+- Do not mark the pipeline done if frontmatter quotes or markdown lint failed, even if `verify_blog_publish.py` passes.
 - If publish-check fails, the pipeline is incomplete (do not mark done).
 
 Historical sweep rule (required)
 - For historical edits, use one fresh subagent per post. A subagent may not edit multiple post files in one run.
 
 Requester notes (must be included)
-- Notable things Luna Midori did the past few days / or wants the blogger to know are as follows:
+- Notable things Luna Midori did since the last website post / or wants the blogger to know are as follows:
   (NOTE: Do not reflavor these things as things Becca did, these are things Luna has done)
   - `must_include`
     - Source: `.agents/workflow-prompts/luna-activity.txt`
