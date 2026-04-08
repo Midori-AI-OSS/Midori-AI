@@ -5,10 +5,11 @@
 # - Keep hard must_not_mention rules in make-blog-website.md.
 
 --- Live Comments ---
-
-Been playing some star rail, working on notes, working on Nova, and over all, just recharging ready for the big push for Carly and the agents runner.
+Been working on Nova and on the `Real Moments` RP game, the notes will be posted tomorrow.
 
 --- archive ---
+
+Been playing some star rail, working on notes, working on Nova, and over all, just recharging ready for the big push for Carly and the agents runner.
 
 Nova is my assistant and companion presence inside the tooling, and I have been building her up to feel warm, useful, and actually present instead of like a generic helper.
 I have been building out Nova directly in the repo, adding voice, giving her a few practical skills, and making the whole assistant experience feel more real and lived-in to use.
