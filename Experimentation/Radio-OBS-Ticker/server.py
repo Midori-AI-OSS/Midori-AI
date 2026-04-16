@@ -89,7 +89,13 @@ async def fetch_current_track_id() -> str:
     url = f"{RADIO_BASE}/radio/v1/current?channel={channel}"
 
     try:
-        req = urllib.request.Request(url, headers={"Accept": "application/json"})
+        req = urllib.request.Request(
+            url,
+            headers={
+                "Accept": "application/json",
+                "User-Agent": "MidoriAI-Radio-OBS-Ticker/1.0",
+            },
+        )
         with urllib.request.urlopen(req, timeout=5) as resp:
             data = json.loads(resp.read())
             return data.get("data", {}).get("track_id", "")
@@ -266,6 +272,7 @@ async def api_radio_stream():
 
 @app.before_serving
 async def _startup():
+    global last_known_track_id
     channel = config.get("audio", {}).get("channel", "all")
     quality = config.get("audio", {}).get("quality", "high")
     stream_url = build_stream_url(channel, quality)
@@ -275,9 +282,10 @@ async def _startup():
         ffprobe_cache.update(result)
         last_known_track_id = await fetch_current_track_id()
         log.info(
-            "Initial ffprobe: title=%s artist=%s",
+            "Initial ffprobe: title=%s artist=%s track_id=%s",
             result.get("title", ""),
             result.get("artist", ""),
+            last_known_track_id,
         )
     else:
         log.warning("Initial ffprobe returned no data")
