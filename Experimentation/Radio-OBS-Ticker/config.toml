@@ -1,0 +1,15 @@
+[port]
+port = 8199
+
+[audio]
+volume = 0.5
+channel = "all"
+quality = "high"
+
+[polling]
+metadata_interval_ms = 2000
+ffprobe_interval_ms = 30000
+
+[ffprobe]
+path = "ffprobe"
+timeout_s = 8

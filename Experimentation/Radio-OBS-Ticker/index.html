@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Midori AI Radio - OBS Ticker</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:transparent;font-family:'Segoe UI',system-ui,-apple-system,sans-serif}
+
+#ticker{
+  position:fixed;
+  bottom:0;left:0;right:0;
+  height:88px;
+  display:flex;
+  align-items:center;
+  overflow:hidden;
+  border-radius:0;
+  z-index:10;
+  transition:opacity .3s ease;
+}
+
+#ticker-bg{
+  position:absolute;inset:0;
+  background:rgba(14,16,22,.92);
+  z-index:0;
+}
+
+#ticker-gradient{
+  position:absolute;inset:0;
+  opacity:.55;
+  z-index:1;
+  transition:background .8s ease;
+}
+
+#ticker-frost{
+  position:absolute;inset:0;
+  background:rgba(255,255,255,.04);
+  backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
+  z-index:2;
+}
+
+#ticker-border{
+  position:absolute;top:0;left:0;right:0;
+  height:1px;
+  background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.12) 20%,rgba(255,255,255,.18) 50%,rgba(255,255,255,.12) 80%,transparent 100%);
+  z-index:3;
+}
+
+#ticker-content{
+  position:relative;z-index:4;
+  display:flex;align-items:center;
+  width:100%;height:100%;
+  padding:0 20px;
+  gap:16px;
+}
+
+#art-wrap{
+  flex-shrink:0;
+  width:58px;height:58px;
+  overflow:hidden;
+  border-radius:0;
+  border:1px solid rgba(255,255,255,.1);
+  background:rgba(20,22,30,.8);
+  display:flex;align-items:center;justify-content:center;
+}
+
+#art-wrap img{
+  width:100%;height:100%;object-fit:cover;
+  display:none;
+}
+
+#art-placeholder{
+  color:rgba(255,255,255,.3);
+  font-size:22px;
+}
+
+#info{
+  flex:1;
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:4px;
+  overflow:hidden;
+}
+
+#title{
+  font-size:16px;
+  font-weight:600;
+  color:rgba(255,255,255,.94);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  letter-spacing:.01em;
+  line-height:1.3;
+}
+
+#comment-wrap{
+  overflow:hidden;
+  position:relative;
+  height:20px;
+  mask-image:linear-gradient(90deg,transparent 0%,#000 3%,#000 97%,transparent 100%);
+  -webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 3%,#000 97%,transparent 100%);
+}
+
+#comment{
+  display:inline-block;
+  white-space:nowrap;
+  font-size:13px;
+  color:rgba(255,255,255,.52);
+  letter-spacing:.005em;
+  line-height:20px;
+  will-change:transform;
+}
+
+#comment.scroll{
+  animation:marquee var(--marquee-duration,20s) linear infinite;
+}
+
+@keyframes marquee{
+  0%{transform:translateX(0)}
+  100%{transform:translateX(-50%)}
+}
+
+#branding{
+  flex-shrink:0;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding-left:16px;
+}
+
+#live-dot{
+  width:8px;height:8px;
+  border-radius:0;
+  background:#34d399;
+  animation:pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot{
+  0%,100%{opacity:1;box-shadow:0 0 4px rgba(52,211,153,.6)}
+  50%{opacity:.5;box-shadow:0 0 8px rgba(52,211,153,.3)}
+}
+
+#branding-text{
+  font-size:11px;
+  font-weight:500;
+  color:rgba(255,255,255,.35);
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  white-space:nowrap;
+}
+
+#status{
+  position:fixed;
+  bottom:92px;right:20px;
+  font-size:11px;
+  color:rgba(255,255,255,.25);
+  z-index:11;
+  pointer-events:none;
+  transition:opacity .3s;
+}
+
+.track-enter #title,#comment-wrap,#art-wrap{
+  animation:fadeSlideIn .35s ease both;
+}
+
+@keyframes fadeSlideIn{
+  from{opacity:0;transform:translateY(6px)}
+  to{opacity:1;transform:translateY(0)}
+}
+</style>
+</head>
+<body>
+
+<div id="ticker">
+  <div id="ticker-bg"></div>
+  <div id="ticker-gradient"></div>
+  <div id="ticker-frost"></div>
+  <div id="ticker-border"></div>
+  <div id="ticker-content">
+    <div id="art-wrap">
+      <img id="art-img" alt="">
+      <span id="art-placeholder">&#9835;</span>
+    </div>
+    <div id="info">
+      <div id="title">Loading...</div>
+      <div id="comment-wrap">
+        <span id="comment"></span>
+      </div>
+    </div>
+    <div id="branding">
+      <div id="live-dot"></div>
+      <div id="branding-text">Midori AI Radio</div>
+    </div>
+  </div>
+</div>
+
+<div id="status"></div>
+
+<script>
+(function(){
+  var RADIO_BASE="https://radio.midori-ai.xyz";
+  var LOCAL_BASE="";
+
+  var titleEl=document.getElementById("title");
+  var commentEl=document.getElementById("comment");
+  var commentWrap=document.getElementById("comment-wrap");
+  var artImg=document.getElementById("art-img");
+  var artPlaceholder=document.getElementById("art-placeholder");
+  var gradientEl=document.getElementById("ticker-gradient");
+  var statusEl=document.getElementById("status");
+  var liveDot=document.getElementById("live-dot");
+
+  var audio=null;
+  var config={volume:.5,channel:"all",quality:"high",polling:{metadata_interval_ms:2000}};
+  var lastTrackId="";
+  var lastTitle="";
+  var reconnectAttempt=0;
+  var reconnectTimer=null;
+  var metadataTimer=null;
+  var metadataTimerMs=2000;
+  var playbackDesired=true;
+  var ffprobeComment="";
+  var ffprobeArtist="";
+  var paletteColors=null;
+
+  var RETRY_DELAYS=[50,100,150,200];
+
+  function getRetryDelay(){
+    var idx=Math.min(reconnectAttempt,RETRY_DELAYS.length-1);
+    return RETRY_DELAYS[idx]||200;
+  }
+
+  function clearReconnect(){
+    if(reconnectTimer!==null){clearTimeout(reconnectTimer);reconnectTimer=null}
+  }
+
+  function setStatus(t){statusEl.textContent=t}
+
+  function applyVolume(){
+    if(audio){try{audio.volume=Math.max(0,Math.min(1,config.volume))}catch(e){}}
+  }
+
+  function buildStreamUrl(){
+    return RADIO_BASE+"/radio/v1/stream?channel="+encodeURIComponent(config.channel)+"&q="+encodeURIComponent(config.quality);
+  }
+
+  function buildArtUrl(){
+    return LOCAL_BASE+"/api/radio/art/image";
+  }
+
+  function startAudio(){
+    if(!audio){
+      audio=new Audio();
+      audio.preload="none";
+
+      audio.addEventListener("playing",function(){
+        reconnectAttempt=0;
+        clearReconnect();
+        setStatus("");
+        liveDot.style.background="#34d399";
+      });
+
+      audio.addEventListener("pause",function(){
+        if(!playbackDesired){liveDot.style.background="#ef4444"}
+      });
+
+      var onError=function(){
+        if(!playbackDesired)return;
+        liveDot.style.background="#facc15";
+        scheduleReconnect();
+      };
+      audio.addEventListener("error",onError);
+      audio.addEventListener("stalled",onError);
+      audio.addEventListener("ended",onError);
+    }
+
+    applyVolume();
+
+    var url=buildStreamUrl();
+    if(reconnectAttempt>0){url+="&ts="+Date.now()}
+
+    audio.pause();
+    audio.removeAttribute("src");
+    audio.load();
+    audio.src=url;
+    audio.load();
+
+    audio.play().catch(function(e){
+      if(e.name==="NotAllowedError"){
+        setStatus("Click to start playback");
+        playbackDesired=false;
+        return;
+      }
+      scheduleReconnect();
+    });
+  }
+
+  function scheduleReconnect(){
+    if(!playbackDesired)return;
+    if(reconnectTimer!==null)return;
+
+    var delay=getRetryDelay();
+    reconnectAttempt++;
+    setStatus("Reconnecting ("+reconnectAttempt+")...");
+
+    reconnectTimer=setTimeout(function(){
+      reconnectTimer=null;
+      startAudio();
+    },delay);
+  }
+
+  function stopAudio(){
+    playbackDesired=false;
+    clearReconnect();
+    if(audio){
+      audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
+    }
+    reconnectAttempt=0;
+    liveDot.style.background="#ef4444";
+  }
+
+  function extractPalette(imgEl,callback){
+    try{
+      var canvas=document.createElement("canvas");
+      var ctx=canvas.getContext("2d");
+      var size=32;
+      canvas.width=size;canvas.height=size;
+      ctx.drawImage(imgEl,0,0,size,size);
+      var data=ctx.getImageData(0,0,size,size).data;
+
+      var rSum=0,gSum=0,bSum=0,rSum2=0,gSum2=0,bSum2=0,count=0;
+      var rDark=0,gDark=0,bDark=0,darkCount=0;
+
+      for(var i=0;i<data.length;i+=4){
+        var r=data[i],g=data[i+1],b=data[i+2],a=data[i+3];
+        if(a<128)continue;
+        rSum+=r;gSum+=g;bSum+=b;count++;
+        rSum2+=r*r;gSum2+=g*g;bSum2+=b*b;
+        var lum=r*.299+g*.587+b*.114;
+        if(lum<80){rDark+=r;gDark+=g;bDark+=b;darkCount++}
+      }
+
+      if(count===0){callback(null);return}
+
+      var avgR=rSum/count,avgG=gSum/count,avgB=bSum/count;
+      var varR=Math.sqrt(rSum2/count-avgR*avgR);
+      var varG=Math.sqrt(gSum2/count-avgG*avgG);
+      var varB=Math.sqrt(bSum2/count-avgB*avgB);
+
+      var dominantR=Math.min(255,avgR+varR*.4);
+      var dominantG=Math.min(255,avgG+varG*.4);
+      var dominantB=Math.min(255,avgB+varB*.4);
+
+      var baseR,baseG,baseB;
+      if(darkCount>0){baseR=rDark/darkCount;baseG=gDark/darkCount;baseB=bDark/darkCount}
+      else{baseR=avgR*.3;baseG=avgG*.3;baseB=avgB*.3}
+
+      callback({
+        base:"rgba("+Math.round(baseR)+","+Math.round(baseG)+","+Math.round(baseB)+",1)",
+        accent:"rgba("+Math.round(dominantR)+","+Math.round(dominantG)+","+Math.round(dominantB)+",1)"
+      });
+    }catch(e){callback(null)}
+  }
+
+  function applyPalette(p){
+    if(!p){gradientEl.style.background="transparent";return}
+    gradientEl.style.background="linear-gradient(135deg,"+p.base+" 0%,"+p.accent+" 50%,"+p.base+" 100%)";
+  }
+
+  function loadArt(){
+    var url=LOCAL_BASE+"/api/radio/art/image?t="+Date.now();
+    var img=new Image();
+    img.onload=function(){
+      artImg.src=img.src;
+      artImg.style.display="block";
+      artPlaceholder.style.display="none";
+      extractPalette(img,applyPalette);
+    };
+    img.onerror=function(){
+      artImg.style.display="none";
+      artPlaceholder.style.display="";
+      applyPalette(null);
+    };
+    img.src=url;
+  }
+
+  function setupMarquee(){
+    var text=commentEl.textContent||"";
+    if(!text){commentEl.classList.remove("scroll");return}
+
+    commentEl.innerHTML="<span>"+escHtml(text)+"</span><span style='display:inline-block;width:60px'></span><span>"+escHtml(text)+"</span><span style='display:inline-block;width:60px'></span><span>"+escHtml(text)+"</span>";
+
+    requestAnimationFrame(function(){
+      var wrapWidth=commentWrap.offsetWidth;
+      var textWidth=commentEl.scrollWidth/3;
+
+      if(textWidth<=wrapWidth){
+        commentEl.classList.remove("scroll");
+        commentEl.innerHTML=escHtml(text);
+      }else{
+        var pxPerSec=15;
+        var duration=Math.max(5,textWidth/pxPerSec);
+        commentEl.style.setProperty("--marquee-duration",duration+"s");
+        commentEl.classList.add("scroll");
+      }
+    });
+  }
+
+  function escHtml(s){
+    var d=document.createElement("div");
+    d.textContent=s;
+    return d.innerHTML;
+  }
+
+  async function fetchCurrent(){
+    try{
+      var resp=await fetch(LOCAL_BASE+"/api/radio/current",{cache:"no-store"});
+      var json=await resp.json();
+      if(!json.ok||!json.data)return;
+      var d=json.data;
+      var newTrackId=d.track_id||"";
+      var newTitle=d.title||"";
+
+      if(newTrackId!==lastTrackId&&newTrackId!==""){
+        lastTrackId=newTrackId;
+        lastTitle=newTitle;
+        titleEl.textContent=newTitle||"Unknown Track";
+        titleEl.style.animation="none";
+        void titleEl.offsetWidth;
+        titleEl.style.animation="fadeSlideIn .35s ease both";
+
+        loadArt();
+        fetchFfprobeMetadata();
+      }else if(newTitle&&newTitle!==lastTitle){
+        lastTitle=newTitle;
+        titleEl.textContent=newTitle;
+      }
+    }catch(e){}
+  }
+
+  async function fetchArt(){
+    try{
+      var resp=await fetch(LOCAL_BASE+"/api/radio/art",{cache:"no-store"});
+      var json=await resp.json();
+      if(!json.ok||!json.data)return;
+      var d=json.data;
+      if(d.has_art){
+        var url=d.art_url;
+        if(url&&!/^https?:\/\//i.test(url)){
+          url=RADIO_BASE+(url.startsWith("/")?"":"/")+url;
+        }
+        url=LOCAL_BASE+"/api/radio/art/image";
+        if(url&&artImg.src!==url){
+          artImg.src=url;
+          artImg.style.display="block";
+          artPlaceholder.style.display="none";
+        }
+      }
+    }catch(e){}
+  }
+
+  async function fetchFfprobeMetadata(){
+    try{
+      var resp=await fetch(LOCAL_BASE+"/api/metadata",{cache:"no-store"});
+      var json=await resp.json();
+      if(!json.ok)return;
+      ffprobeComment=json.comment||"";
+      ffprobeArtist=json.artist||"";
+      commentEl.textContent=ffprobeComment||ffprobeArtist||"";
+      setupMarquee();
+    }catch(e){}
+  }
+
+  async function loadConfig(){
+    try{
+      var resp=await fetch(LOCAL_BASE+"/api/config");
+      var json=await resp.json();
+      config.volume=json.volume||.5;
+      config.channel=json.channel||"all";
+      config.quality=json.quality||"high";
+      metadataTimerMs=json.polling?.metadata_interval_ms||2000;
+      applyVolume();
+    }catch(e){}
+  }
+
+  function startMetadataLoop(){
+    if(metadataTimer)return;
+    (async function loop(){
+      await fetchCurrent();
+      await fetchArt();
+      metadataTimer=setTimeout(loop,metadataTimerMs);
+    })();
+  }
+
+  async function init(){
+    await loadConfig();
+
+    startAudio();
+    startMetadataLoop();
+
+    await fetchCurrent();
+    await fetchArt();
+    await fetchFfprobeMetadata();
+
+    document.addEventListener("click",function(){
+      if(!playbackDesired){
+        playbackDesired=true;
+        reconnectAttempt=0;
+        startAudio();
+      }
+    });
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
