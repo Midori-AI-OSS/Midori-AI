@@ -245,7 +245,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:transparent;font-fam
   }
 
   function buildStreamUrl(){
-    return RADIO_BASE+"/radio/v1/stream?channel="+encodeURIComponent(config.channel)+"&q="+encodeURIComponent(config.quality);
+    return LOCAL_BASE+"/api/radio/stream?channel="+encodeURIComponent(config.channel)+"&q="+encodeURIComponent(config.quality);
   }
 
   function buildArtUrl(){

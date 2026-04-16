@@ -9,7 +9,9 @@ from pathlib import Path
 import tomli
 from quart import Quart
 from quart import jsonify
+from quart import request
 from quart import send_file
+from quart import Response
 
 CONFIG_PATH = Path(__file__).parent / "config.toml"
 HTML_PATH = Path(__file__).parent / "index.html"
@@ -226,6 +228,39 @@ async def api_radio_art_image():
             return data, 200, {"Content-Type": ct, "Cache-Control": "no-cache"}
     except Exception as e:
         log.warning("Failed to fetch radio art image: %s", e)
+        return b"", 502
+
+
+@app.route("/api/radio/stream")
+async def api_radio_stream():
+    import aiohttp
+
+    channel = request.args.get("channel", config.get("audio", {}).get("channel", "all"))
+    quality = request.args.get("q", config.get("audio", {}).get("quality", "high"))
+    url = f"{RADIO_BASE}/radio/v1/stream?channel={channel}&q={quality}"
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                url,
+                headers={"User-Agent": "MidoriAI-Radio-OBS-Ticker/1.0"},
+            ) as resp:
+                content_type = resp.headers.get("Content-Type", "audio/mpeg")
+
+                async def generate():
+                    async for chunk in resp.content.iter_chunked(4096):
+                        yield chunk
+
+                return Response(
+                    generate(),
+                    mimetype=content_type,
+                    headers={
+                        "Cache-Control": "no-cache",
+                        "Accept-Ranges": "none",
+                    },
+                )
+    except Exception as e:
+        log.warning("Failed to stream audio: %s", e)
         return b"", 502
 
 
