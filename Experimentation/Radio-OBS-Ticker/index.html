@@ -198,11 +198,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:transparent;font-fam
   </div>
 </div>
 
-<div id="status"></div>
+<div id="status" style="display:none"></div>
 
 <script>
 (function(){
-  var RADIO_BASE="https://radio.midori-ai.xyz";
   var LOCAL_BASE="";
 
   var titleEl=document.getElementById("title");
@@ -211,119 +210,13 @@ html,body{width:100%;height:100%;overflow:hidden;background:transparent;font-fam
   var artImg=document.getElementById("art-img");
   var artPlaceholder=document.getElementById("art-placeholder");
   var gradientEl=document.getElementById("ticker-gradient");
-  var statusEl=document.getElementById("status");
   var liveDot=document.getElementById("live-dot");
 
-  var audio=null;
-  var config={volume:.5,channel:"all",quality:"high",polling:{metadata_interval_ms:2000}};
+  var config={channel:"all",quality:"high",polling:{metadata_interval_ms:2000}};
   var lastTrackId="";
   var lastTitle="";
-  var reconnectAttempt=0;
-  var reconnectTimer=null;
   var metadataTimer=null;
   var metadataTimerMs=2000;
-  var playbackDesired=true;
-  var ffprobeComment="";
-  var ffprobeArtist="";
-  var paletteColors=null;
-
-  var RETRY_DELAYS=[50,100,150,200];
-
-  function getRetryDelay(){
-    var idx=Math.min(reconnectAttempt,RETRY_DELAYS.length-1);
-    return RETRY_DELAYS[idx]||200;
-  }
-
-  function clearReconnect(){
-    if(reconnectTimer!==null){clearTimeout(reconnectTimer);reconnectTimer=null}
-  }
-
-  function setStatus(t){statusEl.textContent=t}
-
-  function applyVolume(){
-    if(audio){try{audio.volume=Math.max(0,Math.min(1,config.volume))}catch(e){}}
-  }
-
-  function buildStreamUrl(){
-    return LOCAL_BASE+"/api/radio/stream?channel="+encodeURIComponent(config.channel)+"&q="+encodeURIComponent(config.quality);
-  }
-
-  function buildArtUrl(){
-    return LOCAL_BASE+"/api/radio/art/image";
-  }
-
-  function startAudio(){
-    if(!audio){
-      audio=new Audio();
-      audio.preload="none";
-
-      audio.addEventListener("playing",function(){
-        reconnectAttempt=0;
-        clearReconnect();
-        setStatus("");
-        liveDot.style.background="#34d399";
-      });
-
-      audio.addEventListener("pause",function(){
-        if(!playbackDesired){liveDot.style.background="#ef4444"}
-      });
-
-      var onError=function(){
-        if(!playbackDesired)return;
-        liveDot.style.background="#facc15";
-        scheduleReconnect();
-      };
-      audio.addEventListener("error",onError);
-      audio.addEventListener("stalled",onError);
-      audio.addEventListener("ended",onError);
-    }
-
-    applyVolume();
-
-    var url=buildStreamUrl();
-    if(reconnectAttempt>0){url+="&ts="+Date.now()}
-
-    audio.pause();
-    audio.removeAttribute("src");
-    audio.load();
-    audio.src=url;
-    audio.load();
-
-    audio.play().catch(function(e){
-      if(e.name==="NotAllowedError"){
-        setStatus("Click to start playback");
-        playbackDesired=false;
-        return;
-      }
-      scheduleReconnect();
-    });
-  }
-
-  function scheduleReconnect(){
-    if(!playbackDesired)return;
-    if(reconnectTimer!==null)return;
-
-    var delay=getRetryDelay();
-    reconnectAttempt++;
-    setStatus("Reconnecting ("+reconnectAttempt+")...");
-
-    reconnectTimer=setTimeout(function(){
-      reconnectTimer=null;
-      startAudio();
-    },delay);
-  }
-
-  function stopAudio(){
-    playbackDesired=false;
-    clearReconnect();
-    if(audio){
-      audio.pause();
-      audio.removeAttribute("src");
-      audio.load();
-    }
-    reconnectAttempt=0;
-    liveDot.style.background="#ef4444";
-  }
 
   function extractPalette(imgEl,callback){
     try{
@@ -451,11 +344,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:transparent;font-fam
       if(!json.ok||!json.data)return;
       var d=json.data;
       if(d.has_art){
-        var url=d.art_url;
-        if(url&&!/^https?:\/\//i.test(url)){
-          url=RADIO_BASE+(url.startsWith("/")?"":"/")+url;
-        }
-        url=LOCAL_BASE+"/api/radio/art/image";
+        var url=LOCAL_BASE+"/api/radio/art/image";
         if(url&&artImg.src!==url){
           artImg.src=url;
           artImg.style.display="block";
@@ -470,9 +359,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:transparent;font-fam
       var resp=await fetch(LOCAL_BASE+"/api/metadata",{cache:"no-store"});
       var json=await resp.json();
       if(!json.ok)return;
-      ffprobeComment=json.comment||"";
-      ffprobeArtist=json.artist||"";
-      commentEl.textContent=ffprobeComment||ffprobeArtist||"";
+      var comment=json.comment||"";
+      var artist=json.artist||"";
+      commentEl.textContent=comment||artist||"";
       setupMarquee();
     }catch(e){}
   }
@@ -481,11 +370,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:transparent;font-fam
     try{
       var resp=await fetch(LOCAL_BASE+"/api/config");
       var json=await resp.json();
-      config.volume=json.volume||.5;
       config.channel=json.channel||"all";
       config.quality=json.quality||"high";
       metadataTimerMs=json.polling?.metadata_interval_ms||2000;
-      applyVolume();
     }catch(e){}
   }
 
@@ -500,21 +387,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:transparent;font-fam
 
   async function init(){
     await loadConfig();
-
-    startAudio();
     startMetadataLoop();
-
     await fetchCurrent();
     await fetchArt();
     await fetchFfprobeMetadata();
-
-    document.addEventListener("click",function(){
-      if(!playbackDesired){
-        playbackDesired=true;
-        reconnectAttempt=0;
-        startAudio();
-      }
-    });
   }
 
   init();

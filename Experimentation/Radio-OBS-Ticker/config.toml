@@ -2,7 +2,6 @@
 port = 8199
 
 [audio]
-volume = 0.5
 channel = "all"
 quality = "high"
 
