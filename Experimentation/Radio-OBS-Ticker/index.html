@@ -346,50 +346,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:transparent;font-fam
     }catch(e){}
   }
 
-  async function fetchArt(){
-    try{
-      var resp=await fetch(LOCAL_BASE+"/api/radio/art",{cache:"no-store"});
-      var json=await resp.json();
-      if(!json.ok||!json.data)return;
-      var d=json.data;
-      if(d.has_art){
-        var url=LOCAL_BASE+"/api/radio/art/image";
-        if(url&&artImg.src!==url){
-          artImg.src=url;
-          artImg.style.display="block";
-          artPlaceholder.style.display="none";
-        }
-      }
-    }catch(e){}
-  }
-
-  async function fetchFfprobeMetadata(){
-    try{
-      var resp=await fetch(LOCAL_BASE+"/api/metadata",{cache:"no-store"});
-      var json=await resp.json();
-      if(!json.ok)return;
-      var comment=json.comment||"";
-      var artist=json.artist||"";
-      commentEl.textContent=comment||artist||"";
-      setupMarquee();
-    }catch(e){}
-  }
-
-  async function loadConfig(){
-    try{
-      var resp=await fetch(LOCAL_BASE+"/api/config");
-      var json=await resp.json();
-      config.channel=json.channel||"all";
-      config.quality=json.quality||"high";
-      metadataTimerMs=json.polling?.metadata_interval_ms||2000;
-    }catch(e){}
-  }
-
   function startMetadataLoop(){
     if(metadataTimer)return;
     (async function loop(){
       await fetchCurrent();
-      await fetchArt();
       metadataTimer=setTimeout(loop,metadataTimerMs);
     })();
   }
@@ -398,7 +358,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:transparent;font-fam
     await loadConfig();
     startMetadataLoop();
     await fetchCurrent();
-    await fetchArt();
     await fetchFfprobeMetadata();
   }
 
