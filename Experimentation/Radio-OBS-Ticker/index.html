@@ -101,6 +101,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:transparent;font-fam
   overflow:hidden;
   position:relative;
   height:20px;
+}
+
+#comment-wrap.masked{
   mask-image:linear-gradient(90deg,transparent 0%,#000 3%,#000 97%,transparent 100%);
   -webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 3%,#000 97%,transparent 100%);
 }
@@ -285,7 +288,11 @@ html,body{width:100%;height:100%;overflow:hidden;background:transparent;font-fam
 
   function setupMarquee(){
     var text=commentEl.textContent||"";
-    if(!text){commentEl.classList.remove("scroll");return}
+    if(!text){
+      commentEl.classList.remove("scroll");
+      commentWrap.classList.remove("masked");
+      return;
+    }
 
     commentEl.innerHTML="<span>"+escHtml(text)+"</span><span style='display:inline-block;width:60px'></span><span>"+escHtml(text)+"</span><span style='display:inline-block;width:60px'></span><span>"+escHtml(text)+"</span>";
 
@@ -295,12 +302,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:transparent;font-fam
 
       if(textWidth<=wrapWidth){
         commentEl.classList.remove("scroll");
+        commentWrap.classList.remove("masked");
         commentEl.innerHTML=escHtml(text);
       }else{
         var pxPerSec=15;
         var duration=Math.max(5,textWidth/pxPerSec);
         commentEl.style.setProperty("--marquee-duration",duration+"s");
         commentEl.classList.add("scroll");
+        commentWrap.classList.add("masked");
       }
     });
   }
