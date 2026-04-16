@@ -320,6 +320,28 @@ html,body{width:100%;height:100%;overflow:hidden;background:transparent;font-fam
     return d.innerHTML;
   }
 
+  async function loadConfig(){
+    try{
+      var resp=await fetch(LOCAL_BASE+"/api/config",{cache:"no-store"});
+      var json=await resp.json();
+      if(json.channel)config.channel=json.channel;
+      if(json.quality)config.quality=json.quality;
+      if(json.polling)Object.assign(config.polling,json.polling);
+      metadataTimerMs=config.polling.metadata_interval_ms||2000;
+    }catch(e){}
+  }
+
+  async function fetchFfprobeMetadata(){
+    try{
+      var resp=await fetch(LOCAL_BASE+"/api/metadata",{cache:"no-store"});
+      var json=await resp.json();
+      if(json.ok&&json.comment){
+        commentEl.textContent=json.comment;
+        setupMarquee();
+      }
+    }catch(e){}
+  }
+
   async function fetchCurrent(){
     try{
       var resp=await fetch(LOCAL_BASE+"/api/radio/current",{cache:"no-store"});
