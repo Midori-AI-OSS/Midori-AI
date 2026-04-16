@@ -7,7 +7,7 @@ quality = "high"
 
 [polling]
 metadata_interval_ms = 2000
-ffprobe_interval_ms = 30000
+ffprobe_interval_ms = 5000
 
 [ffprobe]
 path = "ffprobe"
