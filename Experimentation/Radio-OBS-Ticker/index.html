@@ -289,6 +289,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:transparent;font-fam
   function setupMarquee(){
     var text=commentEl.textContent||"";
     if(!text){
+      commentEl.textContent="";
       commentEl.classList.remove("scroll");
       commentWrap.classList.remove("masked");
       return;
@@ -320,6 +321,11 @@ html,body{width:100%;height:100%;overflow:hidden;background:transparent;font-fam
     return d.innerHTML;
   }
 
+  function setComment(text){
+    commentEl.textContent=text||"";
+    setupMarquee();
+  }
+
   async function loadConfig(){
     try{
       var resp=await fetch(LOCAL_BASE+"/api/config",{cache:"no-store"});
@@ -335,10 +341,12 @@ html,body{width:100%;height:100%;overflow:hidden;background:transparent;font-fam
     try{
       var resp=await fetch(LOCAL_BASE+"/api/metadata",{cache:"no-store"});
       var json=await resp.json();
-      if(json.ok&&json.comment){
-        commentEl.textContent=json.comment;
-        setupMarquee();
+      if(!json.ok)return;
+      if(json.matched&&json.comment){
+        setComment(json.comment);
+        return;
       }
+      setComment("");
     }catch(e){}
   }
 
@@ -359,11 +367,12 @@ html,body{width:100%;height:100%;overflow:hidden;background:transparent;font-fam
         void titleEl.offsetWidth;
         titleEl.style.animation="fadeSlideIn .35s ease both";
 
+        setComment("");
         loadArt();
-        fetchFfprobeMetadata();
       }else if(newTitle&&newTitle!==lastTitle){
         lastTitle=newTitle;
         titleEl.textContent=newTitle;
+        setComment("");
       }
     }catch(e){}
   }
@@ -371,16 +380,15 @@ html,body{width:100%;height:100%;overflow:hidden;background:transparent;font-fam
   function startMetadataLoop(){
     if(metadataTimer)return;
     (async function loop(){
-      await fetchCurrent();
+      await Promise.all([fetchCurrent(),fetchFfprobeMetadata()]);
       metadataTimer=setTimeout(loop,metadataTimerMs);
     })();
   }
 
   async function init(){
     await loadConfig();
+    await Promise.all([fetchCurrent(),fetchFfprobeMetadata()]);
     startMetadataLoop();
-    await fetchCurrent();
-    await fetchFfprobeMetadata();
   }
 
   init();
