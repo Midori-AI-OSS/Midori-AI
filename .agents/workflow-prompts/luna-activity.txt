@@ -5,7 +5,7 @@
 # - Keep hard must_not_mention rules in make-blog-website.md.
 
 --- Live Comments ---
-Working on a few projects like the `Real Moments` RP, the Metahash stuff, and fixing up the blog / agents runner, added cpu based TTS to the blog so users can hear the lore / blog posts now, the tts button is under the photo of each post <3
+Working on a few projects like the `Real Moments` RP, the Metahash stuff, and fixing up the blog / agents runner. Doing some bug fixes around the repos and other things. I also picked up running once every few hours, so working on that IRL body just as much as the online body <3
 
 --- archive ---
 The `Real Moments` post is going out today! (PLEASE HIPE THIS UP ON THE BLOG!! The link to Riley's POV is `https://blog.midori-ai.xyz/lore/riley-memoria-crystalli`) Let's give the readers today a small bit of the new `Real Moments` posts, give your real raw feelings Becca <3
