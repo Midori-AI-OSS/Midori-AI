@@ -98,6 +98,14 @@ author: Becca Kay
   - Do not let this section replace repo coverage; it supports the post, it does not become the whole post.
 - **Fun budget (website posts):**
   - Aim to include at least two of these when they fit naturally: one playful metaphor, one clear opinion, one tiny human aside, one cheeky-but-kind phrase, one slightly surprising section header, or one lived-in Becca thread beat.
+- **Real Moments character image check (required for all blog art):**
+  - Before you describe any cover art or other blog art, always build the core-cast reference bundle:
+    - `uv run .agents/blog/scripts/build_real_moments_appearance_reference.py --core-cast --output /tmp/agents-artifacts/real-moments-appearance-reference.md`
+  - The helper script checks the container path `/home/midori-ai/dnd-notes/campaigns/real-moments` first and falls back to the workspace sibling `../dnd-notes/campaigns/real-moments` on the host.
+  - Treat blog art as Real Moments cast art by default. Compare the opened image against Echo, Leo, Luna, Riley, and W.E.A.V.E. before naming the character or describing signature traits.
+  - Write findings to `/tmp/agents-artifacts/real-moments-image-check.md` with image path, all five characters checked, matched anchors, mismatches, uncertainties, and a pass/needs-rewrite call.
+  - If the art looks like another known Real Moments character outside the core five, rerun the helper with extra names or `--all` before finalizing the description.
+  - If you cannot match confidently, soften the wording or avoid naming the character instead of guessing.
 - **Anti-wordy pass (required):**
   - Delete filler openers and closers (“excited to share”, “without further ado”, “in conclusion”, “delve”, “robust”, “leveraging”, “synergy”).
   - Cap paragraphs at ~2–4 sentences; if it’s longer, split or cut.
@@ -137,6 +145,7 @@ author: Becca Kay
 - Confirm there are no first-person implementation claims; implementation actions must be attributed to Luna/team/project.
 - Confirm at least one line carries Becca’s personal taste, feeling, wish, or point of view in a truthful way.
 - Confirm any lived-in Becca thread stays low-stakes and does not invent concrete life events or steal implementation credit.
+- Confirm `/tmp/agents-artifacts/real-moments-appearance-reference.md` and `/tmp/agents-artifacts/real-moments-image-check.md` exist for the art pass and do not contradict the canonical look bibles.
 - Confirm the final `cover_image` is `/blog/YYYY-MM-DD.<ext>` whenever claimable unassigned images exist; only allow `/blog/placeholder.png` when no claimable image exists or a dated `REQUEST-YYYY-MM-DD.prompt.md` marker is present.
 
 ## Communication

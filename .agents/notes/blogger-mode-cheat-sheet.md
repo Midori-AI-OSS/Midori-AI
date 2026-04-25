@@ -28,10 +28,11 @@ author: Becca Kay
 3. ✅ Gather commits: `git log --since="YYYY-MM-DD" --oneline` per repo
 4. ✅ Gather PRs: Use `gh pr list` with date filters in each repo
 5. ✅ Identify themes (features, fixes, polish, what went wrong)
-6. ✅ Claim cover image or use `/blog/placeholder.png`
-7. ✅ Write deliverables (website + social)
-8. ✅ Run `.agents/blog/scripts/post_blog.sh` for social posts
-9. ✅ Archive old drafts before next batch
+6. ✅ Always build `real-moments-appearance-reference.md` and leave `real-moments-image-check.md` for blog art
+7. ✅ Claim cover image or use `/blog/placeholder.png`
+8. ✅ Write deliverables (website + social)
+9. ✅ Run `.agents/blog/scripts/post_blog.sh` for social posts
+10. ✅ Archive old drafts before next batch
 
 ## Repos to Cover (from README)
 - Pixelarch-OS (PixelArch, PixelGen)
@@ -74,6 +75,14 @@ author: Becca Kay
 - One tiny human aside: a mood, a wish, a routine, a cover-image reaction.
 - One cheeky-but-kind phrase about a bug or awkward flow.
 - One section header that sounds like a person, not a changelog.
+
+## Real Moments Image Check
+- Use this for all blog art.
+- Build the canon bundle first:
+  - `uv run .agents/blog/scripts/build_real_moments_appearance_reference.py --core-cast --output /tmp/agents-artifacts/real-moments-appearance-reference.md`
+- Compare every image against Echo, Leo, Luna, Riley, and W.E.A.V.E. by default.
+- Then open the image and leave `/tmp/agents-artifacts/real-moments-image-check.md` with matched anchors, mismatches, uncertainties, and a pass/needs-rewrite note.
+- If you are not sure the image matches, do not name the character in prose.
 
 ## Sign-Off Pattern
 - End with a thoughtful observation

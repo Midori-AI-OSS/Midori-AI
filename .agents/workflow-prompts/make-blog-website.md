@@ -176,6 +176,13 @@ Rules (for the blogger subagent)
 - Frontmatter rule: `title:` and `summary:` MUST use double-quoted values exactly like `title: "..."` and `summary: "..."`. Unquoted values are publish blockers.
 - Cover image: pick one and open the exact image file you plan to use before describing it.
 - Cover image behavior: prefer claiming by moving/renaming from `./Website-Blog/public/blog/unassigned/`; placeholder is allowed when there is no fitting image.
+- Real Moments image identity rule: for all blog art, always build the core-cast reference bundle first.
+  - `uv run .agents/blog/scripts/build_real_moments_appearance_reference.py --core-cast --output /tmp/agents-artifacts/real-moments-appearance-reference.md`
+  - The helper checks the container path `/home/midori-ai/dnd-notes/campaigns/real-moments` first and falls back to the host/workspace sibling `../dnd-notes/campaigns/real-moments` automatically.
+  - Treat all blog art as Real Moments cast art by default. Compare the opened image against Echo, Leo, Luna, Riley, and W.E.A.V.E. before naming any character or describing signature traits.
+  - Write `/tmp/agents-artifacts/real-moments-image-check.md` with image path, the five characters checked, matched anchors, mismatches, uncertainties, and a pass/needs-rewrite note.
+  - If the image looks like another known Real Moments character outside the core five, rerun the helper with extra names or `--all` before finalizing prose.
+  - If the match is uncertain, do not confidently name the character in blog prose.
 - Resolve and export post date once before validation commands:
   - `POST_DATE="$(date +%F)"`
 - Run required checks before handing off to auditor:
@@ -258,6 +265,10 @@ PY
   - Preserve low-stakes personality when it is truthful. Do not ask the blogger to strip out every personal line just because it is colorful.
   - Explicitly fail only if a personal/admin/artist aside invents unsupported life facts, steals implementation credit, or overwhelms repo coverage.
   - If the draft feels sterile or too formulaic, quote the repeated stem or flat sentence and ask for one targeted rewrite that sounds more like a person with taste.
+- Real Moments image identity check (required)
+  - Require `/tmp/agents-artifacts/real-moments-appearance-reference.md` and `/tmp/agents-artifacts/real-moments-image-check.md` for every blog-art pass.
+  - Fail if the comparison artifact does not cover the core five cast, is missing, is too vague to audit, or contradicts the canonical `appearance/looks.md` files.
+  - If the image match is uncertain, request softer wording or removal of the character identification instead of guessing.
 - Auditor must read past website posts to learn Becca’s voice (and to catch repetition).
 - Auditor must not edit files and must not generate docs.
 - Auditor is not a co-author: do not rewrite the entire post in a new voice. Ask for minimal, targeted fixes.
