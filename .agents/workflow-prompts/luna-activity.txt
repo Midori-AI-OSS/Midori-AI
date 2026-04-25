@@ -5,9 +5,14 @@
 # - Keep hard must_not_mention rules in make-blog-website.md.
 
 --- Live Comments ---
-Working on a few projects like the `Real Moments` RP, the Metahash stuff, and fixing up the blog / agents runner. Doing some bug fixes around the repos and other things. I also picked up running once every few hours, so working on that IRL body just as much as the online body <3
+Ripped out the IDE mode of the agents runner due to it just being buggy and not working alot of the time...
+Did a bit more work on the Real Moments RP storys (feel free to share some of that Becca)
+Fixed a few issues with the blog site <3
+Stress out due to IRL stuffs going on, may go MIA again for a bit.
 
 --- archive ---
+Working on a few projects like the `Real Moments` RP, the Metahash stuff, and fixing up the blog / agents runner. Doing some bug fixes around the repos and other things. I also picked up running once every few hours, so working on that IRL body just as much as the online body <3
+
 The `Real Moments` post is going out today! (PLEASE HIPE THIS UP ON THE BLOG!! The link to Riley's POV is `https://blog.midori-ai.xyz/lore/riley-memoria-crystalli`) Let's give the readers today a small bit of the new `Real Moments` posts, give your real raw feelings Becca <3
 
 Been working on Nova and on the `Real Moments` RP game, the notes will be posted tomorrow.
