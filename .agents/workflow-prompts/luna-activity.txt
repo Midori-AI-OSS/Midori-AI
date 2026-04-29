@@ -5,11 +5,13 @@
 # - Keep hard must_not_mention rules in make-blog-website.md.
 
 --- Live Comments ---
+The two new `real moments` storys `luz-blessee`, Becca please share what you think of the bar moment (when Luna passes out)
+And then please share about the moment from the `Fourth interval` in the stillglass story, but be mindful to not over share this moment.
+
+--- archive ---
 Redid the full UI / UX of the lore page.
 Worked on getting the rest of the story ready for the lore page (Becca, tell them the start of the bar story, just until the joke Leo makes)
 
-
---- archive ---
 Ripped out the IDE mode of the agents runner due to it just being buggy and not working alot of the time...
 Did a bit more work on the Real Moments RP storys (feel free to share some of that Becca)
 Fixed a few issues with the blog site <3
