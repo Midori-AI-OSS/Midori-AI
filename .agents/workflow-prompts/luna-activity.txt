@@ -7,8 +7,13 @@
 --- Live Comments ---
 The two new `real moments` storys `luz-blessee`, Becca please share what you think of the bar moment (when Luna passes out)
 And then please share about the moment from the `Fourth interval` in the stillglass story, but be mindful to not over share this moment.
+Work on the agents runner is being done just to clean up more bugs, IE the major port issue was fixed, a popup will now happen offering to not crash if you switch ports.
+The blog website had some love, started getting Carly's repo ready for work next month.
+Nova is still coming along nicely, and am still doing runs every 4 hours. I feel better in my own yucky human body.
+Please tell the readers thank you Becca from me, I mean it, a big thanks <3
 
 --- archive ---
+
 Redid the full UI / UX of the lore page.
 Worked on getting the rest of the story ready for the lore page (Becca, tell them the start of the bar story, just until the joke Leo makes)
 
