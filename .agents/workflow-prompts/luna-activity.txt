@@ -5,15 +5,18 @@
 # - Keep hard must_not_mention rules in make-blog-website.md.
 
 --- Live Comments ---
+Low-visibility day: Luna focused on maintenance, review, and planning.
+
+--- archive ---
 Been working on contracts outside of Midori AI (What was Metahash [73] and is now Academia [109])
 Did a full deep rebuild of the radio system on the blog site, also been working on real moments.
 
---- archive ---
 I am not sure what to say today, I am stressed, still going for runs... am pissed off with sub agents... spent 4 hours working on something that should have taken 10 mins... am upset at my self
 
 The two new `real moments` storys `luz-blessee`, Becca please share what you think of the bar moment (when Luna passes out)
 And then please share about the moment from the `Fourth interval` in the stillglass story, but be mindful to not over share this moment.
 Work on the agents runner is being done just to clean up more bugs, IE the major port issue was fixed, a popup will now happen offering to not crash if you switch ports.
+
 The blog website had some love, started getting Carly's repo ready for work next month.
 Nova is still coming along nicely, and am still doing runs every 4 hours. I feel better in my own yucky human body.
 Please tell the readers thank you Becca from me, I mean it, a big thanks <3
