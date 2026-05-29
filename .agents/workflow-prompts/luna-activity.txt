@@ -5,7 +5,7 @@
 # - Keep hard must_not_mention rules in make-blog-website.md.
 
 --- Live Comments ---
-Low-visibility day: Luna focused on maintenance, review, and planning.
+No comment from Luna, as Luna is the one making this post today.
 
 --- archive ---
 Been working on contracts outside of Midori AI (What was Metahash [73] and is now Academia [109])
