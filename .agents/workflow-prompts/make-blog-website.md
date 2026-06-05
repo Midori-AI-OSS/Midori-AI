@@ -64,10 +64,10 @@ Repo scope for gatherers (required)
 Time window
 - Do not use a rolling `3 days ago` window.
 - Resolve the newest filename in `./Website-Blog/blog/posts/` (`YYYY-MM-DD.md`) once at the start of the run and store it as `LAST_POST_DATE`.
-- Compute `SINCE_DATE` as the day after `LAST_POST_DATE` so each batch covers work after the last website post without overlapping the prior batch.
+- Compute `SINCE_DATE` as the same day as `LAST_POST_DATE` so each batch covers work on the same day as the last website post.
 - Example:
   - `LAST_POST_DATE="$(basename "$(ls -1 Website-Blog/blog/posts/*.md | sort | tail -n 1)" .md)"`
-  - `SINCE_DATE="$(date -d "$LAST_POST_DATE + 1 day" +%F)"`
+  - `SINCE_DATE="$(date -d "$LAST_POST_DATE + 0 days" +%F)"`
 - If there is no prior website post, stop and get an explicit baseline date instead of guessing.
 
 Step 1: Change-Diff-Gatherer (evidence gathering only)

@@ -42,7 +42,7 @@ Resolve the newest filename in `Website-Blog/blog/posts/` (`YYYY-MM-DD.md`) once
 
 Example:
 - `LAST_POST_DATE="$(basename "$(ls -1 Website-Blog/blog/posts/*.md | sort | tail -n 1)" .md)"`
-- `SINCE_DATE="$(date -d "$LAST_POST_DATE + 1 day" +%F)"`
+- `SINCE_DATE="$(date -d "$LAST_POST_DATE + 0 days" +%F)"`
 
 If there is no prior website post, stop and ask the Coordinator for an explicit baseline date instead of guessing.
 

@@ -5,7 +5,9 @@
 # - Keep hard must_not_mention rules in make-blog-website.md.
 
 --- Live Comments ---
-Alright welcome back Becca, there has been a lot over the past few weeks for you to cover. 
+Super happy with the Species Care Cards / MyChart-style medical ID system on the blog site — built out 3D tilt cards with hologram sheen, guilloche security patterns, signing photo watermarks, and multi-card grids for the Real Moments RP crew (Luna, Leo, Echo, W.E.A.V.E., Riley). Also pushed Sangre y Lux Residua lore, rebuilt the radio backend, and tightened typography across the site.
+
+Alright welcome back Becca, there has been a lot over the past few weeks for you to cover.
 Thank you for your hard work!
 
 --- archive ---
