@@ -11,6 +11,7 @@ import tomli_w
 from codexd.models import AccountRecord
 from codexd.models import AccountStatusSnapshot
 from codexd.models import RateLimitWindow
+from codexd.launcher import is_admin_passthrough_command
 from codexd.paths import CodexdPaths
 from codexd.service import CodexdError
 from codexd.service import CodexdService
@@ -104,6 +105,10 @@ def _handle_manage(service: CodexdService, argv: list[str]) -> int:
 
 
 def _handle_launch(service: CodexdService, argv: list[str]) -> int:
+    forced_account, passthrough_args = _extract_account_passthrough(argv)
+    if is_admin_passthrough_command(passthrough_args):
+        service.passthrough(passthrough_args, forced_account=forced_account)
+        return 0
     parser = _build_launch_parser()
     args, codex_args = parser.parse_known_args(argv)
     service.launch(codex_args, forced_account=args.account)
@@ -124,6 +129,14 @@ def _parse_remove_args(argv: list[str]) -> argparse.Namespace:
 
 def _parse_debug_wrapper_args(argv: list[str]) -> argparse.Namespace:
     return _build_debug_wrapper_parser().parse_args(argv)
+
+
+def _extract_account_passthrough(argv: list[str]) -> tuple[str | None, list[str]]:
+    if len(argv) >= 2 and argv[0] == "--account":
+        return argv[1], argv[2:]
+    if argv and argv[0].startswith("--account="):
+        return argv[0].split("=", 1)[1], argv[1:]
+    return None, argv
 
 
 def _read_access_token() -> str:

@@ -125,6 +125,23 @@ def test_old_install_wrapper_name_is_no_longer_special(
     assert recorded["forced_account"] is None
 
 
+def test_login_help_passthrough_uses_real_codex_help(
+    isolated_paths: CodexdPaths,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def fake_passthrough(self, codex_args: list[str], forced_account: str | None = None) -> None:
+        print(f"PASSTHROUGH {forced_account} {codex_args}")
+
+    monkeypatch.setattr(cli.CodexdService, "passthrough", fake_passthrough)
+
+    exit_code = cli.main(["login", "--help"])
+
+    assert exit_code == 0
+    output = capsys.readouterr().out
+    assert "PASSTHROUGH None ['login', '--help']" in output
+
+
 def test_manage_summary_shows_remaining_quota_with_duration_labels(
     isolated_paths: CodexdPaths,
     monkeypatch: pytest.MonkeyPatch,
