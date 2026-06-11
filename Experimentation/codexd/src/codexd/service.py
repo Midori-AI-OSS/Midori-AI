@@ -73,8 +73,8 @@ class CodexdService:
                 )
 
         account_home = self._account_home(name)
-        copy_codex_home(source_home, account_home)
-        snapshot = verify_import(source_home, account_home, self._read_status_snapshot)
+        account_home.parent.mkdir(parents=True, exist_ok=True)
+        snapshot = self._prepare_import_home(name, source_home, account_home)
         moved_source = source_home
         shutil.rmtree(moved_source)
         ensure_compat_symlink(self.paths.compat_home, account_home)
@@ -90,6 +90,45 @@ class CodexdService:
         registry.default_account = name
         self._save_registry(registry)
         return record
+
+    def _prepare_import_home(
+        self,
+        name: str,
+        source_home: Path,
+        account_home: Path,
+    ) -> AccountStatusSnapshot:
+        if account_home.exists():
+            try:
+                return verify_import(source_home, account_home, self._read_status_snapshot)
+            except (RuntimeError, StatusReadFailure) as exc:
+                archive_dir = self._archive_partial_import_home(name, account_home)
+                print(
+                    f"warning: archived failed partial import at {archive_dir} before retrying import",
+                    file=sys.stderr,
+                )
+                copy_error = exc
+            else:
+                copy_error = None
+        else:
+            copy_error = None
+
+        try:
+            copy_codex_home(source_home, account_home)
+            return verify_import(source_home, account_home, self._read_status_snapshot)
+        except (RuntimeError, StatusReadFailure) as exc:
+            detail = str(exc)
+            if copy_error is not None:
+                detail = f"{detail} (previous partial import error: {copy_error})"
+            raise CodexdError(
+                f"Import verification failed for managed home {account_home}: {detail}",
+            ) from exc
+
+    def _archive_partial_import_home(self, name: str, account_home: Path) -> Path:
+        timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+        archive_dir = self.paths.trash_root / f"{timestamp}-{name}-partial-import"
+        archive_dir.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(account_home), archive_dir)
+        return archive_dir
 
     def add_account(self, name: str) -> AccountRecord:
         registry = self._load_registry()

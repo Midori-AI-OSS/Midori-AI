@@ -85,6 +85,15 @@ class AccountStatusSnapshot:
             requires_openai_auth=requires_openai_auth,
         )
 
+    def has_usable_status(self) -> bool:
+        return any(
+            [
+                self.primary is not None,
+                self.secondary is not None,
+                self.plan_type is not None,
+            ],
+        )
+
     @classmethod
     def from_registry_fields(cls, payload: dict[str, object]) -> "AccountStatusSnapshot | None":
         primary_used = payload.get("last_primary_used_percent")
