@@ -35,6 +35,28 @@ def test_app_server_live_read_parses_initialize_account_and_rate_limits(
     assert snapshot.secondary.used_percent == 34
 
 
+def test_app_server_live_read_launches_with_per_account_codex_home(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    recorded: dict[str, object] = {}
+
+    def fake_popen(*args, **kwargs):
+        recorded["env"] = kwargs.get("env")
+        return FakeProcess(
+            stdout_lines=[
+                '{"id":1,"result":{"codexHome":"/tmp/home","platformFamily":"unix","platformOs":"linux","userAgent":"ua"}}\n',
+                '{"id":3,"result":{"rateLimits":{"limitId":"codex","planType":"team","primary":{"usedPercent":12,"resetsAt":1}}}}\n',
+            ],
+        )
+
+    monkeypatch.setattr(subprocess, "Popen", fake_popen)
+
+    read_live_status(Path("/tmp/per-account-home"), Path("/usr/bin/codex"))
+
+    assert isinstance(recorded["env"], dict)
+    assert recorded["env"]["CODEX_HOME"] == "/tmp/per-account-home"
+
+
 def test_app_server_live_read_rejects_malformed_json(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

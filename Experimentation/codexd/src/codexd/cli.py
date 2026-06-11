@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 
 from textwrap import dedent
 
 import tomli_w
 
+from codexd.models import AccountRecord
+from codexd.models import AccountStatusSnapshot
+from codexd.models import RateLimitWindow
 from codexd.paths import CodexdPaths
 from codexd.service import CodexdError
 from codexd.service import CodexdService
@@ -32,9 +36,14 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Imported ~/.codex into managed account {name}.")
             return 0
         if argv and argv[0] == "add":
-            name = _parse_add_args(argv[1:]).name
-            service.add_account(name)
-            print(f"Added managed account {name}.")
+            args = _parse_add_args(argv[1:])
+            credential_store_mode = "file" if args.allow_file_auth else "keyring"
+            service.add_account(
+                args.name,
+                access_token=_read_access_token(),
+                credential_store_mode=credential_store_mode,
+            )
+            print(f"Added managed account {args.name}.")
             return 0
         if argv and argv[0] == "remove":
             name = _parse_remove_args(argv[1:]).name
@@ -64,21 +73,7 @@ def _handle_manage(service: CodexdService, argv: list[str]) -> int:
         print(f"default_account = {registry.default_account or '<unset>'}")
         print(f"auto_pick_now = {decision.name if decision is not None else '<none>'}")
         for name, record in sorted(registry.accounts.items()):
-            print(
-                " | ".join(
-                    [
-                        name,
-                        f"default={'yes' if registry.default_account == name else 'no'}",
-                        f"home={record.home_path}",
-                        f"plan={record.last_plan_type or '?'}",
-                        f"primary={_percent(record.last_primary_used_percent)}",
-                        f"secondary={_percent(record.last_secondary_used_percent)}",
-                        f"status_source={record.last_status_source or '?'}",
-                        f"last_launch={record.last_successful_launch_at or '?'}",
-                        f"error={record.last_status_error or '-'}",
-                    ],
-                ),
-            )
+            print(_format_manage_account_line(name, record, registry.default_account))
         return 0
     if args.subcommand == "default":
         service.set_default_account(args.name)
@@ -94,15 +89,7 @@ def _handle_manage(service: CodexdService, argv: list[str]) -> int:
             if result.snapshot is None:
                 print(f"{name}: failed ({result.error})")
             else:
-                primary = result.snapshot.primary.used_percent if result.snapshot.primary else "?"
-                secondary = (
-                    result.snapshot.secondary.used_percent
-                    if result.snapshot.secondary
-                    else "?"
-                )
-                print(
-                    f"{name}: source={result.source} primary={primary}% secondary={secondary}% plan={result.snapshot.plan_type or '?'}",
-                )
+                print(_format_refresh_account_line(name, result.source, result.snapshot))
         return 0
     if args.subcommand == "inspect":
         record = service.inspect_account(args.name)
@@ -139,6 +126,84 @@ def _parse_debug_wrapper_args(argv: list[str]) -> argparse.Namespace:
     return _build_debug_wrapper_parser().parse_args(argv)
 
 
+def _read_access_token() -> str:
+    if not sys.stdin.isatty():
+        token = sys.stdin.read().strip()
+        if token:
+            return token
+    token = os.environ.get("CODEX_ACCESS_TOKEN", "").strip()
+    return token
+
+
+def _format_manage_account_line(
+    name: str,
+    record: AccountRecord,
+    default_account: str | None,
+) -> str:
+    prefix = name
+    if default_account == name:
+        prefix = f"{prefix} [default]"
+    if record.last_status_error:
+        prefix = f"{prefix} [error]"
+    parts = [_format_status_summary(record.cached_snapshot())]
+    if record.last_status_source and record.last_status_source != "live":
+        parts.append(f"Source: {record.last_status_source.title()}")
+    if record.last_status_error:
+        parts.append(f"Error: {record.last_status_error}")
+    return f"{prefix}: {' | '.join(parts)}"
+
+
+def _format_refresh_account_line(
+    name: str,
+    source: str,
+    snapshot: AccountStatusSnapshot,
+) -> str:
+    parts = [_format_status_summary(snapshot)]
+    if source != "live":
+        parts.append(f"Source: {source.title()}")
+    return f"{name}: {' | '.join(parts)}"
+
+
+def _format_status_summary(snapshot: AccountStatusSnapshot | None) -> str:
+    if snapshot is None:
+        return "Plan: ? | Primary: ? | Secondary: ?"
+    return " | ".join(
+        [
+            f"Plan: {_format_plan(snapshot.plan_type)}",
+            f"{_window_label(snapshot.primary, 'Primary')}: {_remaining_percent(snapshot.primary)}",
+            f"{_window_label(snapshot.secondary, 'Secondary')}: {_remaining_percent(snapshot.secondary)}",
+        ],
+    )
+
+
+def _format_plan(plan_type: str | None) -> str:
+    if not plan_type:
+        return "?"
+    return plan_type.replace("_", " ").title()
+
+
+def _remaining_percent(window: RateLimitWindow | None) -> str:
+    if window is None:
+        return "?"
+    remaining = max(0, min(100, 100 - window.used_percent))
+    return f"{remaining}%"
+
+
+def _window_label(window: RateLimitWindow | None, fallback: str) -> str:
+    if window is None or window.window_duration_mins is None:
+        return fallback
+    minutes = window.window_duration_mins
+    if minutes == 10080:
+        return "Weekly"
+    if minutes % 1440 == 0:
+        days = minutes // 1440
+        return "1-day" if days == 1 else f"{days}-days"
+    if minutes % 60 == 0:
+        hours = minutes // 60
+        return "1-hour" if hours == 1 else f"{hours}-hours"
+    return f"{minutes}-mins"
+
+
 def _build_root_help_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="codexd",
@@ -154,7 +219,7 @@ def _build_root_help_parser() -> argparse.ArgumentParser:
 
             Codexd commands:
               import NAME                Import the current real ~/.codex into managed storage.
-              add NAME                   Create a fresh managed account home and run Codex login there.
+              add NAME                   Create a managed account home and log in with a Codex access token.
               remove NAME                Remove an account from management and move it to trash.
               manage                     Show or update managed-account state.
               debug-wrapper              Print the generated install wrapper script for maintenance/debugging.
@@ -236,6 +301,8 @@ def _build_add_parser() -> argparse.ArgumentParser:
             Create a fresh managed account home and log into Codex there.
 
             The new account is stored in codexd-managed state rather than in the shared ~/.codex path.
+            Provide the access token on stdin or through CODEX_ACCESS_TOKEN.
+            Managed accounts default to OS keyring credential storage unless --allow-file-auth is set.
             """
         ).strip(),
         formatter_class=HELP_FORMATTER,
@@ -245,6 +312,11 @@ def _build_add_parser() -> argparse.ArgumentParser:
         "name",
         metavar="NAME",
         help="managed account name to create and log into",
+    )
+    parser.add_argument(
+        "--allow-file-auth",
+        action="store_true",
+        help="allow plaintext auth.json storage instead of requiring OS keyring-backed credentials",
     )
     return parser
 
@@ -358,7 +430,3 @@ def _build_debug_wrapper_parser() -> argparse.ArgumentParser:
         formatter_class=HELP_FORMATTER,
         allow_abbrev=False,
     )
-
-
-def _percent(value: int | None) -> str:
-    return "?" if value is None else f"{value}%"

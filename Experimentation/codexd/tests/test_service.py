@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import tomllib
+import subprocess
 
 from pathlib import Path
 
@@ -177,6 +178,102 @@ def test_import_failure_raises_codexd_error_instead_of_raw_traceback(tmp_path: P
         service.import_current_home("team", prompt=lambda _: "y")
 
     assert "Import verification failed for managed home" in str(exc_info.value)
+
+
+def test_add_account_uses_access_token_login_with_keyring_storage(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    paths = _paths(tmp_path)
+    service = CodexdService(paths)
+    calls: list[tuple[list[str], str | None]] = []
+
+    def fake_run(command: list[str], **kwargs):
+        calls.append((command, kwargs.get("input")))
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout="ok",
+            stderr="",
+        )
+
+    service.refresh_status = lambda target: {  # type: ignore[method-assign]
+        "team": StatusReadResult(
+            source="live",
+            snapshot=AccountStatusSnapshot(
+                plan_type="team",
+                primary=RateLimitWindow(used_percent=5),
+            ),
+        )
+    }
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    record = service.add_account("team", access_token="secret-token")
+
+    config = (paths.accounts_root / "team" / "home" / "config.toml").read_text()
+    assert record.auth_mode == "access_token"
+    assert record.credential_store_mode == "keyring"
+    assert 'cli_auth_credentials_store = "keyring"' in config
+    assert calls[0][0] == ["/usr/bin/codex", "login", "--with-access-token"]
+    assert calls[0][1] == "secret-token"
+
+
+def test_add_account_requires_access_token(tmp_path: Path) -> None:
+    paths = _paths(tmp_path)
+    service = CodexdService(paths)
+
+    with pytest.raises(Exception) as exc_info:
+        service.add_account("team", access_token="  ")
+
+    assert "No Codex access token was provided" in str(exc_info.value)
+
+
+def test_add_account_rejects_silent_file_fallback_when_keyring_required(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    paths = _paths(tmp_path)
+    service = CodexdService(paths)
+
+    def fake_run(command: list[str], **kwargs):
+        home = Path(kwargs["env"]["CODEX_HOME"])
+        if command[-1] == "--with-access-token":
+            (home / "auth.json").write_text("{}")
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout="ok",
+            stderr="",
+        )
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    with pytest.raises(Exception) as exc_info:
+        service.add_account("team", access_token="secret-token")
+
+    assert "fell back to file-backed auth storage" in str(exc_info.value)
+
+
+def test_passthrough_uses_compat_home_when_no_managed_accounts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    paths = _paths(tmp_path)
+    service = CodexdService(paths)
+    paths.compat_home.mkdir(parents=True)
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        "codexd.service.exec_codex",
+        lambda codex_bin, codex_home, codex_args: captured.update(
+            codex_bin=codex_bin,
+            codex_home=codex_home,
+            codex_args=codex_args,
+        ),
+    )
+    service.passthrough(["login"])
+
+    assert captured["codex_home"] == paths.compat_home
+    assert captured["codex_args"] == ["login"]
 
 
 def _paths(tmp_path: Path) -> CodexdPaths:

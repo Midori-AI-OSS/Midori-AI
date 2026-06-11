@@ -19,6 +19,7 @@ from codexd.importer import should_exclude
 from codexd.importer import ensure_compat_symlink
 from codexd.importer import detect_active_reasons
 from codexd.importer import remove_compat_symlink
+from codexd.launcher import is_admin_passthrough_command
 from codexd.launcher import exec_codex
 from codexd.models import Registry
 from codexd.models import StatusReadResult
@@ -84,6 +85,8 @@ class CodexdService:
             home_path=str(account_home),
             created_at=_now_iso(),
             imported_from_current_codex_home=True,
+            auth_mode="imported_home",
+            credential_store_mode="file",
         )
         record.apply_status(StatusReadResult(source="live", snapshot=snapshot), _now_iso())
         registry.accounts[name] = record
@@ -130,36 +133,77 @@ class CodexdService:
         shutil.move(str(account_home), archive_dir)
         return archive_dir
 
-    def add_account(self, name: str) -> AccountRecord:
+    def add_account(
+        self,
+        name: str,
+        access_token: str,
+        credential_store_mode: str = "keyring",
+    ) -> AccountRecord:
         registry = self._load_registry()
         if name in registry.accounts:
             raise CodexdError(f"Account already exists: {name}")
+        if credential_store_mode not in {"keyring", "file"}:
+            raise CodexdError(
+                f"Unsupported credential store mode: {credential_store_mode}",
+            )
+        if not access_token.strip():
+            raise CodexdError(
+                "No Codex access token was provided. Pipe one on stdin or set CODEX_ACCESS_TOKEN.",
+        )
         account_home = self._account_home(name)
         account_home.mkdir(parents=True, exist_ok=False)
-        _run_interactive(
-            [str(self.paths.codex_bin), "login"],
-            self._account_env(account_home),
-        )
-        login_status = subprocess.run(
-            [str(self.paths.codex_bin), "login", "status"],
-            capture_output=True,
-            check=False,
-            env=self._account_env(account_home),
-            text=True,
-        )
-        if login_status.returncode != 0:
-            raise CodexdError(
-                f"codex login status failed for {name}: {login_status.stderr.strip() or login_status.stdout.strip()}",
+        registry_saved = False
+        try:
+            self._write_managed_config(account_home, credential_store_mode)
+            login = subprocess.run(
+                [str(self.paths.codex_bin), "login", "--with-access-token"],
+                input=access_token,
+                capture_output=True,
+                check=False,
+                env=self._account_env(account_home),
+                text=True,
             )
-        record = AccountRecord(
-            name=name,
-            home_path=str(account_home),
-            created_at=_now_iso(),
-            imported_from_current_codex_home=False,
-        )
-        registry.accounts[name] = record
-        self._save_registry(registry)
-        self.refresh_status(name)
+            if login.returncode != 0:
+                raise CodexdError(
+                    f"codex login --with-access-token failed for {name}: {login.stderr.strip() or login.stdout.strip()}",
+                )
+            if credential_store_mode == "keyring" and (account_home / "auth.json").exists():
+                raise CodexdError(
+                    "Codex fell back to file-backed auth storage for this managed account. "
+                    "Re-run with --allow-file-auth if you want to permit plaintext auth.json storage.",
+                )
+            login_status = subprocess.run(
+                [str(self.paths.codex_bin), "login", "status"],
+                capture_output=True,
+                check=False,
+                env=self._account_env(account_home),
+                text=True,
+            )
+            if login_status.returncode != 0:
+                raise CodexdError(
+                    f"codex login status failed for {name}: {login_status.stderr.strip() or login_status.stdout.strip()}",
+                )
+            record = AccountRecord(
+                name=name,
+                home_path=str(account_home),
+                created_at=_now_iso(),
+                imported_from_current_codex_home=False,
+                auth_mode="access_token",
+                credential_store_mode=credential_store_mode,
+            )
+            registry.accounts[name] = record
+            self._save_registry(registry)
+            registry_saved = True
+            self.refresh_status(name)
+        except Exception:
+            if registry_saved:
+                registry = self._load_registry()
+                registry.accounts.pop(name, None)
+                if registry.default_account == name:
+                    registry.default_account = None
+                self._save_registry(registry)
+            shutil.rmtree(account_home, ignore_errors=True)
+            raise
 
         registry = self._load_registry()
         if registry.default_account is None and (
@@ -245,6 +289,9 @@ class CodexdService:
         return results
 
     def launch(self, codex_args: list[str], forced_account: str | None = None) -> None:
+        if is_admin_passthrough_command(codex_args):
+            self.passthrough(codex_args, forced_account=forced_account)
+            return
         registry = self._load_registry()
         if not registry.accounts:
             raise CodexdError("No managed accounts are registered")
@@ -269,6 +316,27 @@ class CodexdService:
         self._save_registry(registry)
         exec_codex(self.paths.codex_bin, Path(record.home_path), codex_args)
 
+    def passthrough(self, codex_args: list[str], forced_account: str | None = None) -> None:
+        registry = self._load_registry()
+        if forced_account is not None:
+            record = registry.accounts.get(forced_account)
+            if record is None:
+                raise CodexdError(f"Unknown account: {forced_account}")
+            home_path = Path(record.home_path)
+        elif registry.default_account and registry.default_account in registry.accounts:
+            home_path = Path(registry.accounts[registry.default_account].home_path)
+        elif self.paths.compat_home.exists():
+            home_path = (
+                self.paths.compat_home.resolve()
+                if self.paths.compat_home.is_symlink()
+                else self.paths.compat_home
+            )
+        else:
+            raise CodexdError(
+                "No managed accounts are registered and ~/.codex does not exist.",
+            )
+        exec_codex(self.paths.codex_bin, home_path, codex_args)
+
     def _load_registry(self) -> Registry:
         return load_registry(self.paths.registry_path)
 
@@ -282,6 +350,12 @@ class CodexdService:
         env = dict(os.environ)
         env["CODEX_HOME"] = str(home_path)
         return env
+
+    def _write_managed_config(self, home_path: Path, credential_store_mode: str) -> None:
+        config_path = home_path / "config.toml"
+        config_path.write_text(
+            f'cli_auth_credentials_store = "{credential_store_mode}"\n',
+        )
 
     def _read_status_snapshot(self, home_path: Path):
         return read_live_status(home_path, self.paths.codex_bin)
@@ -314,9 +388,3 @@ def _confirm_force_import(prompt) -> bool:
 
 def _now_iso() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-
-
-def _run_interactive(command: list[str], env: dict[str, str]) -> None:
-    returncode = subprocess.call(command, env=env)
-    if returncode != 0:
-        raise CodexdError(f"Command failed with exit code {returncode}: {' '.join(command)}")

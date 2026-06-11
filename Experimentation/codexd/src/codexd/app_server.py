@@ -32,6 +32,7 @@ def read_live_status(
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
+        env=env,
     )
     stdout_queue: queue.Queue[str] = queue.Queue()
     stderr_queue: queue.Queue[str] = queue.Queue()

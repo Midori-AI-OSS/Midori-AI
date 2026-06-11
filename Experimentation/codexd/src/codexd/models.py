@@ -113,6 +113,11 @@ class AccountStatusSnapshot:
                     if isinstance(payload.get("last_primary_resets_at"), int)
                     else None
                 ),
+                window_duration_mins=(
+                    payload.get("last_primary_window_duration_mins")
+                    if isinstance(payload.get("last_primary_window_duration_mins"), int)
+                    else None
+                ),
             )
         if isinstance(secondary_used, int):
             secondary = RateLimitWindow(
@@ -120,6 +125,11 @@ class AccountStatusSnapshot:
                 resets_at=(
                     payload.get("last_secondary_resets_at")
                     if isinstance(payload.get("last_secondary_resets_at"), int)
+                    else None
+                ),
+                window_duration_mins=(
+                    payload.get("last_secondary_window_duration_mins")
+                    if isinstance(payload.get("last_secondary_window_duration_mins"), int)
                     else None
                 ),
             )
@@ -156,12 +166,16 @@ class AccountRecord:
     home_path: str
     created_at: str
     imported_from_current_codex_home: bool = False
+    auth_mode: str | None = None
+    credential_store_mode: str | None = None
     last_status_read_at: str | None = None
     last_status_source: str | None = None
     last_primary_used_percent: int | None = None
     last_primary_resets_at: int | None = None
+    last_primary_window_duration_mins: int | None = None
     last_secondary_used_percent: int | None = None
     last_secondary_resets_at: int | None = None
+    last_secondary_window_duration_mins: int | None = None
     last_plan_type: str | None = None
     last_successful_launch_at: str | None = None
     last_selected_at: str | None = None
@@ -186,21 +200,31 @@ class AccountRecord:
         if result.snapshot.primary is not None:
             self.last_primary_used_percent = result.snapshot.primary.used_percent
             self.last_primary_resets_at = result.snapshot.primary.resets_at
+            self.last_primary_window_duration_mins = (
+                result.snapshot.primary.window_duration_mins
+            )
         if result.snapshot.secondary is not None:
             self.last_secondary_used_percent = result.snapshot.secondary.used_percent
             self.last_secondary_resets_at = result.snapshot.secondary.resets_at
+            self.last_secondary_window_duration_mins = (
+                result.snapshot.secondary.window_duration_mins
+            )
 
     def to_registry_dict(self) -> dict[str, object]:
         return {
             "home_path": self.home_path,
             "created_at": self.created_at,
             "imported_from_current_codex_home": self.imported_from_current_codex_home,
+            "auth_mode": self.auth_mode,
+            "credential_store_mode": self.credential_store_mode,
             "last_status_read_at": self.last_status_read_at,
             "last_status_source": self.last_status_source,
             "last_primary_used_percent": self.last_primary_used_percent,
             "last_primary_resets_at": self.last_primary_resets_at,
+            "last_primary_window_duration_mins": self.last_primary_window_duration_mins,
             "last_secondary_used_percent": self.last_secondary_used_percent,
             "last_secondary_resets_at": self.last_secondary_resets_at,
+            "last_secondary_window_duration_mins": self.last_secondary_window_duration_mins,
             "last_plan_type": self.last_plan_type,
             "last_successful_launch_at": self.last_successful_launch_at,
             "last_selected_at": self.last_selected_at,
@@ -219,14 +243,22 @@ class AccountRecord:
             imported_from_current_codex_home=bool(
                 payload.get("imported_from_current_codex_home", False)
             ),
+            auth_mode=_maybe_str(payload.get("auth_mode")),
+            credential_store_mode=_maybe_str(payload.get("credential_store_mode")),
             last_status_read_at=_maybe_str(payload.get("last_status_read_at")),
             last_status_source=_maybe_str(payload.get("last_status_source")),
             last_primary_used_percent=_maybe_int(payload.get("last_primary_used_percent")),
             last_primary_resets_at=_maybe_int(payload.get("last_primary_resets_at")),
+            last_primary_window_duration_mins=_maybe_int(
+                payload.get("last_primary_window_duration_mins")
+            ),
             last_secondary_used_percent=_maybe_int(
                 payload.get("last_secondary_used_percent")
             ),
             last_secondary_resets_at=_maybe_int(payload.get("last_secondary_resets_at")),
+            last_secondary_window_duration_mins=_maybe_int(
+                payload.get("last_secondary_window_duration_mins")
+            ),
             last_plan_type=_maybe_str(payload.get("last_plan_type")),
             last_successful_launch_at=_maybe_str(payload.get("last_successful_launch_at")),
             last_selected_at=_maybe_str(payload.get("last_selected_at")),
