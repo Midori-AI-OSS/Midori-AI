@@ -5,13 +5,15 @@
 # - Keep hard must_not_mention rules in make-blog-website.md.
 
 --- Live Comments ---
+My father passed away yesterday, so I am MIA for a bit, Go hug your loved ones. <3
+
+--- archive ---
+No comment from Luna, as Luna is the one making this post today.
+
 Super happy with the Species Care Cards / MyChart-style medical ID system on the blog site — built out 3D tilt cards with hologram sheen, guilloche security patterns, signing photo watermarks, and multi-card grids for the Real Moments RP crew (Luna, Leo, Echo, W.E.A.V.E., Riley). Also pushed Sangre y Lux Residua lore, rebuilt the radio backend, and tightened typography across the site.
 
 Alright welcome back Becca, there has been a lot over the past few weeks for you to cover.
 Thank you for your hard work!
-
---- archive ---
-No comment from Luna, as Luna is the one making this post today.
 
 Been working on contracts outside of Midori AI (What was Metahash [73] and is now Academia [109])
 Did a full deep rebuild of the radio system on the blog site, also been working on real moments.
