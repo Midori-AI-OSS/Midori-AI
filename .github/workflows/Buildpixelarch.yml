@@ -3,63 +3,168 @@ name: Build and Upload PixelArch
 on:
   workflow_dispatch:
   schedule:
-    - cron: '30 10 */2 * *'
+    - cron: "30 10 */2 * *"
 
 jobs:
-
   push_arch_to_hub:
-    name: Push Midori AI's PixelArch (Arch Linux) to Docker Hub
+    name: ${{ matrix.job_name }}
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          submodules: recursive
-
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Docker Hub
-        uses: docker/login-action@master
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-          logout: false
-
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@master
-        with:
-          images: lunamidori5/pixelarch
-          tags: |
-            type=raw,value=latest
-            type=raw,value=quartz
-
-      - name: Build and push PixelArch Docker Image
-        uses: docker/build-push-action@master
-        with:
-          context: ./Pixelarch-OS/pixelarch_os/
-          file: ./Pixelarch-OS/pixelarch_os/arch_dockerfile
-          platforms: linux/amd64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-
-  push_pixelarch_ver_to_hub:
-    name: Push Midori AI's PixelArch to Docker Hub
+    permissions:
+      actions: read
+      contents: read
     strategy:
-      max-parallel: 4
       matrix:
-        ver: [amethyst, topaz, emerald]
-    runs-on: ubuntu-latest
-    needs: push_arch_to_hub
+        include:
+          - tier: quartz
+            job_name: "Push Midori AI's PixelArch (Arch Linux) to Docker Hub"
+            parent_job_name: ""
+            parent_tag: ""
+            build_step_name: Build and push PixelArch Docker Image
+            dockerfile: ./Pixelarch-OS/pixelarch_os/arch_dockerfile
+            meta_tags: |
+              type=raw,value=latest
+              type=raw,value=quartz
+          - tier: obsidian
+            job_name: "Push Midori AI's PixelArch Obsidian to Docker Hub"
+            parent_job_name: "Push Midori AI's PixelArch (Arch Linux) to Docker Hub"
+            parent_tag: quartz
+            build_step_name: Build and push PixelArch Obsidian OS Docker Image
+            dockerfile: ./Pixelarch-OS/pixelarch_os/arch_dockerfile_obsidian
+            meta_tags: |
+              type=raw,value=obsidian
+          - tier: lapis
+            job_name: "Push Midori AI's PixelArch Lapis to Docker Hub"
+            parent_job_name: "Push Midori AI's PixelArch Obsidian to Docker Hub"
+            parent_tag: obsidian
+            build_step_name: Build and push PixelArch Lapis OS Docker Image
+            dockerfile: ./Pixelarch-OS/pixelarch_os/arch_dockerfile_lapis
+            meta_tags: |
+              type=raw,value=lapis
+          - tier: amethyst
+            job_name: "Push Midori AI's PixelArch Amethyst to Docker Hub"
+            parent_job_name: "Push Midori AI's PixelArch Lapis to Docker Hub"
+            parent_tag: lapis
+            build_step_name: Build and push PixelArch Amethyst OS Docker Image
+            dockerfile: ./Pixelarch-OS/pixelarch_os/arch_dockerfile_amethyst
+            meta_tags: |
+              type=raw,value=amethyst
+          - tier: citrine
+            job_name: "Push Midori AI's PixelArch Citrine to Docker Hub"
+            parent_job_name: "Push Midori AI's PixelArch Amethyst to Docker Hub"
+            parent_tag: amethyst
+            build_step_name: Build and push PixelArch Citrine OS Docker Image
+            dockerfile: ./Pixelarch-OS/pixelarch_os/arch_dockerfile_citrine
+            meta_tags: |
+              type=raw,value=citrine
+          - tier: topaz
+            job_name: "Push Midori AI's PixelArch Topaz to Docker Hub"
+            parent_job_name: "Push Midori AI's PixelArch Citrine to Docker Hub"
+            parent_tag: citrine
+            build_step_name: Build and push PixelArch Topaz OS Docker Image
+            dockerfile: ./Pixelarch-OS/pixelarch_os/arch_dockerfile_topaz
+            meta_tags: |
+              type=raw,value=topaz
+          - tier: sapphire
+            job_name: "Push Midori AI's PixelArch Sapphire to Docker Hub"
+            parent_job_name: "Push Midori AI's PixelArch Topaz to Docker Hub"
+            parent_tag: topaz
+            build_step_name: Build and push PixelArch Sapphire OS Docker Image
+            dockerfile: ./Pixelarch-OS/pixelarch_os/arch_dockerfile_sapphire
+            meta_tags: |
+              type=raw,value=sapphire
+          - tier: ruby
+            job_name: "Push Midori AI's PixelArch Ruby to Docker Hub"
+            parent_job_name: "Push Midori AI's PixelArch Sapphire to Docker Hub"
+            parent_tag: sapphire
+            build_step_name: Build and push PixelArch Ruby OS Docker Image
+            dockerfile: ./Pixelarch-OS/pixelarch_os/arch_dockerfile_ruby
+            meta_tags: |
+              type=raw,value=ruby
+          - tier: emerald
+            job_name: "Push Midori AI's PixelArch Emerald to Docker Hub"
+            parent_job_name: "Push Midori AI's PixelArch Ruby to Docker Hub"
+            parent_tag: ruby
+            build_step_name: Build and push PixelArch Emerald OS Docker Image
+            dockerfile: ./Pixelarch-OS/pixelarch_os/arch_dockerfile_emerald
+            meta_tags: |
+              type=raw,value=emerald
     steps:
+      - name: Wait for parent tier job
+        if: ${{ matrix.parent_job_name != '' }}
+        uses: actions/github-script@v7
+        env:
+          PARENT_JOB_NAME: ${{ matrix.parent_job_name }}
+          PARENT_TAG: ${{ matrix.parent_tag }}
+        with:
+          script: |
+            const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+            const listJobs = async () => {
+              let page = 1;
+              const jobs = [];
+
+              while (true) {
+                const response = await github.rest.actions.listJobsForWorkflowRun({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  run_id: context.runId,
+                  per_page: 100,
+                  page,
+                });
+
+                jobs.push(...response.data.jobs);
+
+                if (response.data.jobs.length < 100) {
+                  return jobs;
+                }
+
+                page += 1;
+              }
+            };
+
+            const terminalConclusions = new Set([
+              "failure",
+              "cancelled",
+              "timed_out",
+              "action_required",
+              "startup_failure",
+              "stale",
+            ]);
+
+            while (true) {
+              const jobs = await listJobs();
+              const parentJob = jobs.find((job) => job.name === process.env.PARENT_JOB_NAME);
+
+              if (!parentJob) {
+                core.info(
+                  `Waiting for parent job "${process.env.PARENT_JOB_NAME}" to appear before building ${process.env.PARENT_TAG}.`,
+                );
+              } else if (parentJob.conclusion === "success") {
+                core.info(
+                  `Parent job "${process.env.PARENT_JOB_NAME}" completed successfully for ${process.env.PARENT_TAG}.`,
+                );
+                break;
+              } else if (terminalConclusions.has(parentJob.conclusion ?? "")) {
+                core.setFailed(
+                  `Parent job "${process.env.PARENT_JOB_NAME}" ended with conclusion "${parentJob.conclusion}".`,
+                );
+                return;
+              } else {
+                core.info(
+                  `Waiting for parent job "${process.env.PARENT_JOB_NAME}" to finish. Status: ${parentJob.status}; conclusion: ${parentJob.conclusion ?? "pending"}.`,
+                );
+              }
+
+              await sleep(15000);
+            }
+
       - uses: actions/checkout@v6
         with:
           submodules: recursive
 
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
-      
+
       - name: Log in to Docker Hub
         uses: docker/login-action@master
         with:
@@ -72,18 +177,68 @@ jobs:
         uses: docker/metadata-action@master
         with:
           images: lunamidori5/pixelarch
-          tags: |
-            type=raw,value=${{ matrix.ver }}
+          tags: ${{ matrix.meta_tags }}
 
-      - name: Build and push PixelArch ${{ matrix.ver }} OS Docker Image
+      - name: ${{ matrix.build_step_name }}
         uses: docker/build-push-action@master
         with:
           context: ./Pixelarch-OS/pixelarch_os/
-          file: ./Pixelarch-OS/pixelarch_os/arch_dockerfile_${{ matrix.ver }}
+          file: ${{ matrix.dockerfile }}
           platforms: linux/amd64
+          pull: true
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+  verify_pixelarch_emerald_to_hub:
+    name: Verify Midori AI's PixelArch Emerald publish
+    runs-on: ubuntu-latest
+    if: ${{ always() }}
+    needs: push_arch_to_hub
+    permissions:
+      actions: read
+    steps:
+      - name: Check Emerald matrix job result
+        uses: actions/github-script@v7
+        with:
+          script: |
+            let page = 1;
+            const jobs = [];
+
+            while (true) {
+              const response = await github.rest.actions.listJobsForWorkflowRun({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: context.runId,
+                per_page: 100,
+                page,
+              });
+
+              jobs.push(...response.data.jobs);
+
+              if (response.data.jobs.length < 100) {
+                break;
+              }
+
+              page += 1;
+            }
+
+            const emeraldJobName = "Push Midori AI's PixelArch Emerald to Docker Hub";
+            const emeraldJob = jobs.find((job) => job.name === emeraldJobName);
+
+            if (!emeraldJob) {
+              core.setFailed(`Could not find workflow job \"${emeraldJobName}\".`);
+              return;
+            }
+
+            if (emeraldJob.conclusion !== "success") {
+              core.setFailed(
+                `Workflow job \"${emeraldJobName}\" finished with conclusion \"${emeraldJob.conclusion ?? 'unknown'}\".`,
+              );
+              return;
+            }
+
+            core.info(`Workflow job \"${emeraldJobName}\" completed successfully.`);
 
   push_pixelarch_subver_to_hub:
     name: Push SubVers of PixelArch to Docker Hub
@@ -93,7 +248,7 @@ jobs:
         ver: [blackpixelarch/strikearch_emerald]
     runs-on: ubuntu-latest
     timeout-minutes: 360
-    needs: push_arch_to_hub
+    needs: verify_pixelarch_emerald_to_hub
     steps:
       - uses: actions/checkout@v6
         with:
