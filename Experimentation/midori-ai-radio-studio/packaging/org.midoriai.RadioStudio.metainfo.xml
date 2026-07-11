@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.midoriai.RadioStudio</id>
+  <name>Midori AI Radio Studio</name>
+  <summary>Manage Midori AI Radio music and evolve its metadata prompts</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <description>
+    <p>
+      Midori AI Radio Studio is a KDE-native Rust application for browsing radio channels,
+      importing MP3 files, editing embedded metadata, reviewing stale comments, recording
+      prompt feedback, and evolving reusable prompts through OpenCode or a local fallback.
+    </p>
+  </description>
+  <launchable type="desktop-id">org.midoriai.RadioStudio.desktop</launchable>
+  <provides>
+    <binary>midori-ai-radio-studio</binary>
+  </provides>
+  <categories>
+    <category>AudioVideo</category>
+    <category>Audio</category>
+  </categories>
+</component>
