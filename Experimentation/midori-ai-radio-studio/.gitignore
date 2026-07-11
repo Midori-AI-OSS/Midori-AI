@@ -1,0 +1,37 @@
+# Cargo and CMake output (the build script redirects Cargo to XDG cache too)
+/target/
+/build/
+/cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+
+# Runtime state must live in XDG config/data, never in this project
+/.midori-ai-radio-studio/
+/prompts.json
+/feedback.jsonl
+/prompt-history/
+
+# Music libraries and test media
+*.mp3
+*.flac
+*.wav
+*.m4a
+*.ogg
+*.opus
+*.aac
+*.tmp
+*.bak
+
+# Editor and local environment
+.idea/
+.vscode/
+*.swp
+*.swo
+.env
+.env.*
+.DS_Store
+
+# Logs and crash output
+*.log
+core
+core.*

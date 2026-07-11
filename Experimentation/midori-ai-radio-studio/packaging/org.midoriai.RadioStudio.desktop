@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Midori AI Radio Studio
+Comment=Manage Midori AI Radio music, metadata, channels, and evolving prompts
+Exec=midori-ai-radio-studio
+Icon=radio
+Terminal=false
+Categories=AudioVideo;Audio;Utility;
+Keywords=music;radio;metadata;mp3;prompt;Midori AI;
+StartupNotify=true
+StartupWMClass=org.midoriai.RadioStudio
