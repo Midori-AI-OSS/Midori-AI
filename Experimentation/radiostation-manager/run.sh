@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-export LUNA_MUSIC_ROOT="/home/midori-ai/Music/MidoriAI"  # <--- EDIT THIS PATH
+export LUNA_MUSIC_ROOT="/home/lunamidori/nfs/webserver_api_files/music"  # <--- EDIT THIS PATH
 
 export DISPLAY="${DISPLAY:-:1}"
 
