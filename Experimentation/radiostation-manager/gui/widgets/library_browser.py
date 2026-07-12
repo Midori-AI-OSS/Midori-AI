@@ -77,6 +77,7 @@ class LibraryBrowser(QWidget):
 
     def load(self, music_root: Path, songs: list[dict]):
         self._music_root = music_root
+        self._tree.setUpdatesEnabled(False)
         self._tree.clear()
 
         channels: dict[str, QTreeWidgetItem] = {}
@@ -110,6 +111,7 @@ class LibraryBrowser(QWidget):
             channels[channel].addChild(item)
 
         self._tree.expandAll()
+        self._tree.setUpdatesEnabled(True)
         total = len(songs)
         self._status_label.setText(f"{total} song{'s' if total != 1 else ''}")
         if songs:

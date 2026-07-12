@@ -40,22 +40,20 @@ def test_window_title_and_size(window):
 
 def test_mainwindow_has_ten_stack_widgets(window):
     assert isinstance(window._stack, QStackedWidget)
-    assert len(window._widgets) == 10
-    assert window._stack.count() == 10
+    # 10 regular widgets + 1 loading page = 11
+    assert len(window._widgets) == 11
+    assert window._stack.count() == 11
 
 
 def test_navigation_via_signals_switches_pages(window):
-
     assert window._stack.currentWidget() is window._widgets["menu"]
 
-    window._on_navigate("import")
-    assert window._stack.currentWidget() is window._widgets["import"]
-
-    window._on_navigate("update")
-    assert window._stack.currentWidget() is window._widgets["update"]
-
+    # Direct pages (no async loading)
     window._on_navigate("search")
     assert window._stack.currentWidget() is window._widgets["search"]
+
+    window._on_navigate("vibes")
+    assert window._stack.currentWidget() is window._widgets["vibes"]
 
     window._on_navigate("prompts")
     assert window._stack.currentWidget() is window._widgets["prompts"]
@@ -67,25 +65,22 @@ def test_navigation_via_signals_switches_pages(window):
 def test_sidebar_buttons_navigate_correctly(window):
     assert not window._sidebar.isVisible()
 
-    window._on_navigate("import")
+    # Use direct-set pages only (search/vibes/prompts are synchronous)
+    window._on_navigate("search")
     assert window._sidebar.isVisible()
-    assert window._stack.currentWidget() is window._widgets["import"]
-
-    window._on_navigate("rate")
-    assert window._stack.currentWidget() is window._widgets["rate"]
+    assert window._stack.currentWidget() is window._widgets["search"]
 
     window._on_navigate("vibes")
     assert window._stack.currentWidget() is window._widgets["vibes"]
 
-    # Back to menu hides sidebar
     window._go_to("menu")
     assert not window._sidebar.isVisible()
     assert window._stack.currentWidget() is window._widgets["menu"]
 
 
 def test_escape_returns_to_menu(window, qapp):
-    window._on_navigate("import")
-    assert window._stack.currentWidget() is window._widgets["import"]
+    window._on_navigate("search")
+    assert window._stack.currentWidget() is window._widgets["search"]
     assert window._sidebar.isVisible()
 
     from PySide6.QtCore import QEvent

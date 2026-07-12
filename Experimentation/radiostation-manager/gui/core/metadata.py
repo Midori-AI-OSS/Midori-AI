@@ -16,7 +16,8 @@ MIDORI_TAG_VIBE_CACHED_AT_EPOCH = "midori_ai_vibe_cached_at_epoch"
 MIDORI_TAG_VIBE_CACHE_SCHEMA = "midori_ai_vibe_cache_schema"
 
 
-def _get_tag(file_path: Path, key: str) -> str:
+def _get_all_tags(file_path: Path) -> dict[str, str]:
+    """Run ffprobe once and return all format tags as a dict."""
     try:
         result = subprocess.run(
             [
@@ -31,47 +32,48 @@ def _get_tag(file_path: Path, key: str) -> str:
             ],
             capture_output=True,
             text=True,
-            timeout=5,
+            timeout=10,
         )
-        lines = result.stdout.strip().split("\n")
-        tag_lines = [line for line in lines if line.startswith("TAG:")]
-        for line in tag_lines:
-            pair = line.removeprefix("TAG:")
+        tags: dict[str, str] = {}
+        for line in result.stdout.strip().split("\n"):
+            tag_line = line.startswith("TAG:")
+            pair = line.removeprefix("TAG:") if tag_line else line
             if "=" not in pair:
                 continue
             k, v = pair.split("=", 1)
-            if k.lower() == key.lower():
-                return v.strip()
-        return ""
+            tags[k.strip().lower()] = v.strip()
+        return tags
     except Exception:
-        return ""
+        return {}
 
 
 def get_song_title(file_path: Path) -> str:
-    title = _get_tag(file_path, "title")
+    tags = _get_all_tags(file_path)
+    title = tags.get("title", "")
     if title:
         return title
     return file_path.stem
 
 
 def get_song_comment(file_path: Path) -> str:
-    return _get_tag(file_path, "comment")
+    return _get_all_tags(file_path).get("comment", "")
 
 
 def read_song(file_path: Path) -> Song:
+    tags = _get_all_tags(file_path)
     return Song(
         path=file_path,
-        title=get_song_title(file_path),
-        comment=get_song_comment(file_path),
-        why_made=_get_tag(file_path, MIDORI_TAG_WHY_MADE),
-        backstory=_get_tag(file_path, MIDORI_TAG_BACKSTORY),
-        radio_reason=_get_tag(file_path, MIDORI_TAG_RADIO_REASON),
-        music_theme=_get_tag(file_path, MIDORI_TAG_MUSIC_THEME),
-        listener_takeaway=_get_tag(file_path, MIDORI_TAG_LISTENER_TAKEAWAY),
-        vibe_analysis=_get_tag(file_path, MIDORI_TAG_VIBE_ANALYSIS),
-        vibe_summary=_get_tag(file_path, MIDORI_TAG_VIBE_SUMMARY),
-        vibe_cached_at_epoch=_get_tag(file_path, MIDORI_TAG_VIBE_CACHED_AT_EPOCH),
-        vibe_cache_schema=_get_tag(file_path, MIDORI_TAG_VIBE_CACHE_SCHEMA),
+        title=tags.get("title", file_path.stem),
+        comment=tags.get("comment", ""),
+        why_made=tags.get(MIDORI_TAG_WHY_MADE, ""),
+        backstory=tags.get(MIDORI_TAG_BACKSTORY, ""),
+        radio_reason=tags.get(MIDORI_TAG_RADIO_REASON, ""),
+        music_theme=tags.get(MIDORI_TAG_MUSIC_THEME, ""),
+        listener_takeaway=tags.get(MIDORI_TAG_LISTENER_TAKEAWAY, ""),
+        vibe_analysis=tags.get(MIDORI_TAG_VIBE_ANALYSIS, ""),
+        vibe_summary=tags.get(MIDORI_TAG_VIBE_SUMMARY, ""),
+        vibe_cached_at_epoch=tags.get(MIDORI_TAG_VIBE_CACHED_AT_EPOCH, ""),
+        vibe_cache_schema=tags.get(MIDORI_TAG_VIBE_CACHE_SCHEMA, ""),
     )
 
 

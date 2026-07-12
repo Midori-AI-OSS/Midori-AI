@@ -8,7 +8,6 @@ from PySide6.QtCore import (
     QRect,
     QTimer,
 )
-from PySide6.QtGui import QPainter, QColor, QFont
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -21,28 +20,38 @@ from PySide6.QtWidgets import (
 )
 
 
-def make_header(title: str, on_back_callable) -> tuple[QHBoxLayout, QHBoxLayout]:
-    layout = QHBoxLayout()
-    layout.setSpacing(10)
+def make_header(title: str, on_back_callable) -> tuple[QVBoxLayout, QHBoxLayout]:
+    """Create a unified two-row header:
+    Row 1: ← Back | spacer | [actions]
+    Row 2: TITLE centered large
+    Returns (layout, actions_layout for caller to add extra buttons)
+    """
+    layout = QVBoxLayout()
+    layout.setSpacing(0)
+
+    top_row = QHBoxLayout()
+    top_row.setSpacing(6)
 
     back_btn = QPushButton("\u2190 Back")
     back_btn.clicked.connect(on_back_callable)
-    layout.addWidget(back_btn)
+    top_row.addWidget(back_btn)
 
-    layout.addStretch()
+    top_row.addStretch()
+
+    actions = QWidget()
+    actions_layout = QHBoxLayout(actions)
+    actions_layout.setContentsMargins(0, 0, 0, 0)
+    actions_layout.setSpacing(8)
+    top_row.addWidget(actions)
+
+    layout.addLayout(top_row)
 
     title_label = QLabel(title)
     title_label.setObjectName("sectionLabel")
     title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
     layout.addWidget(title_label)
 
-    layout.addStretch()
-
-    actions = QWidget()
-    actions_layout = QHBoxLayout(actions)
-    actions_layout.setContentsMargins(0, 0, 0, 0)
-    actions_layout.setSpacing(8)
-    layout.addWidget(actions)
+    layout.addSpacing(8)
 
     return layout, actions_layout
 
@@ -179,36 +188,40 @@ class EmptyState(QWidget):
         layout.insertStretch(0)
 
 
-class LoadingOverlay(QWidget):
+class LoadingPage(QWidget):
     cancelled = Signal()
 
-    def __init__(self, parent: QWidget, message: str = "Loading..."):
+    def __init__(self, parent=None):
         super().__init__(parent)
-        self.setObjectName("loadingOverlay")
-        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, False)
-        self.resize(parent.size())
-        parent.installEventFilter(self)
+        self.setObjectName("loadingPage")
 
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.setSpacing(14)
+        layout.setSpacing(16)
 
-        self._message_label = QLabel(message)
-        self._message_label.setObjectName("sectionLabel")
-        self._message_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self._message_label)
+        self._spinner = QLabel("\U0001f3b5")
+        self._spinner.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        font = self._spinner.font()
+        font.setPixelSize(48)
+        self._spinner.setFont(font)
+        layout.addWidget(self._spinner)
+
+        self._message = QLabel("Loading...")
+        self._message.setObjectName("headerLabel")
+        self._message.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self._message)
 
         self._progress = QProgressBar()
         self._progress.setRange(0, 100)
         self._progress.setValue(0)
-        self._progress.setFixedWidth(280)
+        self._progress.setFixedWidth(320)
         layout.addWidget(self._progress, alignment=Qt.AlignmentFlag.AlignCenter)
 
         self._detail = QLabel()
         self._detail.setObjectName("dimLabel")
         self._detail.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._detail.setWordWrap(True)
-        self._detail.setMaximumWidth(400)
+        self._detail.setMaximumWidth(420)
         layout.addWidget(self._detail)
 
         cancel_btn = QPushButton("Cancel")
@@ -216,20 +229,8 @@ class LoadingOverlay(QWidget):
         cancel_btn.clicked.connect(self.cancelled.emit)
         layout.addWidget(cancel_btn, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        self.setStyleSheet(
-            "QWidget#loadingOverlay { background-color: rgba(0,0,0,180); }"
-        )
-        self.show()
-        self.raise_()
-
-    def eventFilter(self, obj, event):
-        from PySide6.QtCore import QEvent
-
-        if event.type() == QEvent.Type.Resize:
-            pw = self.parentWidget()
-            if pw is not None:
-                self.resize(pw.size())
-        return super().eventFilter(obj, event)
+    def set_message(self, text: str):
+        self._message.setText(text)
 
     def set_progress(self, current: int, total: int):
         self._progress.setMaximum(total)
@@ -237,9 +238,6 @@ class LoadingOverlay(QWidget):
 
     def set_detail(self, text: str):
         self._detail.setText(text)
-
-    def set_message(self, text: str):
-        self._message_label.setText(text)
 
 
 def confirm(parent: QWidget, title: str, message: str) -> bool:

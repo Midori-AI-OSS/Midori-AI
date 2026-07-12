@@ -48,8 +48,16 @@ class LibraryScanWorker(QThread):
                             "channel": s.channel,
                             "title": s.title,
                             "comment": s.comment,
-                            "vibe_summary": s.vibe_summary,
                             "filename": p.name,
+                            "why_made": s.why_made,
+                            "backstory": s.backstory,
+                            "radio_reason": s.radio_reason,
+                            "music_theme": s.music_theme,
+                            "listener_takeaway": s.listener_takeaway,
+                            "vibe_analysis": s.vibe_analysis,
+                            "vibe_summary": s.vibe_summary,
+                            "vibe_cached_at_epoch": s.vibe_cached_at_epoch,
+                            "vibe_cache_schema": s.vibe_cache_schema,
                         }
                     )
                 except Exception:
@@ -59,8 +67,16 @@ class LibraryScanWorker(QThread):
                             "channel": "",
                             "title": p.stem,
                             "comment": "",
-                            "vibe_summary": "",
                             "filename": p.name,
+                            "why_made": "",
+                            "backstory": "",
+                            "radio_reason": "",
+                            "music_theme": "",
+                            "listener_takeaway": "",
+                            "vibe_analysis": "",
+                            "vibe_summary": "",
+                            "vibe_cached_at_epoch": "",
+                            "vibe_cache_schema": "",
                         }
                     )
             self.progress.emit(total, total, "Done.")
@@ -116,8 +132,16 @@ class SongReadWorker(QThread):
                 "channel": s.channel,
                 "title": s.title,
                 "comment": s.comment,
-                "vibe_summary": s.vibe_summary,
                 "filename": s.filename,
+                "why_made": s.why_made,
+                "backstory": s.backstory,
+                "radio_reason": s.radio_reason,
+                "music_theme": s.music_theme,
+                "listener_takeaway": s.listener_takeaway,
+                "vibe_analysis": s.vibe_analysis,
+                "vibe_summary": s.vibe_summary,
+                "vibe_cached_at_epoch": s.vibe_cached_at_epoch,
+                "vibe_cache_schema": s.vibe_cache_schema,
             }
             self.song_ready.emit(self._song_path, data)
         except Exception as e:

@@ -24,7 +24,7 @@ from gui.core.metadata import (
     is_channel_blocked,
 )
 from gui.core.song import Song
-from gui.widgets.components import ToastWidget, LoadingOverlay
+from gui.widgets.components import ToastWidget, LoadingPage
 from gui.widgets.main_menu import MainMenu
 from gui.widgets.comment_editor import CommentEditor
 from gui.widgets.import_flow import ImportFlow
@@ -68,7 +68,7 @@ class MainWindow(QMainWindow):
         self._sidebar_btns: dict[str, QPushButton] = {}
         self._scan_worker: LibraryScanWorker | None = None
         self._download_worker: DownloadScanWorker | None = None
-        self._loading: LoadingOverlay | None = None
+        self._previous_page: str = "menu"
 
         self._sidebar = self._create_sidebar()
 
@@ -79,6 +79,11 @@ class MainWindow(QMainWindow):
         body_layout.addWidget(self._sidebar)
         body_layout.addWidget(self._stack)
         self.setCentralWidget(body)
+
+        self._loading_page = LoadingPage()
+        self._loading_page.cancelled.connect(self._on_loading_cancelled)
+        self._widgets["_loading"] = self._loading_page
+        self._stack.addWidget(self._loading_page)
 
         self._main_menu = MainMenu()
         self._main_menu.navigate.connect(self._on_navigate)
@@ -161,15 +166,16 @@ class MainWindow(QMainWindow):
             btn.style().polish(btn)
 
     def _show_loading(self, message: str):
-        self._hide_loading()
-        central = self.centralWidget()
-        if central:
-            self._loading = LoadingOverlay(central, message)
+        self._loading_page.set_message(message)
+        self._loading_page.set_progress(0, 100)
+        self._loading_page.set_detail("")
+        self._stack.setCurrentWidget(self._loading_page)
 
     def _hide_loading(self):
-        if self._loading:
-            self._loading.deleteLater()
-            self._loading = None
+        if self._stack.currentWidget() is self._loading_page:
+            self._stack.setCurrentWidget(
+                self._widgets.get(self._previous_page, self._main_menu)
+            )
 
     def _cancel_scan(self):
         if self._scan_worker and self._scan_worker.isRunning():
@@ -179,6 +185,10 @@ class MainWindow(QMainWindow):
             self._download_worker.cancel()
             self._download_worker.wait(2000)
         self._hide_loading()
+
+    def _on_loading_cancelled(self):
+        self._cancel_scan()
+        self._go_to("menu")
 
     def _on_navigate(self, key: str):
         if key == "exit":
@@ -191,6 +201,7 @@ class MainWindow(QMainWindow):
 
         self._sidebar.show()
         self._set_sidebar_active(key)
+        self._previous_page = key
 
         if key == "import":
             self._load_import_page()
@@ -214,6 +225,7 @@ class MainWindow(QMainWindow):
         self._cancel_scan()
         self._sidebar.hide()
         self._set_sidebar_active(None)
+        self._previous_page = key
         self._stack.setCurrentWidget(self._widgets[key])
 
     def keyPressEvent(self, event: QKeyEvent):
@@ -246,9 +258,7 @@ class MainWindow(QMainWindow):
         if central:
             ToastWidget(central, text, level)
 
-    def _start_scan(
-        self, exclude_blocked: bool = True, message: str = "Loading library..."
-    ):
+    def _start_scan(self, exclude_blocked: bool = True, message: str = "Loading..."):
         self._cancel_scan()
         self._show_loading(message)
         self._scan_worker = LibraryScanWorker(
@@ -259,12 +269,12 @@ class MainWindow(QMainWindow):
         return self._scan_worker
 
     def _on_scan_progress(self, current: int, total: int, status: str):
-        if self._loading:
-            self._loading.set_progress(current, total)
-            self._loading.set_detail(status)
+        self._loading_page.set_progress(current, total)
+        self._loading_page.set_detail(status)
 
     def _load_library_page(self):
         self._stack.setCurrentWidget(self._library_browser)
+        self._previous_page = "update"
         worker = self._start_scan(message="Loading your music library...")
         worker.songs_ready.connect(self._on_library_data)
         worker.error_occurred.connect(lambda e: self.show_toast(f"Error: {e}", "error"))
@@ -273,9 +283,11 @@ class MainWindow(QMainWindow):
     def _on_library_data(self, songs: list[dict]):
         self._hide_loading()
         self._library_browser.load(self._config.music_root, songs)
+        self._stack.setCurrentWidget(self._library_browser)
 
     def _load_import_page(self):
         self._stack.setCurrentWidget(self._import_flow)
+        self._previous_page = "import"
         self._show_loading("Checking Downloads folder...")
         self._download_worker = DownloadScanWorker(
             self._config.downloads_dir, self._config.music_root
@@ -289,9 +301,11 @@ class MainWindow(QMainWindow):
     def _on_downloads_data(self, all_downloads: list[Path], non_imported: list[Path]):
         self._hide_loading()
         self._import_flow._set_data(all_downloads, non_imported)
+        self._stack.setCurrentWidget(self._import_flow)
 
     def _load_stale_page(self):
         self._stack.setCurrentWidget(self._stale_flow)
+        self._previous_page = "stale"
         worker = self._start_scan(message="Checking for stale comments...")
         worker.songs_ready.connect(self._on_stale_data)
         worker.error_occurred.connect(lambda e: self.show_toast(f"Error: {e}", "error"))
@@ -300,9 +314,11 @@ class MainWindow(QMainWindow):
     def _on_stale_data(self, songs: list[dict]):
         self._hide_loading()
         self._stale_flow.set_data(songs)
+        self._stack.setCurrentWidget(self._stale_flow)
 
     def _load_rate_page(self):
         self._stack.setCurrentWidget(self._rate_flow)
+        self._previous_page = "rate"
         worker = self._start_scan(message="Loading songs for rating...")
         worker.songs_ready.connect(self._on_rate_data)
         worker.error_occurred.connect(lambda e: self.show_toast(f"Error: {e}", "error"))
@@ -311,6 +327,7 @@ class MainWindow(QMainWindow):
     def _on_rate_data(self, songs: list[dict]):
         self._hide_loading()
         self._rate_flow.set_data(songs)
+        self._stack.setCurrentWidget(self._rate_flow)
 
     def _open_comment_editor(self, song: Song):
         self._sidebar.show()
