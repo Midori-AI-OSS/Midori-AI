@@ -8,12 +8,14 @@ ACTION="run"
 LIBRARY_ROOT="${MIDORIAI_RADIO_LIBRARY:-}"
 DOWNLOADS_DIR="${MIDORIAI_DOWNLOADS_DIR:-}"
 KEEP_TMP="${MIDORIAI_KEEP_TMP:-0}"
+DEFAULT_RADIO_LIBRARY="${MIDORIAI_DEFAULT_RADIO_LIBRARY:-/home/lunamidori/nfs/webserver_api_files/music/}"
 
 usage() {
   cat <<'USAGE'
 Usage: ./run.sh [options]
 
 Create an isolated one-time copy under /tmp, check dependencies, then run it.
+When --library is omitted, an interactive run asks for the radio library path.
 
 Options:
   --library PATH    Midori AI Radio library root to use for this run
@@ -23,7 +25,8 @@ Options:
   -h, --help        Show this help
 
 Environment equivalents:
-  MIDORIAI_RADIO_LIBRARY, MIDORIAI_DOWNLOADS_DIR, MIDORIAI_KEEP_TMP=1
+  MIDORIAI_RADIO_LIBRARY, MIDORIAI_DEFAULT_RADIO_LIBRARY,
+  MIDORIAI_DOWNLOADS_DIR, MIDORIAI_KEEP_TMP=1
 USAGE
 }
 
@@ -32,6 +35,45 @@ require_value() {
     printf 'Missing value for %s\n' "$1" >&2
     exit 64
   fi
+}
+
+default_library_root() {
+  printf '%s' "$DEFAULT_RADIO_LIBRARY"
+}
+
+normalize_user_path() {
+  local value="$1"
+  if [[ "$value" == "~" ]]; then
+    value="$HOME"
+  elif [[ "$value" == "~/"* ]]; then
+    value="$HOME/${value:2}"
+  fi
+  printf '%s' "$value"
+}
+
+prompt_for_library_root() {
+  local default_root="$1"
+  local response=""
+
+  while true; do
+    printf 'Midori AI Radio library [%s]: ' "$default_root" > /dev/tty
+    if ! IFS= read -r response < /dev/tty; then
+      printf '\nCould not read the radio library path.\n' >&2
+      exit 130
+    fi
+
+    if [[ -z "$response" ]]; then
+      response="$default_root"
+    fi
+    response="$(normalize_user_path "$response")"
+
+    if [[ -d "$response" ]]; then
+      LIBRARY_ROOT="$response"
+      return
+    fi
+
+    printf 'Directory does not exist: %s\nPlease enter an existing directory.\n' "$response" > /dev/tty
+  done
 }
 
 while [[ $# -gt 0 ]]; do
@@ -66,19 +108,35 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ ! -x "$PROJECT_DIR/build.sh" ]]; then
-  printf 'Missing executable build helper: %s/build.sh\n' "$PROJECT_DIR" >&2
+if [[ ! -f "$PROJECT_DIR/build.sh" || ! -r "$PROJECT_DIR/build.sh" ]]; then
+  printf 'Missing readable build helper: %s/build.sh\n' "$PROJECT_DIR" >&2
   exit 66
 fi
 
-if [[ -n "$LIBRARY_ROOT" && ! -d "$LIBRARY_ROOT" ]]; then
-  printf 'Radio library directory does not exist: %s\n' "$LIBRARY_ROOT" >&2
-  exit 66
+if [[ "$ACTION" == "run" && -z "$LIBRARY_ROOT" ]]; then
+  DEFAULT_LIBRARY_ROOT="$(default_library_root)"
+  if [[ -r /dev/tty && -w /dev/tty ]]; then
+    prompt_for_library_root "$DEFAULT_LIBRARY_ROOT"
+  else
+    LIBRARY_ROOT="$DEFAULT_LIBRARY_ROOT"
+    printf 'No interactive terminal; using radio library: %s\n' "$LIBRARY_ROOT" >&2
+  fi
 fi
 
-if [[ -n "$DOWNLOADS_DIR" && ! -d "$DOWNLOADS_DIR" ]]; then
-  printf 'Downloads directory does not exist: %s\n' "$DOWNLOADS_DIR" >&2
-  exit 66
+if [[ -n "$LIBRARY_ROOT" ]]; then
+  LIBRARY_ROOT="$(normalize_user_path "$LIBRARY_ROOT")"
+  if [[ ! -d "$LIBRARY_ROOT" ]]; then
+    printf 'Radio library directory does not exist: %s\n' "$LIBRARY_ROOT" >&2
+    exit 66
+  fi
+fi
+
+if [[ -n "$DOWNLOADS_DIR" ]]; then
+  DOWNLOADS_DIR="$(normalize_user_path "$DOWNLOADS_DIR")"
+  if [[ ! -d "$DOWNLOADS_DIR" ]]; then
+    printf 'Downloads directory does not exist: %s\n' "$DOWNLOADS_DIR" >&2
+    exit 66
+  fi
 fi
 
 TEMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/midoriai-radio-studio.XXXXXX")"
@@ -136,11 +194,7 @@ json_escape() {
 
 if [[ -n "$LIBRARY_ROOT" || -n "$DOWNLOADS_DIR" ]]; then
   if [[ -z "$LIBRARY_ROOT" ]]; then
-    if [[ -d "$HOME/Music/Midori AI Radio" ]]; then
-      LIBRARY_ROOT="$HOME/Music/Midori AI Radio"
-    else
-      LIBRARY_ROOT="$HOME/Music"
-    fi
+    LIBRARY_ROOT="$(default_library_root)"
   fi
   if [[ -z "$DOWNLOADS_DIR" ]]; then
     DOWNLOADS_DIR="$HOME/Downloads"
