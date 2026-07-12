@@ -98,7 +98,7 @@ class CommentEditor(QWidget):
         left_layout.addWidget(qna_group)
 
         gen_row = QHBoxLayout()
-        self._generate_btn = QPushButton("\u2728 Generate Comment")
+        self._generate_btn = QPushButton("Generate Comment")
         self._generate_btn.setObjectName("accentButton")
         self._generate_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._generate_btn.clicked.connect(self._start_generation)
@@ -131,7 +131,7 @@ class CommentEditor(QWidget):
         self._draft_text.setReadOnly(True)
         self._draft_text.setMinimumHeight(100)
         self._draft_text.setPlaceholderText(
-            "Click \u2728 Generate Comment to create a draft..."
+            "Click Generate Comment to create a draft..."
         )
         draft_layout.addWidget(self._draft_text)
         right_layout.addWidget(draft_group)
@@ -180,7 +180,7 @@ class CommentEditor(QWidget):
         self._current_draft = ""
         self._draft_text.clear()
         self._draft_text.setPlaceholderText(
-            "Click \u2728 Generate Comment to create a draft..."
+            "Click Generate Comment to create a draft..."
         )
         self._star_rating.clear()
         self._rating_note.clear()
@@ -191,13 +191,13 @@ class CommentEditor(QWidget):
         self._reasoning_label.setVisible(False)
 
         self._file_label.setText(
-            f"\U0001f4c4 {song.relative_path}\n\U0001f4e1 Channel: {song.channel}"
+            f"{song.relative_path}\nChannel: {song.channel}"
         )
-        self._comment_label.setText(f"\U0001f4dd Current: {song.comment or '(empty)'}")
+        self._comment_label.setText(f"Current: {song.comment or '(empty)'}")
 
         parts = []
         if song.vibe_summary:
-            parts.append(f"\U0001f3b6 Vibes: {song.vibe_summary}")
+            parts.append(f"Vibes: {song.vibe_summary}")
         if song.music_theme:
             parts.append(f"Theme: {song.music_theme}")
         if song.why_made:
@@ -392,12 +392,12 @@ class CommentEditor(QWidget):
         if success:
             parent_window = self.window()
             if hasattr(parent_window, "show_toast"):
-                parent_window.show_toast("\u2705 Metadata saved", "success")
+                parent_window.show_toast("Metadata saved", "success")
             self.finished.emit(self._song)
         else:
             parent_window = self.window()
             if hasattr(parent_window, "show_toast"):
-                parent_window.show_toast(f"\u274c Failed to save: {err[:200]}", "error")
+                parent_window.show_toast(f"Failed to save: {err[:200]}", "error")
 
     def _save_feedback(self, rating: int):
         from gui.core.prompts import FeedbackQueue

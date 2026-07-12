@@ -180,7 +180,7 @@ class CacheVibesFlow(QWidget):
         parent_window = self.window()
         if hasattr(parent_window, "show_toast"):
             parent_window.show_toast(
-                f"\u2705 {self._success} songs cached, {self._failed} failed", "success"
+                f"{self._success} songs cached, {self._failed} failed", "success"
             )
 
     def _cancel(self):

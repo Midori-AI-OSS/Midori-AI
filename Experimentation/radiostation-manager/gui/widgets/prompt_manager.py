@@ -175,7 +175,7 @@ class PromptManager(QWidget):
             self._prompts.save()
             pwin = self.window()
             if hasattr(pwin, "show_toast"):
-                pwin.show_toast("\u2705 Template saved", "success")
+                pwin.show_toast("Template saved", "success")
 
     def _reset_to_base(self):
         if not confirm(
@@ -189,7 +189,7 @@ class PromptManager(QWidget):
         self._template_edit.clear()
         pwin = self.window()
         if hasattr(pwin, "show_toast"):
-            pwin.show_toast("\u2705 Reset to base", "success")
+            pwin.show_toast("Reset to base", "success")
 
     def _clear_queue(self):
         if not confirm(self, "Clear Queue", "Delete all feedback queue items?"):
@@ -198,7 +198,7 @@ class PromptManager(QWidget):
         self._refresh_queue()
         pwin = self.window()
         if hasattr(pwin, "show_toast"):
-            pwin.show_toast("\u2705 Queue cleared", "success")
+            pwin.show_toast("Queue cleared", "success")
 
     def _remove_selected(self):
         item = self._queue_list.currentItem()

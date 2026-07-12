@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import (
     Qt,
+    QSize,
     Signal,
     QEasingCurve,
     QPropertyAnimation,
@@ -15,6 +16,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QPushButton,
+    QStyle,
     QVBoxLayout,
     QWidget,
 )
@@ -32,7 +34,10 @@ def make_header(title: str, on_back_callable) -> tuple[QVBoxLayout, QHBoxLayout]
     top_row = QHBoxLayout()
     top_row.setSpacing(6)
 
-    back_btn = QPushButton("\u2190 Back")
+    back_btn = QPushButton("Back")
+    back_btn.setIcon(
+        back_btn.style().standardIcon(QStyle.StandardPixmap.SP_ArrowBack)
+    )
     back_btn.clicked.connect(on_back_callable)
     top_row.addWidget(back_btn)
 
@@ -68,7 +73,7 @@ class StarRating(QWidget):
         layout.setSpacing(2)
         for i in range(5):
             btn = QPushButton("\u2605")
-            btn.setFixedSize(30, 30)
+            btn.setFixedSize(36, 36)
             btn.setCheckable(True)
             btn.setObjectName("starButton")
             btn.clicked.connect(lambda checked, idx=i: self._set_rating(idx + 1))
@@ -159,19 +164,28 @@ class ToastWidget(QFrame):
 
 
 class EmptyState(QWidget):
-    def __init__(self, icon: str, title: str, subtitle: str, parent=None):
+    def __init__(
+        self,
+        icon: QStyle.StandardPixmap | None,
+        title: str,
+        subtitle: str,
+        parent=None,
+    ):
         super().__init__(parent)
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.setSpacing(8)
 
-        icon_label = QLabel(icon)
-        icon_label.setObjectName("emptyStateIcon")
-        icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        font = icon_label.font()
-        font.setPixelSize(40)
-        icon_label.setFont(font)
-        layout.addWidget(icon_label)
+        if icon is not None:
+            icon_label = QLabel()
+            icon_label.setPixmap(
+                icon_label.style()
+                .standardIcon(icon)
+                .pixmap(QSize(40, 40))
+            )
+            icon_label.setObjectName("emptyStateIcon")
+            icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            layout.addWidget(icon_label)
 
         title_label = QLabel(title)
         title_label.setObjectName("sectionLabel")
@@ -199,11 +213,13 @@ class LoadingPage(QWidget):
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.setSpacing(16)
 
-        self._spinner = QLabel("\U0001f3b5")
+        self._spinner = QLabel()
+        self._spinner.setPixmap(
+            self._spinner.style()
+            .standardIcon(QStyle.StandardPixmap.SP_MediaPlay)
+            .pixmap(QSize(48, 48))
+        )
         self._spinner.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        font = self._spinner.font()
-        font.setPixelSize(48)
-        self._spinner.setFont(font)
         layout.addWidget(self._spinner)
 
         self._message = QLabel("Loading...")

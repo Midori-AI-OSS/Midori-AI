@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QTreeWidgetItem,
     QHeaderView,
     QStackedWidget,
+    QStyle,
 )
 
 from gui.widgets.components import make_header, EmptyState
@@ -59,7 +60,7 @@ class LibraryBrowser(QWidget):
         hdr.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
 
         self._empty = EmptyState(
-            "\U0001f4da",
+            QStyle.StandardPixmap.SP_DirOpenIcon,
             "Your Library is Empty",
             "Import songs or check your music root directory.",
         )

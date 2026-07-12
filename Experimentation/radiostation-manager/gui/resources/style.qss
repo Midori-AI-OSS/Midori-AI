@@ -218,6 +218,8 @@ QPushButton#starButton {
     background: transparent;
     border: none;
     color: #4a4a6c;
+    padding: 0px;
+    font-size: 17px;
 }
 
 QPushButton#starButton:hover {

@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QStackedWidget,
+    QStyle,
 )
 
 from gui.core.config import get_config
@@ -49,7 +50,7 @@ class StaleCommentsFlow(QWidget):
         self._list.setAlternatingRowColors(True)
         self._list.itemDoubleClicked.connect(self._on_double_click)
         self._empty = EmptyState(
-            "\u2705",
+            QStyle.StandardPixmap.SP_DialogApplyButton,
             "All Comments Up to Date",
             "No stale markers found in your library.",
         )
@@ -58,7 +59,7 @@ class StaleCommentsFlow(QWidget):
         layout.addWidget(self._content_stack)
 
         btn_row = QHBoxLayout()
-        fix_btn = QPushButton("\u270f\ufe0f Fix Selected")
+        fix_btn = QPushButton("Fix Selected")
         fix_btn.setObjectName("accentButton")
         fix_btn.clicked.connect(self._fix_selected)
         btn_row.addWidget(fix_btn)
@@ -81,18 +82,18 @@ class StaleCommentsFlow(QWidget):
                 else s.get("filename", "")
             )
             comment = s.get("comment", "")[:80]
-            self._list.addItem(f"\U0001f504 {rel}  \u2014  {comment}")
+            self._list.addItem(f"{rel}  \u2014  {comment}")
 
         if self._stale_songs:
             n = len(self._stale_songs)
             self._status_label.setText(
-                f"\U0001f4cb Found {n} song{'s' if n != 1 else ''} "
+                f"Found {n} song{'s' if n != 1 else ''} "
                 f"with outdated markers out of {self._all_total} total"
             )
             self._content_stack.setCurrentWidget(self._list)
         else:
             self._status_label.setText(
-                f"\u2705 All {self._all_total} song comments are up to date."
+                f"All {self._all_total} song comments are up to date."
             )
             self._content_stack.setCurrentWidget(self._empty)
 

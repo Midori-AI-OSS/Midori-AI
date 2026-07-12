@@ -27,7 +27,7 @@ def _get_all_tags(file_path: Path) -> dict[str, str]:
                 "-show_entries",
                 "format_tags",
                 "-of",
-                "default=noprint_wrappers=1:nokey=1",
+                "default=noprint_wrappers=1",
                 str(file_path),
             ],
             capture_output=True,

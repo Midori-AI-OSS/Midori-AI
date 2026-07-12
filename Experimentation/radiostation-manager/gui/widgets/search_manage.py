@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QSplitter,
     QStackedWidget,
+    QStyle,
 )
 
 from gui.core.config import get_config
@@ -50,7 +51,7 @@ class SearchManageFlow(QWidget):
         )
         self._search_input.returnPressed.connect(self._do_search)
         search_row.addWidget(self._search_input)
-        search_btn = QPushButton("\U0001f50d Search")
+        search_btn = QPushButton("Search")
         search_btn.setObjectName("accentButton")
         search_btn.clicked.connect(self._do_search)
         search_row.addWidget(search_btn)
@@ -68,7 +69,7 @@ class SearchManageFlow(QWidget):
         self._list.itemClicked.connect(self._show_detail)
         self._list.itemDoubleClicked.connect(self._edit_current)
         self._empty = EmptyState(
-            "\U0001f50d",
+            QStyle.StandardPixmap.SP_FileDialogContentsView,
             "No Results Found",
             "Try a different keyword or check your library.",
         )
@@ -154,7 +155,7 @@ class SearchManageFlow(QWidget):
         idx = self._list.row(item)
         if 0 <= idx < len(self._results):
             s = self._results[idx]
-            detail = f"\U0001f4c4 {s.relative_path}\n\n"
+            detail = f"{s.relative_path}\n\n"
             detail += f"Title: {s.title}\n"
             detail += f"Comment: {s.comment or '(empty)'}\n\n"
             detail += f"Theme: {s.music_theme or 'none'}\n"

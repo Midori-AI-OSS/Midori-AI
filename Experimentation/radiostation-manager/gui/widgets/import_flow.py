@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QMessageBox,
     QStackedWidget,
+    QStyle,
 )
 
 from gui.widgets.components import make_header, EmptyState
@@ -56,7 +57,7 @@ class ImportFlow(QWidget):
         self._list = QListWidget()
         self._list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
         self._empty = EmptyState(
-            "\U0001f4e5",
+            QStyle.StandardPixmap.SP_ArrowDown,
             "No Songs to Import",
             "All downloads are already in your library.",
         )
@@ -71,7 +72,7 @@ class ImportFlow(QWidget):
         self._channel_combo.setMinimumWidth(180)
         controls.addWidget(self._channel_combo)
         controls.addStretch()
-        self._import_btn = QPushButton("\U0001f4e5 Import Selected")
+        self._import_btn = QPushButton("Import Selected")
         self._import_btn.setObjectName("accentButton")
         self._import_btn.clicked.connect(self._import_selected)
         self._import_btn.setEnabled(False)
@@ -101,8 +102,8 @@ class ImportFlow(QWidget):
         self._channel_combo.addItems(channels)
 
         self._count_label.setText(
-            f"\U0001f4c1 {len(all_downloads)} MP3s in Downloads \u2192 "
-            f"\U0001f4e5 {len(self._downloads)} not yet imported (newest first)"
+            f"{len(all_downloads)} MP3s in Downloads -> "
+            f"{len(self._downloads)} not yet imported (newest first)"
         )
         self._import_btn.setEnabled(len(self._downloads) > 0)
         self._list.itemSelectionChanged.connect(self._on_selection_changed)
@@ -124,8 +125,8 @@ class ImportFlow(QWidget):
         self._channel_combo.addItems(channels)
 
         self._count_label.setText(
-            f"\U0001f4c1 {len(all_downloads)} MP3s in Downloads \u2192 "
-            f"\U0001f4e5 {len(self._downloads)} not yet imported (newest first)"
+            f"{len(all_downloads)} MP3s in Downloads -> "
+            f"{len(self._downloads)} not yet imported (newest first)"
         )
         self._import_btn.setEnabled(len(self._downloads) > 0)
         if self._downloads:
@@ -170,7 +171,7 @@ class ImportFlow(QWidget):
             song = read_song(dst)
             pwin = self.window()
             if hasattr(pwin, "show_toast"):
-                pwin.show_toast(f"\u2705 Imported {dst.name}", "success")
+                pwin.show_toast(f"Imported {dst.name}", "success")
             self.song_ready_for_edit.emit(song)
             imported += 1
             self._downloads.remove(src)
@@ -179,7 +180,7 @@ class ImportFlow(QWidget):
         for d in self._downloads:
             self._list.addItem(d.name)
         self._count_label.setText(
-            f"\U0001f4e5 {len(self._downloads)} remaining to import"
+            f"{len(self._downloads)} remaining to import"
         )
         self._import_btn.setEnabled(len(self._downloads) > 0)
         if not self._downloads:

@@ -141,14 +141,18 @@ def test_star_rating_widget(qapp):
 
 
 def test_empty_state_widget(qapp):
-    from PySide6.QtWidgets import QLabel
+    from PySide6.QtWidgets import QLabel, QStyle
 
     from gui.widgets.components import EmptyState
 
-    es = EmptyState("\U0001f3b5", "No Songs Found", "Try a different search.", None)
+    es = EmptyState(
+        QStyle.StandardPixmap.SP_MediaPlay,
+        "No Songs Found",
+        "Try a different search.",
+        None,
+    )
     labels = es.findChildren(QLabel)
     assert len(labels) == 3
-    assert labels[0].text() == "\U0001f3b5"
     assert labels[1].text() == "No Songs Found"
     assert labels[2].text() == "Try a different search."
 

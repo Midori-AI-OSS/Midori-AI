@@ -13,13 +13,14 @@ from PySide6.QtWidgets import (
     QTextEdit,
     QLineEdit,
     QGroupBox,
+    QMessageBox,
     QSplitter,
     QStackedWidget,
+    QStyle,
 )
 
 from gui.core.config import get_config
 from gui.core.song import Song
-from gui.core.metadata import scan_library, read_song
 from gui.core.prompts import FeedbackEntry, FeedbackQueue
 from gui.widgets.components import make_header, StarRating, EmptyState
 
@@ -53,7 +54,7 @@ class RatePastSongs(QWidget):
         self._song_list.setAlternatingRowColors(True)
         self._song_list.itemClicked.connect(self._on_select)
         self._empty = EmptyState(
-            "\u2b50",
+            QStyle.StandardPixmap.SP_MessageBoxQuestion,
             "No Songs to Rate",
             "Your library is empty. Import some songs first.",
         )
@@ -100,19 +101,24 @@ class RatePastSongs(QWidget):
         pass
 
     def set_data(self, songs_data: list[dict]):
-        """Called from main thread with pre-loaded data from worker thread."""
         self._songs = []
         for sd in songs_data:
-            s = read_song(sd["path"])
-            self._songs.append(s)
-        self._song_list.clear()
-        for s in self._songs:
-            rating_marker = "    " if not s.comment else " ★  "
-            self._song_list.addItem(f"{rating_marker}{s.relative_path}  —  {s.title}")
-        if self._songs:
-            self._content_stack.setCurrentWidget(self._song_list)
-        else:
-            self._content_stack.setCurrentWidget(self._empty)
+            self._songs.append(
+                Song(
+                    path=sd["path"],
+                    title=sd["title"],
+                    comment=sd["comment"],
+                    why_made=sd.get("why_made", ""),
+                    backstory=sd.get("backstory", ""),
+                    radio_reason=sd.get("radio_reason", ""),
+                    music_theme=sd.get("music_theme", ""),
+                    listener_takeaway=sd.get("listener_takeaway", ""),
+                    vibe_analysis=sd.get("vibe_analysis", ""),
+                    vibe_summary=sd.get("vibe_summary", ""),
+                    vibe_cached_at_epoch=sd.get("vibe_cached_at_epoch", ""),
+                    vibe_cache_schema=sd.get("vibe_cache_schema", ""),
+                )
+            )
         self._song_list.clear()
         for s in self._songs:
             rating_marker = "    " if not s.comment else " ★  "
@@ -129,19 +135,21 @@ class RatePastSongs(QWidget):
             s = self._current
             detail = f"File: {s.relative_path}\n\n"
             detail += f"Title: {s.title}\n\n"
-            detail += f"Comment: {s.comment or '(empty)'}\n\n"
-            detail += f"Theme: {s.music_theme or 'none'}\n"
-            detail += f"Why Made: {s.why_made or 'none'}\n"
-            detail += f"Backstory: {s.backstory or 'none'}\n"
-            detail += f"Radio Reason: {s.radio_reason or 'none'}\n"
-            detail += f"Takeaway: {s.listener_takeaway or 'none'}\n"
-            detail += f"Vibes: {s.vibe_summary or 'none'}"
+            detail += f"Comment: {s.comment or '(empty)'}"
             self._detail_text.setPlainText(detail)
             self._stars.clear()
             self._note_input.clear()
 
     def _submit(self):
-        if self._current is None or self._stars.rating == 0:
+        if self._current is None:
+            QMessageBox.information(
+                self, "No Song Selected", "Select a song from the list first."
+            )
+            return
+        if self._stars.rating == 0:
+            QMessageBox.information(
+                self, "No Rating", "Click stars to set a rating first."
+            )
             return
         entry = FeedbackEntry(
             rating=self._stars.rating,

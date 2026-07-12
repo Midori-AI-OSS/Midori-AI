@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import (
     QApplication,
@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QSizePolicy,
     QStackedWidget,
+    QStyle,
     QVBoxLayout,
     QWidget,
 )
@@ -37,14 +38,14 @@ from gui.widgets.channel_manager import ChannelManager
 from gui.widgets.prompt_manager import PromptManager
 
 SIDEBAR_ITEMS = [
-    ("\U0001f4e5", "import"),
-    ("\U0001f4dd", "update"),
-    ("\U0001f504", "stale"),
-    ("\U0001f50d", "search"),
-    ("\u2b50", "rate"),
-    ("\U0001f3b5", "vibes"),
-    ("\U0001f512", "channels"),
-    ("\U0001f916", "prompts"),
+    (QStyle.StandardPixmap.SP_ArrowDown, "import", "Import Songs"),
+    (QStyle.StandardPixmap.SP_FileIcon, "update", "Update Comments"),
+    (QStyle.StandardPixmap.SP_BrowserReload, "stale", "Stale Comments"),
+    (QStyle.StandardPixmap.SP_FileDialogContentsView, "search", "Search & Manage"),
+    (QStyle.StandardPixmap.SP_MessageBoxQuestion, "rate", "Rate Songs"),
+    (QStyle.StandardPixmap.SP_MediaPlay, "vibes", "Cache Vibes"),
+    (QStyle.StandardPixmap.SP_DirIcon, "channels", "Channels"),
+    (QStyle.StandardPixmap.SP_ComputerIcon, "prompts", "Prompts"),
 ]
 
 
@@ -147,8 +148,11 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(4, 8, 4, 8)
         layout.setSpacing(2)
 
-        for icon, key in SIDEBAR_ITEMS:
-            btn = QPushButton(icon)
+        for sp_icon, key, tooltip in SIDEBAR_ITEMS:
+            btn = QPushButton()
+            btn.setIcon(self.style().standardIcon(sp_icon))
+            btn.setIconSize(QSize(20, 20))
+            btn.setToolTip(tooltip)
             btn.setObjectName("sidebarButton")
             btn.setFixedSize(40, 40)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -178,12 +182,18 @@ class MainWindow(QMainWindow):
             )
 
     def _cancel_scan(self):
-        if self._scan_worker and self._scan_worker.isRunning():
-            self._scan_worker.cancel()
-            self._scan_worker.wait(2000)
-        if self._download_worker and self._download_worker.isRunning():
-            self._download_worker.cancel()
-            self._download_worker.wait(2000)
+        try:
+            if self._scan_worker and self._scan_worker.isRunning():
+                self._scan_worker.cancel()
+                self._scan_worker.wait(2000)
+        except RuntimeError:
+            self._scan_worker = None
+        try:
+            if self._download_worker and self._download_worker.isRunning():
+                self._download_worker.cancel()
+                self._download_worker.wait(2000)
+        except RuntimeError:
+            self._download_worker = None
         self._hide_loading()
 
     def _on_loading_cancelled(self):
@@ -219,6 +229,7 @@ class MainWindow(QMainWindow):
             self._refresh_channel_mgr()
             self._stack.setCurrentWidget(self._channel_mgr)
         elif key == "prompts":
+            self._prompt_mgr._refresh_queue()
             self._stack.setCurrentWidget(self._prompt_mgr)
 
     def _go_to(self, key: str):

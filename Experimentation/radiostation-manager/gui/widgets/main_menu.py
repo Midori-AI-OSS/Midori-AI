@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QSize, Signal
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -9,17 +9,18 @@ from PySide6.QtWidgets import (
     QPushButton,
     QGridLayout,
     QSizePolicy,
+    QStyle,
 )
 
-EMOJI = {
-    "import": "\U0001f4e5",
-    "update": "\u270f\ufe0f",
-    "stale": "\U0001f504",
-    "search": "\U0001f50d",
-    "rate": "\u2b50",
-    "vibes": "\U0001f3b5",
-    "channels": "\U0001f512",
-    "prompts": "\U0001f916",
+ICON_MAP = {
+    "import": QStyle.StandardPixmap.SP_ArrowDown,
+    "update": QStyle.StandardPixmap.SP_FileIcon,
+    "stale": QStyle.StandardPixmap.SP_BrowserReload,
+    "search": QStyle.StandardPixmap.SP_FileDialogContentsView,
+    "rate": QStyle.StandardPixmap.SP_MessageBoxQuestion,
+    "vibes": QStyle.StandardPixmap.SP_MediaPlay,
+    "channels": QStyle.StandardPixmap.SP_DirIcon,
+    "prompts": QStyle.StandardPixmap.SP_ComputerIcon,
 }
 
 
@@ -35,9 +36,16 @@ class MenuCard(QPushButton):
         layout.setContentsMargins(20, 16, 20, 16)
         layout.setSpacing(6)
 
-        icon_label = QLabel(EMOJI.get(key, ""))
-        icon_label.setObjectName("menuCardIcon")
-        layout.addWidget(icon_label)
+        sp_icon = ICON_MAP.get(key)
+        if sp_icon is not None:
+            icon_label = QLabel()
+            icon_label.setPixmap(
+                icon_label.style()
+                .standardIcon(sp_icon)
+                .pixmap(QSize(32, 32))
+            )
+            icon_label.setObjectName("menuCardIcon")
+            layout.addWidget(icon_label)
 
         title_label = QLabel(title)
         title_label.setObjectName("menuCardTitle")
