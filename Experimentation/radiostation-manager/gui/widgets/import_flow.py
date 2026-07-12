@@ -111,6 +111,28 @@ class ImportFlow(QWidget):
         else:
             self._content_stack.setCurrentWidget(self._empty)
 
+    def _set_data(self, all_downloads: list[Path], non_imported: list[Path]):
+        """Called from main thread with pre-loaded data from worker thread."""
+        self._downloads = non_imported
+
+        self._list.clear()
+        for d in self._downloads:
+            self._list.addItem(d.name)
+
+        channels = get_channel_dirs(self._config.music_root)
+        self._channel_combo.clear()
+        self._channel_combo.addItems(channels)
+
+        self._count_label.setText(
+            f"\U0001f4c1 {len(all_downloads)} MP3s in Downloads \u2192 "
+            f"\U0001f4e5 {len(self._downloads)} not yet imported (newest first)"
+        )
+        self._import_btn.setEnabled(len(self._downloads) > 0)
+        if self._downloads:
+            self._content_stack.setCurrentWidget(self._list)
+        else:
+            self._content_stack.setCurrentWidget(self._empty)
+
     def _on_selection_changed(self):
         selected = self._list.selectedItems()
         if not selected or not self._downloads:
@@ -135,6 +157,7 @@ class ImportFlow(QWidget):
         channel_dir = self._config.music_root / channel
         channel_dir.mkdir(parents=True, exist_ok=True)
 
+        imported = 0
         for item in selected:
             src = self._downloads[self._list.row(item)]
             dst = channel_dir / src.name
@@ -149,5 +172,15 @@ class ImportFlow(QWidget):
             if hasattr(pwin, "show_toast"):
                 pwin.show_toast(f"\u2705 Imported {dst.name}", "success")
             self.song_ready_for_edit.emit(song)
+            imported += 1
+            self._downloads.remove(src)
 
-        self._refresh()
+        self._list.clear()
+        for d in self._downloads:
+            self._list.addItem(d.name)
+        self._count_label.setText(
+            f"\U0001f4e5 {len(self._downloads)} remaining to import"
+        )
+        self._import_btn.setEnabled(len(self._downloads) > 0)
+        if not self._downloads:
+            self._content_stack.setCurrentWidget(self._empty)

@@ -31,7 +31,7 @@ def window(qapp):
 
 
 def test_window_title_and_size(window):
-    assert window.windowTitle() == "Luna Music Metadata Studio"
+    assert window.windowTitle() == "Luna's Music Metadata Studio"
     assert window.minimumWidth() == 1024
     assert window.minimumHeight() == 576
     assert window.width() == 1280

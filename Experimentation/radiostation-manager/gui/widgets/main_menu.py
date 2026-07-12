@@ -63,7 +63,7 @@ class MainMenu(QWidget):
         (
             "update",
             "Update Comments",
-            "Browse the library and edit song comments with AI assistance",
+            "Browse the library and edit song comments with LRM assistance",
         ),
         (
             "stale",
@@ -106,13 +106,13 @@ class MainMenu(QWidget):
         layout.setContentsMargins(48, 40, 48, 32)
         layout.setSpacing(0)
 
-        header = QLabel("Luna Music Metadata Studio")
+        header = QLabel("Luna's Music Metadata Studio")
         header.setObjectName("headerLabel")
         header.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(header)
 
         sub = QLabel(
-            "Manage your radio station\u2019s music collection with AI-assisted metadata"
+            "Manage your radio station\u2019s music collection with LRM-assisted metadata"
         )
         sub.setObjectName("subHeaderLabel")
         sub.setAlignment(Qt.AlignmentFlag.AlignCenter)

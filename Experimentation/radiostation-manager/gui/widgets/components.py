@@ -8,11 +8,13 @@ from PySide6.QtCore import (
     QRect,
     QTimer,
 )
+from PySide6.QtGui import QPainter, QColor, QFont
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
     QMessageBox,
+    QProgressBar,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -20,10 +22,6 @@ from PySide6.QtWidgets import (
 
 
 def make_header(title: str, on_back_callable) -> tuple[QHBoxLayout, QHBoxLayout]:
-    """Create a unified header with back button, centered title, and actions area.
-
-    Returns (layout, actions_layout) where actions_layout can receive extra widgets.
-    """
     layout = QHBoxLayout()
     layout.setSpacing(10)
 
@@ -50,8 +48,6 @@ def make_header(title: str, on_back_callable) -> tuple[QHBoxLayout, QHBoxLayout]
 
 
 class StarRating(QWidget):
-    """Five star buttons with rating 0-5. Emits rating_changed(int)."""
-
     rating_changed = Signal(int)
 
     def __init__(self, parent=None):
@@ -87,8 +83,6 @@ class StarRating(QWidget):
 
 
 class ToastWidget(QFrame):
-    """Slide-in notification from top-right corner. Auto-dismisses after 3 seconds."""
-
     _active_count = 0
     _base_y = 12
 
@@ -156,8 +150,6 @@ class ToastWidget(QFrame):
 
 
 class EmptyState(QWidget):
-    """Centered placeholder with icon, title, and subtitle."""
-
     def __init__(self, icon: str, title: str, subtitle: str, parent=None):
         super().__init__(parent)
         layout = QVBoxLayout(self)
@@ -187,8 +179,70 @@ class EmptyState(QWidget):
         layout.insertStretch(0)
 
 
+class LoadingOverlay(QWidget):
+    cancelled = Signal()
+
+    def __init__(self, parent: QWidget, message: str = "Loading..."):
+        super().__init__(parent)
+        self.setObjectName("loadingOverlay")
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, False)
+        self.resize(parent.size())
+        parent.installEventFilter(self)
+
+        layout = QVBoxLayout(self)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.setSpacing(14)
+
+        self._message_label = QLabel(message)
+        self._message_label.setObjectName("sectionLabel")
+        self._message_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self._message_label)
+
+        self._progress = QProgressBar()
+        self._progress.setRange(0, 100)
+        self._progress.setValue(0)
+        self._progress.setFixedWidth(280)
+        layout.addWidget(self._progress, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        self._detail = QLabel()
+        self._detail.setObjectName("dimLabel")
+        self._detail.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._detail.setWordWrap(True)
+        self._detail.setMaximumWidth(400)
+        layout.addWidget(self._detail)
+
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.setObjectName("exitButton")
+        cancel_btn.clicked.connect(self.cancelled.emit)
+        layout.addWidget(cancel_btn, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        self.setStyleSheet(
+            "QWidget#loadingOverlay { background-color: rgba(0,0,0,180); }"
+        )
+        self.show()
+        self.raise_()
+
+    def eventFilter(self, obj, event):
+        from PySide6.QtCore import QEvent
+
+        if event.type() == QEvent.Type.Resize:
+            pw = self.parentWidget()
+            if pw is not None:
+                self.resize(pw.size())
+        return super().eventFilter(obj, event)
+
+    def set_progress(self, current: int, total: int):
+        self._progress.setMaximum(total)
+        self._progress.setValue(current)
+
+    def set_detail(self, text: str):
+        self._detail.setText(text)
+
+    def set_message(self, text: str):
+        self._message_label.setText(text)
+
+
 def confirm(parent: QWidget, title: str, message: str) -> bool:
-    """Consistent confirmation dialog wrapping QMessageBox.question."""
     reply = QMessageBox.question(
         parent,
         title,

@@ -96,8 +96,23 @@ class RatePastSongs(QWidget):
         layout.addWidget(splitter)
 
     def refresh(self):
-        all_songs = scan_library(self._config.music_root, exclude_blocked=True)
-        self._songs = [read_song(p) for p in all_songs]
+        """Legacy: triggers loading via worker. Called internally."""
+        pass
+
+    def set_data(self, songs_data: list[dict]):
+        """Called from main thread with pre-loaded data from worker thread."""
+        self._songs = []
+        for sd in songs_data:
+            s = read_song(sd["path"])
+            self._songs.append(s)
+        self._song_list.clear()
+        for s in self._songs:
+            rating_marker = "    " if not s.comment else " ★  "
+            self._song_list.addItem(f"{rating_marker}{s.relative_path}  —  {s.title}")
+        if self._songs:
+            self._content_stack.setCurrentWidget(self._song_list)
+        else:
+            self._content_stack.setCurrentWidget(self._empty)
         self._song_list.clear()
         for s in self._songs:
             rating_marker = "    " if not s.comment else " ★  "

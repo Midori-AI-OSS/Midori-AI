@@ -27,7 +27,8 @@ class StaleCommentsFlow(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._config = get_config()
-        self._stale_songs: list[Path] = []
+        self._stale_songs: list[dict] = []
+        self._all_total = 0
         self._setup_ui()
 
     def _setup_ui(self):
@@ -64,27 +65,34 @@ class StaleCommentsFlow(QWidget):
         btn_row.addStretch()
         layout.addLayout(btn_row)
 
-    def refresh(self):
-        all_songs = scan_library(self._config.music_root, exclude_blocked=True)
-        stale = [p for p in all_songs if is_outdated_comment(read_song(p).comment)]
+    def set_data(self, songs: list[dict]):
+        """Called from main thread with pre-loaded data from worker thread."""
+        from gui.core.metadata import is_outdated_comment
 
-        self._stale_songs = stale
+        self._stale_songs = [
+            s for s in songs if is_outdated_comment(s.get("comment", ""))
+        ]
+        self._all_total = len(songs)
         self._list.clear()
-        for p in stale:
-            song = read_song(p)
-            self._list.addItem(
-                f"\U0001f504 {song.relative_path}  \u2014  {song.comment[:80]}"
+        for s in self._stale_songs:
+            rel = (
+                s.get("channel", "") + "/" + s.get("filename", "")
+                if s.get("channel")
+                else s.get("filename", "")
             )
+            comment = s.get("comment", "")[:80]
+            self._list.addItem(f"\U0001f504 {rel}  \u2014  {comment}")
 
-        if stale:
+        if self._stale_songs:
+            n = len(self._stale_songs)
             self._status_label.setText(
-                f"\U0001f4cb Found {len(stale)} song{'s' if len(stale) != 1 else ''} "
-                f"with outdated markers out of {len(all_songs)} total"
+                f"\U0001f4cb Found {n} song{'s' if n != 1 else ''} "
+                f"with outdated markers out of {self._all_total} total"
             )
             self._content_stack.setCurrentWidget(self._list)
         else:
             self._status_label.setText(
-                f"\u2705 All {len(all_songs)} song comments are up to date \u2014 no stale markers found."
+                f"\u2705 All {self._all_total} song comments are up to date."
             )
             self._content_stack.setCurrentWidget(self._empty)
 
@@ -96,4 +104,8 @@ class StaleCommentsFlow(QWidget):
     def _on_double_click(self, item: QListWidgetItem):
         idx = self._list.row(item)
         if 0 <= idx < len(self._stale_songs):
-            self.song_selected.emit(read_song(self._stale_songs[idx]))
+            from gui.core.metadata import read_song as _read
+
+            s = self._stale_songs[idx]
+            song = _read(s.get("path", Path(".")))  # type: ignore[arg-type]
+            self.song_selected.emit(song)
