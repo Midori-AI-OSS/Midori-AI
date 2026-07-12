@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import subprocess
-import tempfile
 from pathlib import Path
 
 from gui.core.song import Song
@@ -35,7 +34,7 @@ def _get_tag(file_path: Path, key: str) -> str:
             timeout=5,
         )
         lines = result.stdout.strip().split("\n")
-        tag_lines = [l for l in lines if l.startswith("TAG:")]
+        tag_lines = [line for line in lines if line.startswith("TAG:")]
         for line in tag_lines:
             pair = line.removeprefix("TAG:")
             if "=" not in pair:

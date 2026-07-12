@@ -14,7 +14,6 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QProgressBar,
     QSplitter,
-    QSizePolicy,
 )
 
 from gui.core.song import Song
@@ -22,45 +21,7 @@ from gui.core.metadata import write_song_metadata
 from gui.core.opencode_client import OpenCodeWorker
 from gui.core.config import get_config
 from gui.core.prompts import PromptStore, FeedbackEntry
-
-
-class StarRating(QWidget):
-    rating_changed = Signal(int)
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self._rating = 0
-        self._stars: list[QPushButton] = []
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(2)
-        for i in range(5):
-            btn = QPushButton("\u2605")
-            btn.setFixedSize(30, 30)
-            btn.setCheckable(True)
-            btn.setStyleSheet("""
-                QPushButton { background: transparent; border: none; font-size: 18px; color: #3a3a5c; }
-                QPushButton:checked { color: #f0a500; }
-                QPushButton:hover { color: #f0a500; }
-            """)
-            btn.clicked.connect(lambda checked, idx=i: self._set_rating(idx + 1))
-            layout.addWidget(btn)
-            self._stars.append(btn)
-
-    def _set_rating(self, value: int):
-        self._rating = value
-        for i, btn in enumerate(self._stars):
-            btn.setChecked(i < value)
-        self.rating_changed.emit(value)
-
-    @property
-    def rating(self) -> int:
-        return self._rating
-
-    def clear(self):
-        self._rating = 0
-        for btn in self._stars:
-            btn.setChecked(False)
+from gui.widgets.components import make_header, StarRating
 
 
 class CommentEditor(QWidget):
@@ -83,15 +44,7 @@ class CommentEditor(QWidget):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(10)
 
-        header = QHBoxLayout()
-        title = QLabel("Comment Editor")
-        title.setObjectName("sectionLabel")
-        header.addWidget(title)
-        header.addStretch()
-        cancel_btn = QPushButton("Cancel")
-        cancel_btn.setObjectName("exitButton")
-        cancel_btn.clicked.connect(self._on_cancel)
-        header.addWidget(cancel_btn)
+        header, _ = make_header("Comment Editor", self._on_cancel)
         layout.addLayout(header)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -156,7 +109,7 @@ class CommentEditor(QWidget):
         self._progress_bar = QProgressBar()
         self._progress_bar.setRange(0, 100)
         self._progress_bar.setVisible(False)
-        self._progress_bar.setFixedHeight(18)
+        self._progress_bar.setFixedHeight(20)
         left_layout.addWidget(self._progress_bar)
 
         self._reasoning_label = QLabel()
@@ -437,10 +390,14 @@ class CommentEditor(QWidget):
 
         success, err = write_song_metadata(self._song)
         if success:
+            parent_window = self.window()
+            if hasattr(parent_window, "show_toast"):
+                parent_window.show_toast("\u2705 Metadata saved", "success")
             self.finished.emit(self._song)
         else:
-            self._reasoning_label.setVisible(True)
-            self._reasoning_label.setText(f"\u274c Error saving: {err[:300]}")
+            parent_window = self.window()
+            if hasattr(parent_window, "show_toast"):
+                parent_window.show_toast(f"\u274c Failed to save: {err[:200]}", "error")
 
     def _save_feedback(self, rating: int):
         from gui.core.prompts import FeedbackQueue

@@ -4,7 +4,6 @@ import json
 import re
 import subprocess
 import tempfile
-import time
 from pathlib import Path
 
 from PySide6.QtCore import QThread, Signal

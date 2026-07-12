@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
@@ -15,51 +14,14 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QGroupBox,
     QSplitter,
+    QStackedWidget,
 )
 
 from gui.core.config import get_config
 from gui.core.song import Song
 from gui.core.metadata import scan_library, read_song
 from gui.core.prompts import FeedbackEntry, FeedbackQueue
-
-
-class StarRating(QWidget):
-    rating_changed = Signal(int)
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self._rating = 0
-        self._stars: list[QPushButton] = []
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(2)
-        for i in range(5):
-            btn = QPushButton("★")
-            btn.setFixedSize(28, 28)
-            btn.setCheckable(True)
-            btn.setStyleSheet("""
-                QPushButton { background: transparent; border: none; font-size: 18px; color: #555; }
-                QPushButton:checked { color: #f0a500; }
-                QPushButton:hover { color: #f0a500; }
-            """)
-            btn.clicked.connect(lambda checked, idx=i: self._set_rating(idx + 1))
-            layout.addWidget(btn)
-            self._stars.append(btn)
-
-    def _set_rating(self, value: int):
-        self._rating = value
-        for i, btn in enumerate(self._stars):
-            btn.setChecked(i < value)
-        self.rating_changed.emit(value)
-
-    @property
-    def rating(self) -> int:
-        return self._rating
-
-    def clear(self):
-        self._rating = 0
-        for btn in self._stars:
-            btn.setChecked(False)
+from gui.widgets.components import make_header, StarRating, EmptyState
 
 
 class RatePastSongs(QWidget):
@@ -76,15 +38,9 @@ class RatePastSongs(QWidget):
     def _setup_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(10)
 
-        header = QHBoxLayout()
-        title = QLabel("Rate Past Songs")
-        title.setObjectName("sectionLabel")
-        header.addWidget(title)
-        header.addStretch()
-        back_btn = QPushButton("Back to Menu")
-        back_btn.clicked.connect(self.back.emit)
-        header.addWidget(back_btn)
+        header, _ = make_header("Rate Past Songs", self.back.emit)
         layout.addLayout(header)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -92,9 +48,18 @@ class RatePastSongs(QWidget):
         left = QWidget()
         left_layout = QVBoxLayout(left)
         left_layout.setContentsMargins(0, 0, 0, 0)
+        self._content_stack = QStackedWidget()
         self._song_list = QListWidget()
+        self._song_list.setAlternatingRowColors(True)
         self._song_list.itemClicked.connect(self._on_select)
-        left_layout.addWidget(self._song_list)
+        self._empty = EmptyState(
+            "\u2b50",
+            "No Songs to Rate",
+            "Your library is empty. Import some songs first.",
+        )
+        self._content_stack.addWidget(self._song_list)
+        self._content_stack.addWidget(self._empty)
+        left_layout.addWidget(self._content_stack)
         splitter.addWidget(left)
 
         right = QWidget()
@@ -137,6 +102,10 @@ class RatePastSongs(QWidget):
         for s in self._songs:
             rating_marker = "    " if not s.comment else " ★  "
             self._song_list.addItem(f"{rating_marker}{s.relative_path}  —  {s.title}")
+        if self._songs:
+            self._content_stack.setCurrentWidget(self._song_list)
+        else:
+            self._content_stack.setCurrentWidget(self._empty)
 
     def _on_select(self, item: QListWidgetItem):
         idx = self._song_list.row(item)

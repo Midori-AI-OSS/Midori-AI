@@ -12,7 +12,10 @@ from PySide6.QtWidgets import (
     QTreeWidget,
     QTreeWidgetItem,
     QHeaderView,
+    QStackedWidget,
 )
+
+from gui.widgets.components import make_header, EmptyState
 
 
 class LibraryBrowser(QWidget):
@@ -31,22 +34,15 @@ class LibraryBrowser(QWidget):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(10)
 
-        header = QHBoxLayout()
-        title = QLabel("Update Comments")
-        title.setObjectName("sectionLabel")
-        header.addWidget(title)
-        header.addStretch()
+        header, actions = make_header("Update Comments", self.back.emit)
 
         self._status_label = QLabel()
         self._status_label.setObjectName("dimLabel")
-        header.addWidget(self._status_label)
-        header.addSpacing(16)
+        actions.addWidget(self._status_label)
 
-        back_btn = QPushButton("Back to Menu")
-        back_btn.clicked.connect(self.back.emit)
-        header.addWidget(back_btn)
         layout.addLayout(header)
 
+        self._content_stack = QStackedWidget()
         self._tree = QTreeWidget()
         self._tree.setHeaderLabels(["Song", "Comment", "Vibes"])
         self._tree.setAlternatingRowColors(True)
@@ -62,7 +58,14 @@ class LibraryBrowser(QWidget):
         hdr.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         hdr.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
 
-        layout.addWidget(self._tree)
+        self._empty = EmptyState(
+            "\U0001f4da",
+            "Your Library is Empty",
+            "Import songs or check your music root directory.",
+        )
+        self._content_stack.addWidget(self._tree)
+        self._content_stack.addWidget(self._empty)
+        layout.addWidget(self._content_stack)
 
         btn_row = QHBoxLayout()
         edit_btn = QPushButton("Edit Selected")
@@ -109,6 +112,10 @@ class LibraryBrowser(QWidget):
         self._tree.expandAll()
         total = len(songs)
         self._status_label.setText(f"{total} song{'s' if total != 1 else ''}")
+        if songs:
+            self._content_stack.setCurrentWidget(self._tree)
+        else:
+            self._content_stack.setCurrentWidget(self._empty)
 
     def _on_double_click(self, item: QTreeWidgetItem, col: int):
         path_str = item.data(0, Qt.ItemDataRole.UserRole)

@@ -3,14 +3,21 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import (
+    QApplication,
+    QFrame,
+    QHBoxLayout,
     QMainWindow,
+    QPushButton,
+    QSizePolicy,
     QStackedWidget,
-    QWidget,
     QVBoxLayout,
+    QWidget,
 )
 
 from gui.core.config import get_config
+from gui.widgets.components import ToastWidget
 from gui.widgets.main_menu import MainMenu
 from gui.widgets.comment_editor import CommentEditor
 from gui.widgets.import_flow import ImportFlow
@@ -29,18 +36,47 @@ from gui.core.metadata import (
 )
 from gui.core.song import Song
 
+SIDEBAR_ITEMS = [
+    ("\U0001f4e5", "import"),
+    ("\U0001f4dd", "update"),
+    ("\U0001f504", "stale"),
+    ("\U0001f50d", "search"),
+    ("\u2b50", "rate"),
+    ("\U0001f3b5", "vibes"),
+    ("\U0001f512", "channels"),
+    ("\U0001f916", "prompts"),
+]
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Luna Music Metadata Studio")
-        self.setMinimumSize(900, 680)
+        self.setMinimumSize(1024, 576)
+        self.resize(1280, 720)
+
+        screen = QApplication.primaryScreen()
+        if screen:
+            center = screen.availableGeometry().center()
+            frame = self.frameGeometry()
+            frame.moveCenter(center)
+            self.move(frame.topLeft())
 
         self._config = get_config()
         self._stack = QStackedWidget()
-        self.setCentralWidget(self._stack)
 
         self._widgets: dict[str, QWidget] = {}
+        self._sidebar_btns: dict[str, QPushButton] = {}
+
+        self._sidebar = self._create_sidebar()
+
+        body = QWidget()
+        body_layout = QHBoxLayout(body)
+        body_layout.setContentsMargins(0, 0, 0, 0)
+        body_layout.setSpacing(0)
+        body_layout.addWidget(self._sidebar)
+        body_layout.addWidget(self._stack)
+        self.setCentralWidget(body)
 
         self._main_menu = MainMenu()
         self._main_menu.navigate.connect(self._on_navigate)
@@ -92,11 +128,48 @@ class MainWindow(QMainWindow):
             self._stack.addWidget(w)
 
         self._stack.setCurrentWidget(self._main_menu)
+        self._sidebar.hide()
+
+    def _create_sidebar(self) -> QFrame:
+        sidebar = QFrame()
+        sidebar.setObjectName("sidebar")
+        sidebar.setFixedWidth(48)
+        sidebar.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
+
+        layout = QVBoxLayout(sidebar)
+        layout.setContentsMargins(4, 8, 4, 8)
+        layout.setSpacing(2)
+
+        for icon, key in SIDEBAR_ITEMS:
+            btn = QPushButton(icon)
+            btn.setObjectName("sidebarButton")
+            btn.setFixedSize(40, 40)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.clicked.connect(lambda checked, k=key: self._on_navigate(k))
+            layout.addWidget(btn)
+            self._sidebar_btns[key] = btn
+
+        layout.addStretch()
+        return sidebar
+
+    def _set_sidebar_active(self, key: str | None):
+        for k, btn in self._sidebar_btns.items():
+            btn.setProperty("active", k == key)
+            btn.style().unpolish(btn)
+            btn.style().polish(btn)
 
     def _on_navigate(self, key: str):
         if key == "exit":
             self.close()
             return
+
+        if key == "menu":
+            self._go_to("menu")
+            return
+
+        self._sidebar.show()
+        self._set_sidebar_active(key)
+
         if key == "import":
             self._stack.setCurrentWidget(self._import_flow)
             self._import_flow._refresh()
@@ -120,9 +193,44 @@ class MainWindow(QMainWindow):
             self._stack.setCurrentWidget(self._prompt_mgr)
 
     def _go_to(self, key: str):
+        self._sidebar.hide()
+        self._set_sidebar_active(None)
         self._stack.setCurrentWidget(self._widgets[key])
 
+    def keyPressEvent(self, event: QKeyEvent):
+        if event.key() == Qt.Key.Key_Escape:
+            self._go_to("menu")
+            return
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            if event.key() == Qt.Key.Key_Q:
+                self.close()
+                return
+            k = event.key()
+            key_map = {
+                Qt.Key.Key_1: "import",
+                Qt.Key.Key_2: "update",
+                Qt.Key.Key_3: "stale",
+                Qt.Key.Key_4: "search",
+                Qt.Key.Key_5: "rate",
+                Qt.Key.Key_6: "vibes",
+                Qt.Key.Key_7: "channels",
+                Qt.Key.Key_8: "prompts",
+            }
+            target = key_map.get(k)  # type: ignore[arg-type]
+            if target:
+                self._on_navigate(target)
+                return
+        super().keyPressEvent(event)
+
+    def show_toast(self, text: str, level: str = "info"):
+        """Show a transient toast notification. Levels: success, error, info."""
+        central = self.centralWidget()
+        if central:
+            ToastWidget(central, text, level)
+
     def _open_comment_editor(self, song: Song):
+        self._sidebar.show()
+        self._set_sidebar_active(None)
         self._comment_editor.load_song(song)
         self._stack.setCurrentWidget(self._comment_editor)
 

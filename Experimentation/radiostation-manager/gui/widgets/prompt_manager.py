@@ -12,7 +12,6 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QTextEdit,
-    QGroupBox,
     QTabWidget,
     QComboBox,
     QProgressBar,
@@ -20,8 +19,9 @@ from PySide6.QtWidgets import (
 )
 
 from gui.core.config import get_config
-from gui.core.prompts import PromptStore, FeedbackQueue, FeedbackEntry
+from gui.core.prompts import PromptStore, FeedbackQueue
 from gui.core.opencode_client import OpenCodeWorker
+from gui.widgets.components import make_header, confirm
 
 
 class PromptManager(QWidget):
@@ -41,15 +41,9 @@ class PromptManager(QWidget):
     def _setup_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(10)
 
-        header = QHBoxLayout()
-        title = QLabel("Manage Prompts")
-        title.setObjectName("sectionLabel")
-        header.addWidget(title)
-        header.addStretch()
-        back_btn = QPushButton("Back to Menu")
-        back_btn.clicked.connect(self.back.emit)
-        header.addWidget(back_btn)
+        header, _ = make_header("Manage Prompts", self.back.emit)
         layout.addLayout(header)
 
         tabs = QTabWidget()
@@ -139,6 +133,7 @@ class PromptManager(QWidget):
         process_btn = QPushButton("Process Feedback Queue")
         process_btn.setObjectName("accentButton")
         process_btn.clicked.connect(self._process_queue)
+        self._process_btn = process_btn
         queue_layout.addWidget(process_btn)
 
         tabs.addTab(queue_tab, "Feedback Queue")
@@ -178,35 +173,32 @@ class PromptManager(QWidget):
         if name:
             self._prompts.set_prompt(name, self._template_edit.toPlainText())
             self._prompts.save()
-            self._template_edit.setPlaceholderText(
-                f"Saved '{name}' — select another or edit."
-            )
+            pwin = self.window()
+            if hasattr(pwin, "show_toast"):
+                pwin.show_toast("\u2705 Template saved", "success")
 
     def _reset_to_base(self):
-        reply = QMessageBox.question(
+        if not confirm(
             self,
             "Reset to Base",
             "This will overwrite all prompt templates with the base versions. Continue?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        )
-        if reply == QMessageBox.StandardButton.Yes:
-            self._prompts.reset_to_base()
-            self._refresh_templates()
-            self._template_edit.clear()
-            self._template_edit.setPlaceholderText(
-                "Reset to base templates. Select one to view."
-            )
+        ):
+            return
+        self._prompts.reset_to_base()
+        self._refresh_templates()
+        self._template_edit.clear()
+        pwin = self.window()
+        if hasattr(pwin, "show_toast"):
+            pwin.show_toast("\u2705 Reset to base", "success")
 
     def _clear_queue(self):
-        reply = QMessageBox.question(
-            self,
-            "Clear Queue",
-            "Delete all feedback queue items?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        )
-        if reply == QMessageBox.StandardButton.Yes:
-            self._queue.clear()
-            self._refresh_queue()
+        if not confirm(self, "Clear Queue", "Delete all feedback queue items?"):
+            return
+        self._queue.clear()
+        self._refresh_queue()
+        pwin = self.window()
+        if hasattr(pwin, "show_toast"):
+            pwin.show_toast("\u2705 Queue cleared", "success")
 
     def _remove_selected(self):
         item = self._queue_list.currentItem()
@@ -225,6 +217,8 @@ class PromptManager(QWidget):
             )
             return
         self._processing = True
+        self._process_btn.setText("Processing...")
+        self._process_btn.setEnabled(False)
         self._process_index = 0
         self._proc_progress.setVisible(True)
         self._proc_progress.setMaximum(len(entries))
@@ -236,6 +230,8 @@ class PromptManager(QWidget):
         if self._process_index >= len(entries):
             self._processing = False
             self._proc_progress.setVisible(False)
+            self._process_btn.setText("Process Feedback Queue")
+            self._process_btn.setEnabled(True)
             self._proc_status.setText(
                 f"All {len(entries)} feedback items processed. Queue is empty."
             )

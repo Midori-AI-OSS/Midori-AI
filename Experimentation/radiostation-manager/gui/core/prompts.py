@@ -71,7 +71,7 @@ class PromptStore:
             prompt = info.get("prompt", "")
             lines.append(f"[{name}]")
             lines.append(f'description = "{desc}"')
-            lines.append(f'prompt = """')
+            lines.append('prompt = """')
             lines.append(prompt)
             lines.append('"""')
             lines.append("")

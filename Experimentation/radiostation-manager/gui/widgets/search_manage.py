@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
@@ -15,12 +14,13 @@ from PySide6.QtWidgets import (
     QTextEdit,
     QGroupBox,
     QSplitter,
-    QMessageBox,
+    QStackedWidget,
 )
 
 from gui.core.config import get_config
 from gui.core.song import Song
 from gui.core.metadata import scan_library, read_song, trash_file
+from gui.widgets.components import make_header, EmptyState, confirm
 
 
 class SearchManageFlow(QWidget):
@@ -31,6 +31,7 @@ class SearchManageFlow(QWidget):
         super().__init__(parent)
         self._config = get_config()
         self._results: list[Song] = []
+        self._has_searched = False
         self._setup_ui()
 
     def _setup_ui(self):
@@ -38,14 +39,7 @@ class SearchManageFlow(QWidget):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(10)
 
-        header = QHBoxLayout()
-        title = QLabel("Search & Manage Songs")
-        title.setObjectName("sectionLabel")
-        header.addWidget(title)
-        header.addStretch()
-        back_btn = QPushButton("Back to Menu")
-        back_btn.clicked.connect(self.back.emit)
-        header.addWidget(back_btn)
+        header, _ = make_header("Search & Manage Songs", self.back.emit)
         layout.addLayout(header)
 
         search_row = QHBoxLayout()
@@ -68,10 +62,20 @@ class SearchManageFlow(QWidget):
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
+        self._content_stack = QStackedWidget()
         self._list = QListWidget()
+        self._list.setAlternatingRowColors(True)
         self._list.itemClicked.connect(self._show_detail)
         self._list.itemDoubleClicked.connect(self._edit_current)
-        splitter.addWidget(self._list)
+        self._empty = EmptyState(
+            "\U0001f50d",
+            "No Results Found",
+            "Try a different keyword or check your library.",
+        )
+        self._content_stack.addWidget(self._list)
+        self._content_stack.addWidget(self._empty)
+        self._content_stack.setCurrentWidget(self._list)
+        splitter.addWidget(self._content_stack)
 
         right = QWidget()
         right_layout = QVBoxLayout(right)
@@ -131,6 +135,11 @@ class SearchManageFlow(QWidget):
             f'Found {len(self._results)} match{"es" if len(self._results) != 1 else ""} for "{keyword}"'
         )
         self._detail_text.clear()
+        self._has_searched = True
+        if self._results:
+            self._content_stack.setCurrentWidget(self._list)
+        else:
+            self._content_stack.setCurrentWidget(self._empty)
 
     def _current_song(self) -> Song | None:
         item = self._list.currentItem()
@@ -165,12 +174,11 @@ class SearchManageFlow(QWidget):
         song = self._current_song()
         if song is None:
             return
-        reply = QMessageBox.question(
+        if not confirm(
             self,
             "Trash Song",
             f"Move this song to trash?\n\n{song.relative_path}",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        )
-        if reply == QMessageBox.StandardButton.Yes:
-            trash_file(song.path)
-            self._do_search()
+        ):
+            return
+        trash_file(song.path)
+        self._do_search()

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -11,11 +11,13 @@ from PySide6.QtWidgets import (
     QPushButton,
     QListWidget,
     QListWidgetItem,
+    QStackedWidget,
 )
 
 from gui.core.config import get_config
 from gui.core.song import Song
 from gui.core.metadata import scan_library, read_song, is_outdated_comment
+from gui.widgets.components import make_header, EmptyState
 
 
 class StaleCommentsFlow(QWidget):
@@ -33,14 +35,7 @@ class StaleCommentsFlow(QWidget):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(10)
 
-        header = QHBoxLayout()
-        title = QLabel("Update Stale Comments")
-        title.setObjectName("sectionLabel")
-        header.addWidget(title)
-        header.addStretch()
-        back_btn = QPushButton("Back to Menu")
-        back_btn.clicked.connect(self.back.emit)
-        header.addWidget(back_btn)
+        header, _ = make_header("Update Stale Comments", self.back.emit)
         layout.addLayout(header)
 
         self._status_label = QLabel()
@@ -48,9 +43,18 @@ class StaleCommentsFlow(QWidget):
         self._status_label.setWordWrap(True)
         layout.addWidget(self._status_label)
 
+        self._content_stack = QStackedWidget()
         self._list = QListWidget()
+        self._list.setAlternatingRowColors(True)
         self._list.itemDoubleClicked.connect(self._on_double_click)
-        layout.addWidget(self._list)
+        self._empty = EmptyState(
+            "\u2705",
+            "All Comments Up to Date",
+            "No stale markers found in your library.",
+        )
+        self._content_stack.addWidget(self._list)
+        self._content_stack.addWidget(self._empty)
+        layout.addWidget(self._content_stack)
 
         btn_row = QHBoxLayout()
         fix_btn = QPushButton("\u270f\ufe0f Fix Selected")
@@ -77,10 +81,12 @@ class StaleCommentsFlow(QWidget):
                 f"\U0001f4cb Found {len(stale)} song{'s' if len(stale) != 1 else ''} "
                 f"with outdated markers out of {len(all_songs)} total"
             )
+            self._content_stack.setCurrentWidget(self._list)
         else:
             self._status_label.setText(
                 f"\u2705 All {len(all_songs)} song comments are up to date \u2014 no stale markers found."
             )
+            self._content_stack.setCurrentWidget(self._empty)
 
     def _fix_selected(self):
         item = self._list.currentItem()

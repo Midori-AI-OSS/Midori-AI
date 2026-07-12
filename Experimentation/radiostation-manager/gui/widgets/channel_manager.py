@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -10,8 +10,9 @@ from PySide6.QtWidgets import (
     QLabel,
     QPushButton,
     QListWidget,
-    QListWidgetItem,
 )
+
+from gui.widgets.components import make_header, confirm
 
 
 class ChannelManager(QWidget):
@@ -26,15 +27,9 @@ class ChannelManager(QWidget):
     def _setup_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(10)
 
-        header = QHBoxLayout()
-        title = QLabel("Manage Channels")
-        title.setObjectName("sectionLabel")
-        header.addWidget(title)
-        header.addStretch()
-        back_btn = QPushButton("Back to Menu")
-        back_btn.clicked.connect(self.back.emit)
-        header.addWidget(back_btn)
+        header, _ = make_header("Manage Channels", self.back.emit)
         layout.addLayout(header)
 
         lists_layout = QHBoxLayout()
@@ -42,6 +37,7 @@ class ChannelManager(QWidget):
         unblocked_widget = QVBoxLayout()
         unblocked_widget.addWidget(QLabel("Active Channels"))
         self._unblocked_list = QListWidget()
+        self._unblocked_list.setAlternatingRowColors(True)
         self._unblocked_list.setSelectionMode(
             QListWidget.SelectionMode.ExtendedSelection
         )
@@ -63,6 +59,7 @@ class ChannelManager(QWidget):
         blocked_widget = QVBoxLayout()
         blocked_widget.addWidget(QLabel("Blocked Channels"))
         self._blocked_list = QListWidget()
+        self._blocked_list.setAlternatingRowColors(True)
         self._blocked_list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
         blocked_widget.addWidget(self._blocked_list)
 
@@ -84,13 +81,33 @@ class ChannelManager(QWidget):
     def _block_selected(self):
         from gui.core.metadata import block_channel
 
-        for item in self._unblocked_list.selectedItems():
+        selected = self._unblocked_list.selectedItems()
+        if not selected:
+            return
+        names = [it.text() for it in selected]
+        if not confirm(
+            self,
+            "Block Channels",
+            "Block the following channel(s)?\n\n" + "\n".join(names),
+        ):
+            return
+        for item in selected:
             block_channel(self._music_root, item.text())
         self.channels_changed.emit()
 
     def _unblock_selected(self):
         from gui.core.metadata import unblock_channel
 
-        for item in self._blocked_list.selectedItems():
+        selected = self._blocked_list.selectedItems()
+        if not selected:
+            return
+        names = [it.text() for it in selected]
+        if not confirm(
+            self,
+            "Unblock Channels",
+            "Unblock the following channel(s)?\n\n" + "\n".join(names),
+        ):
+            return
+        for item in selected:
             unblock_channel(self._music_root, item.text())
         self.channels_changed.emit()

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal, QThreadPool
+from PySide6.QtCore import Signal, QThreadPool
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -17,14 +17,13 @@ from PySide6.QtWidgets import (
 )
 
 from gui.core.config import get_config
-from gui.core.song import Song
 from gui.core.metadata import (
     scan_library,
     read_song,
     write_vibe_cache,
-    get_file_mtime,
 )
 from gui.core.essentia_client import EssentiaWorker
+from gui.widgets.components import make_header
 
 
 class CacheVibesFlow(QWidget):
@@ -44,15 +43,9 @@ class CacheVibesFlow(QWidget):
     def _setup_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(10)
 
-        header = QHBoxLayout()
-        title = QLabel("Cache All Vibes")
-        title.setObjectName("sectionLabel")
-        header.addWidget(title)
-        header.addStretch()
-        back_btn = QPushButton("Back to Menu")
-        back_btn.clicked.connect(self.back.emit)
-        header.addWidget(back_btn)
+        header, _ = make_header("Cache All Vibes", self.back.emit)
         layout.addLayout(header)
 
         options = QGroupBox("Options")
@@ -184,6 +177,11 @@ class CacheVibesFlow(QWidget):
             f"Done! {self._success} cached, {self._failed} failed out of {self._total} total."
         )
         self._pool.setMaxThreadCount(QThreadPool.globalInstance().maxThreadCount())
+        parent_window = self.window()
+        if hasattr(parent_window, "show_toast"):
+            parent_window.show_toast(
+                f"\u2705 {self._success} songs cached, {self._failed} failed", "success"
+            )
 
     def _cancel(self):
         self._running = False

@@ -36,20 +36,16 @@ class MenuCard(QPushButton):
         layout.setSpacing(6)
 
         icon_label = QLabel(EMOJI.get(key, ""))
-        icon_label.setStyleSheet("font-size: 22px; background: transparent;")
+        icon_label.setObjectName("menuCardIcon")
         layout.addWidget(icon_label)
 
         title_label = QLabel(title)
-        title_label.setStyleSheet(
-            "font-size: 15px; font-weight: bold; color: #00d4ff; background: transparent;"
-        )
+        title_label.setObjectName("menuCardTitle")
         layout.addWidget(title_label)
 
         desc_label = QLabel(desc)
         desc_label.setWordWrap(True)
-        desc_label.setStyleSheet(
-            "font-size: 11px; color: #6c757d; background: transparent;"
-        )
+        desc_label.setObjectName("dimLabel")
         layout.addWidget(desc_label)
 
         layout.addStretch()

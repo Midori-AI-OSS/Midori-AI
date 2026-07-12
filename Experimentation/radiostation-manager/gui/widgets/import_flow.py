@@ -3,7 +3,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -11,11 +11,12 @@ from PySide6.QtWidgets import (
     QLabel,
     QPushButton,
     QListWidget,
-    QListWidgetItem,
     QComboBox,
     QMessageBox,
-    QSplitter,
+    QStackedWidget,
 )
+
+from gui.widgets.components import make_header, EmptyState
 
 from gui.core.config import get_config
 from gui.core.song import Song
@@ -43,14 +44,7 @@ class ImportFlow(QWidget):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(10)
 
-        header = QHBoxLayout()
-        title = QLabel("Import Song(s)")
-        title.setObjectName("sectionLabel")
-        header.addWidget(title)
-        header.addStretch()
-        back_btn = QPushButton("Back to Menu")
-        back_btn.clicked.connect(self.back.emit)
-        header.addWidget(back_btn)
+        header, _ = make_header("Import Song(s)", self.back.emit)
         layout.addLayout(header)
 
         self._count_label = QLabel()
@@ -58,9 +52,17 @@ class ImportFlow(QWidget):
         self._count_label.setWordWrap(True)
         layout.addWidget(self._count_label)
 
+        self._content_stack = QStackedWidget()
         self._list = QListWidget()
         self._list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
-        layout.addWidget(self._list)
+        self._empty = EmptyState(
+            "\U0001f4e5",
+            "No Songs to Import",
+            "All downloads are already in your library.",
+        )
+        self._content_stack.addWidget(self._list)
+        self._content_stack.addWidget(self._empty)
+        layout.addWidget(self._content_stack)
 
         controls = QHBoxLayout()
         controls.setSpacing(12)
@@ -104,6 +106,10 @@ class ImportFlow(QWidget):
         )
         self._import_btn.setEnabled(len(self._downloads) > 0)
         self._list.itemSelectionChanged.connect(self._on_selection_changed)
+        if self._downloads:
+            self._content_stack.setCurrentWidget(self._list)
+        else:
+            self._content_stack.setCurrentWidget(self._empty)
 
     def _on_selection_changed(self):
         selected = self._list.selectedItems()
@@ -139,7 +145,9 @@ class ImportFlow(QWidget):
                 count += 1
             shutil.copy2(src, dst)
             song = read_song(dst)
-            self._status_label.setText(f"\u2705 Imported: {dst.name}")
+            pwin = self.window()
+            if hasattr(pwin, "show_toast"):
+                pwin.show_toast(f"\u2705 Imported {dst.name}", "success")
             self.song_ready_for_edit.emit(song)
 
         self._refresh()
