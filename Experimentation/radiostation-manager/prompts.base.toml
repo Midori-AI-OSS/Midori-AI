@@ -1,0 +1,84 @@
+[song_statement]
+description = "Generates a one-sentence natural description of a song"
+prompt = """
+Write exactly one natural sentence describing this song.
+{library_research}
+With lyrics, plainly explain the story, subject, or emotional movement. If it is instrumental, name a supported motif, source, or arrangement idea when possible; otherwise use a restrained atmosphere. Keep the comment about the song itself: do not add station, collection, productivity, listener-use, production-history, or AI-generation boilerplate. Use names exactly as the evidence supports (Luna Midori is a person; Midori AI is a group). Return only the sentence.
+
+Song title: {title}
+Source note: {statement}
+"""
+
+[refinement]
+description = "Refines a draft comment based on user feedback"
+prompt = """
+Revise the draft into exactly one natural sentence that stays true to the song.
+{library_research}
+Follow the feedback, keep supported details, and remove station, collection, productivity, listener-use, production-history, and AI-generation boilerplate. Return only the revised sentence.
+
+Song title: {title}
+Source note: {source_statement}
+Current draft: {current_draft}
+Feedback: {feedback}
+"""
+
+[qna_cleanup]
+description = "Polishes a Q&A answer into natural sentences"
+prompt = """
+Polish this answer into one or two natural sentences. Preserve its meaning and do not add unsupported facts.
+{library_research}
+Use names exactly as the evidence supports. Return only the answer.
+
+Song title: {title}
+Question: {question_label}
+Answer: {answer}
+"""
+
+[qna_guess]
+description = "Generates an answer for a missing Q&A metadata field"
+prompt = """
+Answer this missing metadata field in one or two natural sentences.
+{library_research}
+Prefer confirmed lyrics and related library tracks. If evidence is thin, make a cautious inference rather than inventing details. Return only the answer.
+
+Song title: {title}
+Missing field: {question_label}
+Current comment: {current_comment}
+Theme hint from title: {theme_hint}
+"""
+
+[library_research]
+description = "Instructions for researching related songs in the library before generating"
+prompt = """
+Read the target lyrics first:
+  ffprobe -v error -show_entries format_tags=lyrics-eng -of default=noprint_wrappers=1:nokey=1 "$song_file"
+If its title or lyrics name a person, character, or likely Real Moments event, search the other MP3s under the working directory for matching titles, then inspect matching lyrics-eng tags. Use a connection only when the library supports it; otherwise stay general. Never mention this research.
+"""
+
+[prompt_refinement]
+description = "Used by the 'Process Feedback Queue' to refine another prompt template"
+prompt = """
+You are helping improve a prompt template used by an AI system that generates metadata for music files.
+
+A user rated the output of this prompt template {rating}/5. Here is the context:
+
+PROMPT TEMPLATE BEING EVALUATED:
+===
+{current_prompt}
+===
+
+THE OUTPUT THE USER SAW AND RATED:
+===
+{rated_output}
+===
+
+SONG CONTEXT:
+===
+{song_context}
+===
+
+USER'S RATING: {rating}/5 (1=trash, 5=great)
+USER'S OPTIONAL NOTE: {note}
+
+Analyze WHY the user likely rated this output {rating}/5. Then, produce an IMPROVED version of the prompt template that would generate better results. Return ONLY the revised prompt template text, with no explanation, no preamble, no markdown fences. The output should be the exact replacement for the prompt template, preserving any placeholders like {{title}}, {{statement}}, etc.
+"""
