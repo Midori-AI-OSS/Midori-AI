@@ -2,7 +2,9 @@ use cxx_qt_lib::{QGuiApplication, QQmlApplicationEngine, QQuickStyle, QString, Q
 use cxx_qt_lib_extras::QApplication;
 use std::env;
 
-mod backend;
+mod backend {
+    include!(concat!(env!("OUT_DIR"), "/backend.rs"));
+}
 
 fn main() {
     let mut app = QApplication::new();
