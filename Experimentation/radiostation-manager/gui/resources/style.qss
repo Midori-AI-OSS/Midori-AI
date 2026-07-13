@@ -519,3 +519,20 @@ QFrame#sidebar {
     background-color: #0e0e24;
     border-right: 1px solid #2a2a4a;
 }
+
+QTextEdit#diffView {
+    font-family: "Cascadia Code", "Fira Code", "JetBrains Mono", monospace;
+    font-size: 12px;
+    background-color: #12122a;
+    border: 1px solid #2a2a4a;
+    border-radius: 6px;
+}
+
+QLabel#diffFailBanner {
+    background-color: #3a1a1a;
+    color: #e94560;
+    border: 1px solid #e94560;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-weight: bold;
+}
