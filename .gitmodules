@@ -37,6 +37,6 @@
 	path = Radio-App
 	url = https://github.com/Midori-AI-OSS/Radio-Android-App.git
 [submodule "rileys-phone-manager"]
-	path = rileys-phone-manager
+	path = Projects/Rileys-Phone-Manager
 	url = https://github.com/Midori-AI-OSS/rileys-phone-manager.git
 	branch = main
