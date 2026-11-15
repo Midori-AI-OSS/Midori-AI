@@ -14,6 +14,7 @@ This document summarizes common development practices for all services in this r
 ---
 
 ## Development Basics
+- Keep all submodule pointers updated to their configured tracking branches, or their remote default branches when no tracking branch is configured. Fetch and update them when safe, without overwriting local work.
 - Use [`uv`](https://github.com/astral-sh/uv) for Python environments and running code. Avoid `python` or `pip` directly.
 - Use [`bun`](https://bun.sh/) for Node/React tooling instead of `npm` or `yarn`.
 - Naming is strict: always use "Midori AI" or "midoriai"; never use shorthand "Midori" or "midori" in names, keys, comments, docs, prompts, or UI text.
